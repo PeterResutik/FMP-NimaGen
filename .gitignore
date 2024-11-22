@@ -1,0 +1,52 @@
+# Logs and execution-related files
+.nf*
+.nextflow*
+
+# Nextflow work directory (contains temporary files)
+work/
+
+# Output directories (customize based on your pipeline configuration)
+results/
+output/
+
+# Cache files
+.cache/
+*.cache
+
+# Hidden system files
+.DS_Store
+Thumbs.db
+
+# Python virtual environments (if used in the pipeline)
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Conda environments
+*.conda
+envs/
+
+# Docker and Singularity
+*.img
+*.sif
+.docker/
+
+# Credentials or sensitive files (adjust if necessary)
+*.key
+*.pem
+*.credentials
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+
+# Temporary files and backup files
+*.bak
+*.tmp
+*~
+
+# Ignore large data files (if applicable)
+data/
+
