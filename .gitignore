@@ -5,7 +5,16 @@
 # Nextflow work directory (contains temporary files)
 work/
 
+# Ignore BAM and large VCF files
+*.bam
+*.bam.bai
+*.vcf
+*.fastq.gz
+
 # Output directories (customize based on your pipeline configuration)
+merging/
+archive/
+data/
 results/
 output/
 
@@ -50,3 +59,5 @@ envs/
 # Ignore large data files (if applicable)
 data/
 
+merging/scripts/bwa
+merging/scripts/prosynar
