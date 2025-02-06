@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 /* 
  * pipeline input parameters 
  */
-params.reads = "$baseDir/data/*_{R1,R2}_001.fastq.gz"
+params.reads = "$baseDir/data/FASTQ/*_{R1,R2}_001.fastq.gz"
 params.reference = "$baseDir/data/rCRS.fasta"
 params.min_overlap = 10 // default in FLASH is 10
 params.max_overlap = 65 // default in FLASH is 65
@@ -16,6 +16,9 @@ params.detection_limit = 0.02
 params.mapQ = 20
 params.baseQ = 20
 
+    // rm -r "$baseDir/work"
+    // rm -r "$baseDir/results"
+    // rm .nextflow.*
 
 log_text = """\
          m t D N A - N i m a G e n  P I P E L I N E    
@@ -102,6 +105,7 @@ process MAPPING {
     
     output:
     path "${merged_file[0].baseName}_sorted.bam"
+    path "${merged_file[0].baseName}_sorted.bai"
 
     script:
     """
