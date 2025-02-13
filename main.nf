@@ -23,6 +23,9 @@ params.maximum_length = 300
 params.detection_limit = 0.02
 params.mapQ = 20
 params.baseQ = 20
+params.alignQ = 30
+params.mode = 'fusion'
+
 params.python_script = "$baseDir/scripts/remove_soft_clipped_bases.py"
 
 
@@ -254,7 +257,7 @@ process MUTSERVE {
     tuple val(sample_id), path(sorted_bam), path(sorted_index)
 
     output:
-    tuple path("${sample_id}.vcf.gz"), path("${sample_id}.vcf.gz.tbi"), val(method), emit: mutserve_ch
+    tuple val(sample_id), path("${sample_id}.vcf.gz"), path("${sample_id}.vcf.gz.tbi"), val(method), emit: mutserve_ch
     
     script:
     def avail_mem = 1024
@@ -272,7 +275,6 @@ process MUTSERVE {
         --baseQ ${params.baseQ} \
         --output ${sample_id}.vcf.gz \
         --no-ansi \
-        --strand-bias 1.6 \
         --write-raw \
         ${sorted_bam} 
 
@@ -302,64 +304,214 @@ process MUTSERVE {
 // 	"""
 // }
 
+process CALCULATE_STATISTICS {
+    tag "calculate_statistics on $sample_id"
+    publishDir "$params.outdir/calculate_statistics", mode: 'copy'
 
-// process MUTECT2 {
+    
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index)
 
+    output:
+    path "*summary.txt", emit: stats_ch
+    path "*mapping.txt", emit: mapping_ch
+    path "*.zip", emit: fastqc_ch
+    path("*.bam"), includeInputs: true, emit: fixed_file
+
+
+
+    script:
+    def output_name = "${sample_id}.summary.txt"
+    def mapping_name = "${sample_id}.mapping.txt"
+ 
+    def avail_mem = 1024
+    if (task.memory) {
+        avail_mem = (task.memory.mega*0.8).intValue()
+    }    
+ 
+    """
+    ## Create Mapping File
+    echo -e "Sample\tFilename" > $mapping_name
+
+    samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
+    mv ${sample_id}_tmp.bam ${bam_file}
+
+    echo "\$(${sample_id} ${bam_file})" >> $mapping_name
+
+    ## Calculate summary statistics
+    samtools-1.21 coverage ${bam_file} > samtools_coverage_${sample_id}.txt
+    csvtk grep -t -f3 -p 16569 -C '\$' samtools_coverage_${sample_id}.txt -T -o mtdna.txt --num-cpus ${task.cpus} 
+        
+    contig=\$(csvtk cut -t -f 1 mtdna.txt --num-cpus ${task.cpus})
+    numreads=\$(csvtk cut -t -f 4 mtdna.txt --num-cpus ${task.cpus})
+    covered_bases=\$(csvtk cut -t -f 5 mtdna.txt --num-cpus ${task.cpus})
+    covered_bases_percentage=\$(csvtk cut -t -f 6 mtdna.txt --num-cpus ${task.cpus})
+    mean_depth=\$(csvtk cut -t -f 7 mtdna.txt --num-cpus ${task.cpus})
+    mean_base_quality=\$(csvtk cut -t -f 8 mtdna.txt --num-cpus ${task.cpus})
+    mean_map_quality=\$(csvtk cut -t -f 9 mtdna.txt --num-cpus ${task.cpus})
+    readgroup=\$(samtools-1.21 view -H ${bam_file} | csvtk grep -I -H -r -p "^@RG" --num-cpus ${task.cpus} | sed 's/\t/,/g' | head -n 1)
+    
+    echo -e "Sample\tParameter\tValue" > $output_name
+    echo -e "${bam_file}\tContig\t\${contig}" >> $output_name
+    echo -e "${bam_file}\tNumberofReads\t\${numreads}" >> $output_name
+    echo -e "${bam_file}\tCoveredBases\t\${covered_bases}" >> $output_name
+    echo -e "${bam_file}\tCoveragePercentage\t\${covered_bases_percentage}" >> $output_name
+    echo -e "${bam_file}\tMeanDepth\t\${mean_depth}" >> $output_name
+    echo -e "${bam_file}\tMeanBaseQuality\t\${mean_base_quality}" >> $output_name
+    echo -e "${bam_file}\tMeanMapQuality\t\${mean_map_quality}" >> $output_name
+    echo -e "${bam_file}\tRG\t\${readgroup}" >> $output_name
+
+    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
+
+    """
+}
+
+process INPUT_VALIDATION {
+    // tag "input_validation on $sample_id"
+    publishDir "$params.outdir/input_validation", mode: 'copy'
+
+    input:
+    path bams_ch
+    path statistics
+    path mapping
+    path reference
+    path index_files
+
+    output:
+    path("sample_statistics.txt"), emit: summarized_ch
+    path("sample_mappings.txt"), emit: mapping_ch
+    path("excluded_samples.txt"), emit: excluded_ch
+    path("contig.txt"), emit: contig_ch
+    path("*.bam"), includeInputs: true, emit: validated_files
+
+    """
+    csvtk concat \
+        -t ${statistics} \
+        -T -o sample_statistics.txt \
+        --num-cpus ${task.cpus}
+    
+    csvtk concat \
+        -t ${mapping} \
+        -T -o sample_mappings.txt \
+        --num-cpus ${task.cpus}
+    
+    java -jar /opt/mutserve/mutserve.jar stats \
+        --input sample_statistics.txt \
+        --mapping sample_mappings.txt \
+        --detection-limit ${params.detection_limit}  \
+        --reference ${reference}  \
+        --baseQ ${params.baseQ}\
+        --mapQ ${params.mapQ} \
+        --alignQ ${params.alignQ} \
+        --output-excluded-samples excluded_samples.txt \
+        --output-contig contig.txt \
+        --tool ${params.mode}
+
+    # delete excluded_samples from BAM input channel directly
+    awk -v q='"' '{print "rm " q \$1 q }' excluded_samples.txt | sh
+
+   
+    """
+}
+//  python -m json.tool cloudgene.report.json
+
+
+
+process INDEX_CREATION {
+	
+    input:
+	path reference
+	val mtdna_tag
+
+	output:
+	path "ref*.{dict,fai}", emit: fasta_index_ch
+	path "ref.fasta", emit: ref_ch
+
+	"""
+	sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
+    samtools-1.21 faidx ref.fasta
+    	samtools-1.21 dict ref.fasta \
+	    -o ref.dict
+	"""
+}
+
+
+// process QUALITY_CONTROL {
+    
+//     publishDir "${params.output_reports}/multiqc", mode: "copy", pattern: '*.html'
+    
 //     input:
-//     path bam_file
-//     path reference
-//     // path fasta_index_files
-//     val method
-
+//     path zip
+    
 //     output:
-//     tuple path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
+// 	path "*.html"
 
-//     script:
-//     def avail_mem = 1024
-//     if (task.memory) {
-//         avail_mem = (task.memory.mega*0.8).intValue()
-//     }    
-
-//     """
-//     samtools-1.21 index ${bam_file}
-//     samtools-1.21 faidx ${reference}
-//     samtools-1.21 dict ${reference} -o rCRS.dict
-//     gatk --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-//         Mutect2 \
-//         -R ${reference} \
-//         --min-base-quality-score ${params.baseQ} \
-//         -callable-depth 6 \
-//         --native-pair-hmm-threads 6 \
-//         --max-reads-per-alignment-start 0 \
-//         --tmp-dir . \
-//         -I ${bam_file} \
-//         -O raw.vcf.gz
-    
-//     gatk --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-//         FilterMutectCalls \
-//         -R ${reference} \
-//         --min-reads-per-strand 2 \
-//         -V raw.vcf.gz \
-//         --tmp-dir . \
-//         -O ${bam_file.baseName}.vcf.gz
-
-//     bcftools norm \
-//         -m-any \
-//         -f ${reference} \
-//         -o ${bam_file.baseName}.norm.vcf.gz -Oz \
-//         ${bam_file.baseName}.vcf.gz 
-
-//     bcftools view \
-//     -i 'FORMAT/AF>=${params.detection_limit}' \
-//     -o ${bam_file.baseName}.vcf.gz -Oz \
-//     ${bam_file.baseName}.norm.vcf.gz 
-    
-//     tabix -f ${bam_file.baseName}.vcf.gz
-
-//     rm ${bam_file.baseName}.norm.vcf.gz 
-//     rm raw.vcf.gz
-//     """
+// 	"""
+// 	multiqc . --filename index.html
+// 	"""
 // }
+
+
+
+
+process MUTECT2 {
+    publishDir "$params.outdir/mutec2", mode: 'copy'
+    input:
+    path bam_file
+    path reference
+    path fasta_index_files
+    val detected_contig
+    val method
+
+    output:
+    tuple path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
+
+    script:
+    def avail_mem = 1024
+    if (task.memory) {
+        avail_mem = (task.memory.mega*0.8).intValue()
+    }    
+
+    """
+    samtools-1.21 index ${bam_file}
+
+    /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+        Mutect2 \
+        -R ${reference} \
+        -L '${detected_contig}' \
+        --min-base-quality-score ${params.baseQ} \
+        -callable-depth 6 \
+        --native-pair-hmm-threads ${task.cpus} \
+        --max-reads-per-alignment-start 0 \
+        --tmp-dir . \
+        -I ${bam_file} \
+        -O raw.vcf.gz
+    
+    /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+        FilterMutectCalls \
+        -R ${reference} \
+        --min-reads-per-strand 2 \
+        -V raw.vcf.gz \
+        --tmp-dir . \
+        -O ${bam_file.baseName}.vcf.gz
+
+    bcftools norm \
+        -m-any \
+        -f ${reference} \
+        -o ${bam_file.baseName}.norm.vcf.gz -Oz \
+        ${bam_file.baseName}.vcf.gz 
+
+    bcftools view \
+    -i 'FORMAT/AF>=${params.detection_limit}' \
+    -o ${bam_file.baseName}.vcf.gz -Oz \
+    ${bam_file.baseName}.norm.vcf.gz 
+    
+    tabix -f ${bam_file.baseName}.vcf.gz
+
+    rm ${bam_file.baseName}.norm.vcf.gz 
+    rm raw.vcf.gz
+    """
+}
 
 
 workflow {
@@ -376,9 +528,45 @@ workflow {
     merging_ch = MERGING(fastq_ch)
     trimming_ch = TRIMMING(merging_ch)
     mapping_final_ch = MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
-    // INDEX_CREATION(params.reference)
+
+    CALCULATE_STATISTICS(mapping_final_ch)
+
+    INPUT_VALIDATION(
+        CALCULATE_STATISTICS.out.fixed_file.collect(),
+        CALCULATE_STATISTICS.out.stats_ch.collect(),
+        CALCULATE_STATISTICS.out.mapping_ch.collect(),
+        params.reference, index_ch
+    )
+
+    def detected_contig = INPUT_VALIDATION.out.contig_ch.text.trim()
+
+    INDEX_CREATION(
+        params.reference,
+        detected_contig
+    )
+
+    // QUALITY_CONTROL(
+    //     CALCULATE_STATISTICS.out.fastqc_ch.collect()
+    // )
+
+    // // haplogrep_ch = file("$projectDir/files/haplogroups.txt")
+    // // contamination_ch = file("$projectDir/files/haplocheck.txt")
+
+    validated_files = INPUT_VALIDATION.out.validated_files.flatten()
+     
     MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
+    MUTECT2(
+        validated_files,
+        INDEX_CREATION.out.ref_ch,
+        INDEX_CREATION.out.fasta_index_ch,
+        detected_contig,
+        "mutect2_fusion"
+    )
+    
+    vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
+    file_count =  MUTSERVE.out.mutserve_ch.count()
+    
     // MUTECT2(mapping_ch, params.reference, "mutect2_fusion")
         
     // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
