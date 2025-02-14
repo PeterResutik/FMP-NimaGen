@@ -257,7 +257,7 @@ process MUTSERVE {
     tuple val(sample_id), path(sorted_bam), path(sorted_index)
 
     output:
-    tuple val(sample_id), path("${sample_id}.vcf.gz"), path("${sample_id}.vcf.gz.tbi"), val(method), emit: mutserve_ch
+    tuple path("${sample_id}.vcf.gz"), path("${sample_id}.vcf.gz.tbi"), val(method), emit: mutserve_ch
     
     script:
     def avail_mem = 1024
@@ -418,7 +418,7 @@ process INPUT_VALIDATION {
 
 
 process INDEX_CREATION {
-	
+	publishDir "$params.outdir/index_creation", mode: 'copy'
     input:
 	path reference
 	val mtdna_tag
@@ -456,6 +456,7 @@ process INDEX_CREATION {
 
 process MUTECT2 {
     publishDir "$params.outdir/mutec2", mode: 'copy'
+    
     input:
     path bam_file
     path reference
@@ -513,6 +514,87 @@ process MUTECT2 {
     """
 }
 
+process FILTER_VARIANTS {
+    publishDir "$params.outdir/filter_variants", mode: 'copy'
+    // publishDir "${params.output}", mode: 'copy'
+
+    input:
+    tuple path(vcf_file), path(vcf_file_idx), val(method)
+
+    output:
+    path("${vcf_file.baseName}.${method}.filtered.txt"), emit: combined_methods_ch
+
+    script:
+    def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
+
+    """
+    echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
+        > ${vcf_file.baseName}.${method}.txt
+
+    bcftools query -u \
+        -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%BQ\t%DP\t%GT]\n' \
+        ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
+    
+    if [[ ${method} == "mutserve_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+
+    elif [[ ${method} == "mutect2_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+    else 
+        mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
+    fi
+    
+    ## annotating SNVS and INDELs for reporting
+    awk 'BEGIN {OFS="\t"} {
+        if (NR == 1) { print \$0, "Type"; next }
+        if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
+        else if (\$9 == "1") { \$10="1" }
+        else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
+        else { \$10="UNKNOWN" }
+        print
+    }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
+
+    rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
+    
+    """
+}
+
+process MERGING_VARIANTS {
+    publishDir "$params.outdir/merged_variants", mode: 'copy'
+    input:
+    path variants_txt
+    val mode
+
+    output:
+    path("variants.txt"), emit: txt_summarized_ch
+
+    """
+    csvtk concat \
+        -t ${variants_txt} \
+        -T -o variants.concat.txt \
+        --num-cpus ${task.cpus}
+    
+    csvtk sort \
+        -t variants.concat.txt \
+        -k ID:N -k Pos:n -k Ref:N -k Type:nr  -k Variant:N \
+        -T -o variants.sorted.txt \
+        --num-cpus ${task.cpus}
+
+    if [[ ${mode} == "fusion" ]]
+    then
+        java -cp "/opt/VariantMerger.jar:/opt/lib/*" VariantMerger \
+            variants.sorted.txt \
+            --output variants.txt
+    else
+        mv variants.sorted.txt variants.txt
+    fi
+    """
+}
+
 
 workflow {
     Channel
@@ -564,9 +646,23 @@ workflow {
         "mutect2_fusion"
     )
     
+    // vcf_ch = MUTSERVE.out.mutserve_ch
+
     vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     file_count =  MUTSERVE.out.mutserve_ch.count()
     
+    FILTER_VARIANTS (
+        vcf_ch
+    )
+
+    MERGING_VARIANTS(
+        FILTER_VARIANTS.out.combined_methods_ch.collect(),
+        params.mode
+    )
+    
+    // variants_txt_ch = MERGING_VARIANTS.out.txt_summarized_ch    
+
+
     // MUTECT2(mapping_ch, params.reference, "mutect2_fusion")
         
     // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)

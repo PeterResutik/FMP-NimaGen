@@ -1,0 +1,8 @@
+ID	Filter	Pos	Ref	Variant	VariantLevel	MeanBaseQuality	Coverage	GT	Type
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;strict_strand	302	A	AC	0.244	.	5157	0/1	3
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;multiallelic;strict_strand	310	T	TC	0.776	.	5155	0/0/1	3
+TraceA1-E1_S3_L001_sorted.bam	strict_strand	513	GCA	G	0.998	.	2932	0/1	3
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;multiallelic;strict_strand	16183	A	ACC	0.232	.	773	0/0/1/0/0	3
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;multiallelic;strict_strand	16183	A	AC	0.348	.	773	0/0/0/1/0	3
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;multiallelic;strict_strand	16183	A	ACCC	0.06	.	773	0/0/0/0/1	3
+TraceA1-E1_S3_L001_sorted.bam	clustered_events;strict_strand	16188	CT	C	0.033	.	773	0/1	3
