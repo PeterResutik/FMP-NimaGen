@@ -20,7 +20,7 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.detection_limit = 0.05
+params.detection_limit = 0.02
 params.mapQ = 20
 params.baseQ = 20
 params.alignQ = 30
@@ -201,17 +201,14 @@ process MAPPING_2_BAM {
     tuple val(sample_id), path(trimmed_fastq)
 
     output:
-    tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai")
+    tuple val(sample_id), path("${sample_id}_sorted.bam"), path("${sample_id}_sorted.bam.bai")
 
     script:
     """
     bwa mem $reference ${trimmed_fastq} | samtools-1.21 view -Sb - > ${sample_id}_tmp.bam    
     samtools-1.21 view -h ${sample_id}_tmp.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools-1.21 view -b -o ${sample_id}.bam
-    samtools-1.21 sort -o ${sample_id}_tmp.bam ${sample_id}.bam
-    
-    samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_tmp.bam  -o ${sample_id}_tmp2.bam
-    mv ${sample_id}_tmp2.bam ${sample_id}.bam
-    samtools-1.21 index ${sample_id}.bam
+    samtools-1.21 sort -o ${sample_id}_sorted.bam ${sample_id}.bam
+    samtools-1.21 index ${sample_id}_sorted.bam
     """
 }
 
@@ -332,12 +329,12 @@ process CALCULATE_STATISTICS {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
  
-    // samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
-    // mv ${sample_id}_tmp.bam ${bam_file}
-
     """
     ## Create Mapping File
     echo -e "Sample\tFilename" > $mapping_name
+
+    samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
+    mv ${sample_id}_tmp.bam ${bam_file}
 
     echo "\$(samtools-1.21 samples ${bam_file})" >> $mapping_name
 
@@ -459,11 +456,10 @@ process INDEX_CREATION {
 
 
 process MUTECT2 {
-    tag "mutect2 on $sample_id"
     publishDir "$params.outdir/mutec2", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index)
+    path bam_file
     path reference
     path fasta_index_files
     val detected_contig
@@ -477,9 +473,9 @@ process MUTECT2 {
     if (task.memory) {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
-    // samtools-1.21 index ${bam_file}
-    
+
     """
+    samtools-1.21 index ${bam_file}
 
     /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
         Mutect2 \
@@ -540,6 +536,19 @@ process FILTER_VARIANTS {
         -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%BQ\t%DP\t%GT]\n' \
         ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
     
+    if [[ ${method} == "mutserve_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+
+    elif [[ ${method} == "mutect2_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+    else 
+        mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
+    fi
+    
     ## annotating SNVS and INDELs for reporting
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
@@ -548,35 +557,12 @@ process FILTER_VARIANTS {
         else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
         else { \$10="UNKNOWN" }
         print
-    }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
+    }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
+
+    rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
     
     """
 }
-
-    // if [[ ${method} == "mutserve_fusion" ]]
-    // then
-    //     awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
-    //         ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
-
-    // elif [[ ${method} == "mutect2_fusion" ]]
-    // then
-    //     awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
-    //         ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
-    // else 
-    //     mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
-    // fi
-    
-    // ## annotating SNVS and INDELs for reporting
-    // awk 'BEGIN {OFS="\t"} {
-    //     if (NR == 1) { print \$0, "Type"; next }
-    //     if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
-    //     else if (\$9 == "1") { \$10="1" }
-    //     else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
-    //     else { \$10="UNKNOWN" }
-    //     print
-    // }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
-
-    // rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
 
 process MERGING_VARIANTS {
     publishDir "$params.outdir/merged_variants", mode: 'copy'
@@ -628,15 +614,14 @@ workflow {
 
     CALCULATE_STATISTICS(mapping_final_ch)
 
-    // INPUT_VALIDATION(
-    //     CALCULATE_STATISTICS.out.fixed_file.collect(),
-    //     CALCULATE_STATISTICS.out.stats_ch.collect(),
-    //     CALCULATE_STATISTICS.out.mapping_ch.collect(),
-    //     params.reference, index_ch
-    // )
+    INPUT_VALIDATION(
+        CALCULATE_STATISTICS.out.fixed_file.collect(),
+        CALCULATE_STATISTICS.out.stats_ch.collect(),
+        CALCULATE_STATISTICS.out.mapping_ch.collect(),
+        params.reference, index_ch
+    )
 
-    def detected_contig = "chrM"
-    // INPUT_VALIDATION.out.contig_ch.text.trim()
+    def detected_contig = INPUT_VALIDATION.out.contig_ch.text.trim()
 
     INDEX_CREATION(
         params.reference,
@@ -650,22 +635,22 @@ workflow {
     // // haplogrep_ch = file("$projectDir/files/haplogroups.txt")
     // // contamination_ch = file("$projectDir/files/haplocheck.txt")
 
-    // validated_files = INPUT_VALIDATION.out.validated_files.flatten()
+    validated_files = INPUT_VALIDATION.out.validated_files.flatten()
      
     MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
     MUTECT2(
-        mapping_final_ch,
+        validated_files,
         INDEX_CREATION.out.ref_ch,
         INDEX_CREATION.out.fasta_index_ch,
         detected_contig,
         "mutect2_fusion"
     )
     
-    // // vcf_ch = MUTSERVE.out.mutserve_ch
+    // vcf_ch = MUTSERVE.out.mutserve_ch
 
     vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
-    // file_count =  MUTSERVE.out.mutserve_ch.count()
+    file_count =  MUTSERVE.out.mutserve_ch.count()
     
     FILTER_VARIANTS (
         vcf_ch
