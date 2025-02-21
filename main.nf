@@ -20,7 +20,7 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.detection_limit = 0.05
+params.detection_limit = 0.02
 params.mapQ = 20
 params.baseQ = 20
 params.alignQ = 30
@@ -540,6 +540,19 @@ process FILTER_VARIANTS {
         -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%BQ\t%DP\t%GT]\n' \
         ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
     
+    if [[ ${method} == "mutserve_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+
+    elif [[ ${method} == "mutect2_fusion" ]]
+    then
+        awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
+            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
+    else 
+        mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
+    fi
+    
     ## annotating SNVS and INDELs for reporting
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
@@ -548,8 +561,9 @@ process FILTER_VARIANTS {
         else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
         else { \$10="UNKNOWN" }
         print
-    }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
-    
+    }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
+
+    rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
     """
 }
 
@@ -663,7 +677,7 @@ workflow {
     )
     
     // // vcf_ch = MUTSERVE.out.mutserve_ch
-
+    // vcf_ch = MUTECT2.out.mutect2_ch 
     vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     // file_count =  MUTSERVE.out.mutserve_ch.count()
     
