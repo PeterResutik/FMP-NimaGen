@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
  * pipeline input parameters 
  */
 params.reads = "$baseDir/data/FASTQ/*_{R1,R2}_001.fastq.gz"
-params.reference = "$baseDir/data/rCRS.fasta"
+params.reference = "$baseDir/data/rCRS2.fasta"
 params.min_overlap = 10 // default in FLASH is 10
 params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
@@ -20,9 +20,9 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.detection_limit = 0.02
-params.mapQ = 20
-params.baseQ = 20
+params.detection_limit = 0.075
+params.mapQ = 30
+params.baseQ = 33
 params.alignQ = 30
 params.mode = 'fusion'
 
@@ -190,6 +190,7 @@ process TRIMMING {
     cutadapt -a file:$params.right_primers_rc -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_cleaned_merged_trimmed_left_right.fastq ${sample_id}_cleaned_merged_trimmed_left.fastq    
     """
 }
+// --discard-untrimmed
 
 process MAPPING_2_BAM {
     tag "bwa mem on $sample_id"
@@ -460,7 +461,7 @@ process INDEX_CREATION {
 
 process MUTECT2 {
     tag "mutect2 on $sample_id"
-    publishDir "$params.outdir/mutec2", mode: 'copy'
+    publishDir "$params.outdir/mutect2", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index)
@@ -540,19 +541,7 @@ process FILTER_VARIANTS {
         -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%BQ\t%DP\t%GT]\n' \
         ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
     
-    if [[ ${method} == "mutserve_fusion" ]]
-    then
-        awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
-            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
 
-    elif [[ ${method} == "mutect2_fusion" ]]
-    then
-        awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
-            ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
-    else 
-        mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
-    fi
-    
     ## annotating SNVS and INDELs for reporting
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
@@ -561,9 +550,8 @@ process FILTER_VARIANTS {
         else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
         else { \$10="UNKNOWN" }
         print
-    }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
+    }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
-    rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
     """
 }
 
@@ -666,7 +654,7 @@ workflow {
 
     // validated_files = INPUT_VALIDATION.out.validated_files.flatten()
      
-    MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
+    // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
     MUTECT2(
         mapping_final_ch,
@@ -677,18 +665,18 @@ workflow {
     )
     
     // // vcf_ch = MUTSERVE.out.mutserve_ch
-    // vcf_ch = MUTECT2.out.mutect2_ch 
-    vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
+    vcf_ch = MUTECT2.out.mutect2_ch 
+    // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     // file_count =  MUTSERVE.out.mutserve_ch.count()
     
     FILTER_VARIANTS (
         vcf_ch
     )
 
-    MERGING_VARIANTS(
-        FILTER_VARIANTS.out.combined_methods_ch.collect(),
-        params.mode
-    )
+    // MERGING_VARIANTS(
+    //     FILTER_VARIANTS.out.combined_methods_ch.collect(),
+    //     params.mode
+    // )
     
     // variants_txt_ch = MERGING_VARIANTS.out.txt_summarized_ch    
 
