@@ -22,12 +22,12 @@ params.maximum_length = 300
 
 params.detection_limit = 0.075
 params.mapQ = 30
-params.baseQ = 33
+params.baseQ = 35
 params.alignQ = 30
 params.mode = 'fusion'
 
 params.python_script = "$baseDir/scripts/remove_soft_clipped_bases.py"
-
+params.python_script2 = "$baseDir/scripts/python_empop.py"
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -531,9 +531,10 @@ process ANNOTATE_VARIANTS {
 
     input:
     tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method)
+    path reference
 
     output:
-    path("${vcf_file.baseName}.${method}.filtered.txt"), emit: combined_methods_ch
+    path("${vcf_file.baseName}.${method}.filtered.empop.txt"), emit: combined_methods_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -556,6 +557,8 @@ process ANNOTATE_VARIANTS {
         else { \$10="UNKNOWN" }
         print
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
+
+    python $params.python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
 
     """
 }
@@ -617,6 +620,17 @@ process MERGING_VARIANTS {
     """
 }
 
+// process EMPOP {
+//     publishDir "$params.outdir/empop_variants", mode: 'copy'
+//     input:
+//     path variants_txt
+//     val mode
+
+//     """
+//     python empop_formatter.py variants.txt reference.fasta output.txt
+//     """
+// }
+
 
 workflow {
     Channel
@@ -675,7 +689,8 @@ workflow {
     // file_count =  MUTSERVE.out.mutserve_ch.count()
     
     ANNOTATE_VARIANTS (
-        vcf_ch
+        vcf_ch,
+        params.reference
     )
 
     // MERGING_VARIANTS(
