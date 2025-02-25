@@ -113,6 +113,10 @@ process MAPPING_2_SAM {
     """
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
+    samtools-1.21 view -bS ${sample_id}_R1.sam | samtools-1.21 sort -o ${sample_id}_R1.bam
+    samtools-1.21 view -bS ${sample_id}_R2.sam | samtools-1.21 sort -o ${sample_id}_R2.bam
+    samtools-1.21 index ${sample_id}_R1.bam
+    samtools-1.21 index ${sample_id}_R2.bam 
     """
 }
 
@@ -471,7 +475,7 @@ process MUTECT2 {
     val method
 
     output:
-    tuple path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
+    tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
 
     script:
     def avail_mem = 1024
@@ -520,12 +524,13 @@ process MUTECT2 {
     """
 }
 
-process FILTER_VARIANTS {
+process ANNOTATE_VARIANTS {
+    tag "annotate_variants on $sample_id"
     publishDir "$params.outdir/filter_variants", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
-    tuple path(vcf_file), path(vcf_file_idx), val(method)
+    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method)
 
     output:
     path("${vcf_file.baseName}.${method}.filtered.txt"), emit: combined_methods_ch
@@ -669,7 +674,7 @@ workflow {
     // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     // file_count =  MUTSERVE.out.mutserve_ch.count()
     
-    FILTER_VARIANTS (
+    ANNOTATE_VARIANTS (
         vcf_ch
     )
 
