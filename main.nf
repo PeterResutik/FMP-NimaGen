@@ -16,7 +16,7 @@ params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
 params.left_primers = "$baseDir/primers/left_primers.fasta"
 params.right_primers_rc = "$baseDir/primers/right_primers_rc.fasta"
-
+params.amplicon_middle_positions = "$baseDir/primers/amplicons_bed.txt"
 
 params.quality_cutoff = 25
 params.minimum_length = 60
@@ -30,6 +30,7 @@ params.mode = 'fusion'
 
 params.python_script = "$baseDir/scripts/remove_soft_clipped_bases.py"
 params.python_script2 = "$baseDir/scripts/python_empop.py"
+params.python_script3 = "$baseDir/scripts/python_coverage.py"
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -51,7 +52,7 @@ log_text = """\
          minimum_length           : $params.minimum_length
          maximum_length           : $params.maximum_length
 
-         MUTSERVE 
+         VARIANT CALLING (with MUTECT2)
          detection_limit          : $params.detection_limit
          mapQ                     : $params.mapQ
          baseQ                    : $params.baseQ
@@ -215,7 +216,7 @@ process MAPPING_2_BAM {
     tuple val(sample_id), path(trimmed_fastq)
 
     output:
-    tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai")
+    tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), path("${sample_id}_coverage.txt")
 
     script:
     """
@@ -226,6 +227,9 @@ process MAPPING_2_BAM {
     samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_tmp.bam  -o ${sample_id}_tmp2.bam
     mv ${sample_id}_tmp2.bam ${sample_id}.bam
     samtools-1.21 index ${sample_id}.bam
+
+    samtools-1.21 depth -a -b $params.amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
+    
     """
 }
 
@@ -327,14 +331,14 @@ process CALCULATE_STATISTICS {
 
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
 
     output:
     path "*summary.txt", emit: stats_ch
     path "*mapping.txt", emit: mapping_ch
     path "*.zip", emit: fastqc_ch
     path("*.bam"), includeInputs: true, emit: fixed_file
-
+    path("*coverage_plot.png")
 
 
     script:
@@ -345,19 +349,21 @@ process CALCULATE_STATISTICS {
     if (task.memory) {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
- 
+    // 16623 - lenght of the extended rCRS
     // samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
     // mv ${sample_id}_tmp.bam ${bam_file}
 
     """
     ## Create Mapping File
+    ## mkdir "${sample_id}"
+    ## echo -e "Sample\tFilename" > /${sample_id}/$mapping_name
     echo -e "Sample\tFilename" > $mapping_name
 
     echo "\$(samtools-1.21 samples ${bam_file})" >> $mapping_name
 
     ## Calculate summary statistics
     samtools-1.21 coverage ${bam_file} > samtools_coverage_${sample_id}.txt
-    csvtk grep -t -f3 -p 16569 -C '\$' samtools_coverage_${sample_id}.txt -T -o mtdna.txt --num-cpus ${task.cpus} 
+    csvtk grep -t -f3 -p 16623 -C '\$' samtools_coverage_${sample_id}.txt -T -o mtdna.txt --num-cpus ${task.cpus} 
         
     contig=\$(csvtk cut -t -f 1 mtdna.txt --num-cpus ${task.cpus})
     numreads=\$(csvtk cut -t -f 4 mtdna.txt --num-cpus ${task.cpus})
@@ -380,6 +386,8 @@ process CALCULATE_STATISTICS {
 
     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
 
+
+    python $params.python_script3 $coverage_txt ${sample_id}__coverage_plot.png
     """
 }
 // echo "\$(${sample_id} ${bam_file})" >> $mapping_name
@@ -477,7 +485,7 @@ process MUTECT2 {
     publishDir "$params.outdir/mutect2", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
     path reference
     path fasta_index_files
     val detected_contig
@@ -549,6 +557,7 @@ process ANNOTATE_VARIANTS {
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
 
     """
+    echo -e "test"
     echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
         > ${vcf_file.baseName}.${method}.txt
 
@@ -566,6 +575,7 @@ process ANNOTATE_VARIANTS {
         else { \$10="UNKNOWN" }
         print
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
+
 
     python $params.python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
 
