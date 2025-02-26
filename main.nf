@@ -12,6 +12,8 @@ params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 params.publish_dir_mode = "symlink"
 params.outdir = "results"
 
+params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
+
 params.left_primers = "$baseDir/primers/left_primers.fasta"
 params.right_primers_rc = "$baseDir/primers/right_primers_rc.fasta"
 
@@ -22,7 +24,7 @@ params.maximum_length = 300
 
 params.detection_limit = 0.075
 params.mapQ = 30
-params.baseQ = 35
+params.baseQ = 32
 params.alignQ = 30
 params.mode = 'fusion'
 
@@ -107,10 +109,15 @@ process MAPPING_2_SAM {
     // path merged_file
     
     output:
-    tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam")
+    tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: mapping_test
+    // , emit: mapping_sam_ch
+    tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai"), emit: test
+
 
     script:
     """
+    mv ${reads[0]} tmp.fastq.gz
+    cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
     samtools-1.21 view -bS ${sample_id}_R1.sam | samtools-1.21 sort -o ${sample_id}_R1.bam
@@ -119,6 +126,8 @@ process MAPPING_2_SAM {
     samtools-1.21 index ${sample_id}_R2.bam 
     """
 }
+    // mv ${reads[0]} tmp.fastq.gz
+    // cutadapt -a $params.adapter -o ${reads[0]}  tmp.fastq.gz 
 
 process REMOVE_SOFT_CLIPPED_BASES {
     tag "remove_scb on $sample_id"
@@ -130,7 +139,7 @@ process REMOVE_SOFT_CLIPPED_BASES {
     
     output:
     tuple val(sample_id), path("${sample_id}_R1_cleaned.bam"), path("${sample_id}_R2_cleaned.bam")
-
+    
 
     script:
     """
@@ -640,7 +649,9 @@ workflow {
     write_log(log_text)
     index_ch = INDEX(params.reference)
     // merging_ch = MERGING(read_pairs_ch)
-    mapping_ch = MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
+    // mapping_ch = 
+    MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
+    mapping_ch = MAPPING_2_SAM.out.mapping_test
     cleaned_ch = REMOVE_SOFT_CLIPPED_BASES(mapping_ch)
     fastq_ch = BACK_2_FASTQ(cleaned_ch)
     merging_ch = MERGING(fastq_ch)
