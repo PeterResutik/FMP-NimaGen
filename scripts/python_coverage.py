@@ -41,7 +41,7 @@ plt.title("mtDNA Amplicon Coverage")
 plt.grid(axis="y", linestyle="--", linewidth=0.5)
 
 # Add x-axis ticks at every amplicon position (so 0-coverage bars are recognizable)
-plt.xticks(data["Position"], labels=[""] * len(data["Position"])) 
+plt.xticks(positions, labels=[str(pos) for pos in positions], rotation=90, fontsize=5)
 
 
 # Adjust x-ticks
