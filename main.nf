@@ -18,10 +18,12 @@ params.left_primers = "$baseDir/primers/left_primers.fasta"
 params.right_primers_rc = "$baseDir/primers/right_primers_rc.fasta"
 params.amplicon_middle_positions = "$baseDir/primers/amplicons_bed.txt"
 
+// cutadapt
 params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
+// mutet2
 params.detection_limit = 0.075
 params.mapQ = 30
 params.baseQ = 32
@@ -576,8 +578,22 @@ process ANNOTATE_VARIANTS {
         print
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
-
     python $params.python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     """
 }

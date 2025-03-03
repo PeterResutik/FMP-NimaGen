@@ -15,7 +15,7 @@ IUPAC_CODES = {
 def load_reference_genome(fasta_file):
     """Load reference genome from FASTA file."""
     record = SeqIO.read(fasta_file, "fasta")
-    return list(str(record.seq))
+    return str(record.seq)
 
 def rightmost_position(reference, pos, variant, ref_base):
     """
@@ -98,7 +98,7 @@ def shift_deletion_right(reference, pos, deleted_segment):
     print(rightmost_pos)
     return rightmost_pos, deleted_segment
 
-def format_variant(row, modified_reference):
+def format_variant(row, reference):
     """
     Formats variants according to EMPOP standards.
     """
@@ -106,7 +106,6 @@ def format_variant(row, modified_reference):
     pos = int(pos)  # Convert position to integer
 
     if var_type == 2:  # SNPs
-        modified_reference[pos - 1] = var
         if var_level >= 0.925:
             return f"{ref}{pos}{var}"
         else:
@@ -115,29 +114,22 @@ def format_variant(row, modified_reference):
 
     elif var_type == 3:  # Indels
         if len(ref) + 1 == len(var):  # Single-base Insertion
+            
             inserted_base = var[len(ref):]  # Extract inserted base
-            rightmost_pos = rightmost_position(modified_reference, pos, inserted_base, ref[-1])  # Find rightmost position
+            rightmost_pos = rightmost_position(reference, pos, inserted_base, ref[-1])  # Find rightmost position
             if var_level >= 0.925:
                 return f"-{rightmost_pos}.1{inserted_base}"  # Example: T315.1C
             else: 
                 return f"-{rightmost_pos}.1{inserted_base.lower()}" 
 
         elif len(ref) - 1 == len(var):  # Single-base Deletion
-            if modified_reference[pos] != ref[-1]:  
-                corrected_ref_base = modified_reference[pos - 1]  # Store corrected reference base
-            else:
-                corrected_ref_base = ref[-1]
-            deleted_base = corrected_ref_base  # Extract deleted base
-            rightmost_pos = rightmost_position(modified_reference, pos, deleted_base, corrected_ref_base)  # Find rightmost position
-            
-            # del modified_reference[rightmost_pos:rightmost_pos + len(deleted_base)]
-            # return " ".join(modified_reference[max(0, rightmost_pos - 10): rightmost_pos + 10])
+            deleted_base = ref[len(var):]  # Extract deleted base
+            rightmost_pos = rightmost_position(reference, pos, deleted_base, ref[-1])  # Find rightmost position
             return f"{deleted_base}{rightmost_pos}-"  # Example: C524-
 
         elif len(ref) < len(var):  # Multi-base Insertion
             inserted_segment = var[len(ref):]  # Extract inserted bases
-            rightmost_pos, adjusted_segment = shift_insertion_right(modified_reference, pos, inserted_segment)  # Find rightmost repeat
-            # Apply insertion to modified reference
+            rightmost_pos, adjusted_segment = shift_insertion_right(reference, pos, inserted_segment)  # Find rightmost repeat
             if var_level >= 0.925:
                 return " ".join([f"-{rightmost_pos}.{i+1}{adjusted_segment[i]}" for i in range(len(inserted_segment))])
             else: 
@@ -146,96 +138,32 @@ def format_variant(row, modified_reference):
         elif len(ref) > len(var):  # Multi-base Deletion
             deleted_segment = ref[len(var):]  # Extract deleted bases
             print(deleted_segment)
-            rightmost_pos, adjusted_segment = shift_deletion_right(modified_reference, pos, deleted_segment)  # Find rightmost repeat
-            
-            # Apply deletion to modified reference
-            # del modified_reference[rightmost_pos:rightmost_pos + len(adjusted_segment)]
-            
+            # rightmost_pos = rightmost_position_segment_del(reference, pos, deleted_segment)  # Find rightmost repeat
+            rightmost_pos, adjusted_segment = shift_deletion_right(reference, pos, deleted_segment)  # Find rightmost repeat
             return " ".join([f"{adjusted_segment[i]}{rightmost_pos + i}-" for i in range(len(adjusted_segment))])
 
     return "N/A"  # If type does not match expected cases
     
-# def format_variant(row, modified_reference):
-#     """
-#     Formats variants according to EMPOP standards while keeping track of reference modifications.
-#     """
-#     pos, ref, var, var_level, var_type = int(row["Pos"]), row["Ref"], row["Variant"], row["VariantLevel"], row["Type"]
-
-#     if var_type == 2:  # SNPs (Substitutions)
-#         modified_reference[pos - 1] = var  # Apply substitution to the reference
-#         if var_level >= 0.925:
-#             return f"{ref}{pos}{var}"
-#         else:
-#             iupac_code = IUPAC_CODES.get(frozenset([ref, var]), f"{ref}/{var}")
-#             return f"{ref}{pos}{iupac_code}"
-
-#     elif var_type == 3:  # Indels (Insertions/Deletions)
-#         if len(ref) < len(var):  # Multi-base Insertion
-#             inserted_segment = var[len(ref):]
-#             rightmost_pos, adjusted_segment = shift_insertion_right(modified_reference, pos, inserted_segment)
-
-#             # Apply insertion to modified reference
-#             modified_reference.insert(rightmost_pos, inserted_segment)
-
-#             formatted_insertions = " ".join(
-#                 [f"-{rightmost_pos}.{i+1}{adjusted_segment[i]}" if var_level >= 0.925 else f"-{rightmost_pos}.{i+1}{adjusted_segment[i].lower()}"
-#                  for i in range(len(inserted_segment))])
-#             return formatted_insertions
-
-#         elif len(ref) > len(var):  # Multi-base Deletion
-#             deleted_segment = ref[len(var):]
-#             rightmost_pos, adjusted_segment = shift_deletion_right(modified_reference, pos, deleted_segment)
-
-#             # Apply deletion to modified reference
-#             for i in range(len(adjusted_segment)):
-#                 modified_reference[rightmost_pos + i] = "-"
-
-#             formatted_deletions = " ".join([f"{adjusted_segment[i]}{rightmost_pos + i}-" for i in range(len(adjusted_segment))])
-#             return formatted_deletions
-
-#     return "N/A"
-
-
 def process_variants(input_file, output_file, ref_fasta):
-    """Reads variant file, processes variants into EMPOP format, and saves to output file."""
-    modified_reference = load_reference_genome(ref_fasta)  # Mutable reference copy
-    
+    """
+    Reads variant file, processes variants into EMPOP format, and saves to output file.
+    """
+    # Load reference genome
+    reference = load_reference_genome(ref_fasta)
 
+    # Load variant data
     df = pd.read_csv(input_file, sep="\t")
+
+    # Ensure VariantLevel is float
     df["VariantLevel"] = pd.to_numeric(df["VariantLevel"], errors="coerce").fillna(1.0)
 
-    corrected_variants = []
+    # Process variants
+    df["EMPOP_Variant"] = df.apply(lambda row: format_variant(row, reference), axis=1)
 
-    # Process from bottom to top to prevent shifting issues
-    for index in reversed(df.index):
-        row = df.loc[index]
-        corrected_variants.append(format_variant(row, modified_reference))
-
-    # Reverse back to original order for output
-    df["EMPOP_Variant"] = corrected_variants[::-1]
+    # Save updated file
     df.to_csv(output_file, sep="\t", index=False)
+
     print(f"Processed file saved to {output_file}")
-
-# def process_variants(input_file, output_file, ref_fasta):
-#     """
-#     Reads variant file, processes variants into EMPOP format, and saves to output file.
-#     """
-#     # Load reference genome
-#     reference = load_reference_genome(ref_fasta)
-
-#     # Load variant data
-#     df = pd.read_csv(input_file, sep="\t")
-
-#     # Ensure VariantLevel is float
-#     df["VariantLevel"] = pd.to_numeric(df["VariantLevel"], errors="coerce").fillna(1.0)
-
-#     # Process variants
-#     df["EMPOP_Variant"] = df.apply(lambda row: format_variant(row, reference), axis=1)
-
-#     # Save updated file
-#     df.to_csv(output_file, sep="\t", index=False)
-
-#     print(f"Processed file saved to {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Format mitochondrial variants for EMPOP.")
