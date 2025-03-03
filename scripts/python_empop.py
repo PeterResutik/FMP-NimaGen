@@ -1,7 +1,7 @@
 import pandas as pd
 import argparse
 from Bio import SeqIO
-
+import re
 # IUPAC codes for heteroplasmy
 IUPAC_CODES = {
     frozenset(["A", "G"]): "R",
@@ -195,6 +195,14 @@ def format_variant(row, modified_reference):
 
 #     return "N/A"
 
+def extract_numeric_value(empop_variant):
+    """
+    Extracts the first numeric value from the EMPOP_Variant string.
+    Example: "C16193-" → 16193
+    """
+    match = re.search(r'\d+', empop_variant)  # Find first number in the string
+    return int(match.group()) if match else float('inf')  # Convert to int, default to large value if missing
+
 
 def process_variants(input_file, output_file, ref_fasta):
     """Reads variant file, processes variants into EMPOP format, and saves to output file."""
@@ -208,13 +216,29 @@ def process_variants(input_file, output_file, ref_fasta):
 
     # Process from bottom to top to prevent shifting issues
     for index in reversed(df.index):
-        row = df.loc[index]
+        row = df.loc[index] 
         corrected_variants.append(format_variant(row, modified_reference))
 
-    # Reverse back to original order for output
+    # Reverse back to original order
     df["EMPOP_Variant"] = corrected_variants[::-1]
+
+    # Sort by extracted numerical values from "EMPOP_Variant"
+    df["SortKey"] = df["EMPOP_Variant"].apply(extract_numeric_value)  # Extract numbers
+    df = df.sort_values(by="SortKey").drop(columns=["SortKey"])  # Sort numerically and remove temporary column
+
+    # Save sorted output
     df.to_csv(output_file, sep="\t", index=False)
     print(f"Processed file saved to {output_file}")
+
+    # # Process from bottom to top to prevent shifting issues
+    # for index in reversed(df.index):
+    #     row = df.loc[index]
+    #     corrected_variants.append(format_variant(row, modified_reference))
+
+    # # Reverse back to original order for output
+    # df["EMPOP_Variant"] = corrected_variants[::-1]
+    # df.to_csv(output_file, sep="\t", index=False)
+    # print(f"Processed file saved to {output_file}")
 
 # def process_variants(input_file, output_file, ref_fasta):
 #     """
