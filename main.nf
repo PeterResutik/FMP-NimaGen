@@ -23,6 +23,10 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
+params.humans = "/Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/humans.fa"
+params.numts = "/Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/Calabrese_Dayama_Smart_Numts.fa"
+
+
 // mutet2
 params.detection_limit = 0.075
 params.mapQ = 30
@@ -70,7 +74,7 @@ log_text = """\
 log.info(log_text)
 
 // Save parameters into file
-process write_log{
+process a_write_log{
     publishDir "$params.outdir", mode: params.publish_dir_mode
 
     input:
@@ -85,9 +89,9 @@ process write_log{
     """
 }
 
-process INDEX {
-    tag "bwa index on $reference"   
-    publishDir "$params.outdir/index", mode: 'copy'
+process b_INDEX {
+    tag "b: bwa index on $reference"   
+    publishDir "$params.outdir/b_index", mode: 'copy'
 
     input:
     path reference
@@ -101,9 +105,9 @@ process INDEX {
     """
 }
 
-process MAPPING_2_SAM {
-    tag "bwa mem on $sample_id"
-    publishDir "$params.outdir/mapped_sam", mode: 'copy'
+process c_MAPPING_2_SAM {
+    tag "c: bwa mem on $sample_id"
+    publishDir "$params.outdir/c_mapped_sam", mode: 'copy'
 
     input:
     path reference
@@ -132,9 +136,9 @@ process MAPPING_2_SAM {
     // mv ${reads[0]} tmp.fastq.gz
     // cutadapt -a $params.adapter -o ${reads[0]}  tmp.fastq.gz 
 
-process REMOVE_SOFT_CLIPPED_BASES {
-    tag "remove_scb on $sample_id"
-    publishDir "$params.outdir/cleaned", mode: 'copy'
+process d_REMOVE_SOFT_CLIPPED_BASES {
+    tag "d: remove_scb on $sample_id"
+    publishDir "$params.outdir/d_cleaned", mode: 'copy'
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
@@ -153,9 +157,9 @@ process REMOVE_SOFT_CLIPPED_BASES {
     """
 }
 
-process BACK_2_FASTQ {
-    tag "convert_2_fastq on $sample_id"
-    publishDir "$params.outdir/fastq", mode: 'copy'
+process e_BACK_2_FASTQ {
+    tag "e: convert_2_fastq on $sample_id"
+    publishDir "$params.outdir/e_fastq", mode: 'copy'
 
     input:
     tuple val(sample_id), path(cleaned_bam_r1), path(cleaned_bam_r2)
@@ -174,9 +178,9 @@ process BACK_2_FASTQ {
 
 
 
-process MERGING {
-    tag "flash on $sample_id"
-    publishDir "$params.outdir/merged", mode: 'copy'
+process f_MERGING {
+    tag "f: flash on $sample_id"
+    publishDir "$params.outdir/f_merged", mode: 'copy'
 
     input:
     tuple val(sample_id), path(cleaned_fastq_r1), path(cleaned_fastq_r2)
@@ -190,9 +194,9 @@ process MERGING {
     """
 }
 
-process TRIMMING {
-    tag "cutadapt on $sample_id"
-    publishDir "$params.outdir/cutadapt", mode: 'copy'
+process g_TRIMMING {
+    tag "g: cutadapt on $sample_id"
+    publishDir "$params.outdir/g_cutadapt", mode: 'copy'
 
     input:
     tuple val(sample_id), path(merged_fastq)
@@ -208,9 +212,9 @@ process TRIMMING {
 }
 // --discard-untrimmed
 
-process MAPPING_2_BAM {
-    tag "bwa mem on $sample_id"
-    publishDir "$params.outdir/mapped_final", mode: 'copy'
+process ha_MAPPING_2_BAM {
+    tag "ha: bwa mem on $sample_id"
+    publishDir "$params.outdir/h_mapped_final", mode: 'copy'
 
     input:
     path reference
@@ -231,6 +235,29 @@ process MAPPING_2_BAM {
     samtools-1.21 index ${sample_id}.bam
 
     samtools-1.21 depth -a -b $params.amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
+    
+    """
+}
+
+process hb_NUMTs {
+    tag "hb: rnt on $sample_id"
+    publishDir "$params.outdir/hb_numts", mode: 'copy'
+
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
+
+    output:
+    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path("${sample_id}_coverage_numts.txt")
+
+    script:
+    """
+    /Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/rtn -p -h $params.humans -n $params.numts -b $bam_file
+
+
+
+    samtools-1.21 view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
+
+    samtools-1.21 depth -a -b $params.amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
     
     """
 }
@@ -327,13 +354,14 @@ process MUTSERVE {
 // 	"""
 // }
 
-process CALCULATE_STATISTICS {
-    tag "calculate_statistics on $sample_id"
-    publishDir "$params.outdir/calculate_statistics", mode: 'copy'
+process i_CALCULATE_STATISTICS {
+    tag "i: calculate_statistics on $sample_id"
+    publishDir "$params.outdir/i_calculate_statistics", mode: 'copy'
 
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
+    tuple val(sample_id2), path(bam_file2), path(bam_index2), path(coverage_numts_txt)
 
     output:
     path "*summary.txt", emit: stats_ch
@@ -388,8 +416,8 @@ process CALCULATE_STATISTICS {
 
     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
 
+    python $params.python_script3 $coverage_txt $coverage_numts_txt ${sample_id}_coverage_plot.png
 
-    python $params.python_script3 $coverage_txt ${sample_id}__coverage_plot.png
     """
 }
 // echo "\$(${sample_id} ${bam_file})" >> $mapping_name
@@ -445,8 +473,24 @@ process INPUT_VALIDATION {
 
 
 
-process INDEX_CREATION {
-	publishDir "$params.outdir/index_creation", mode: 'copy'
+
+// process QUALITY_CONTROL {
+    
+//     publishDir "${params.output_reports}/multiqc", mode: "copy", pattern: '*.html'
+    
+//     input:
+//     path zip
+    
+//     output:
+// 	path "*.html"
+
+// 	"""
+// 	multiqc . --filename index.html
+// 	"""
+// }
+
+process j_INDEX_CREATION {
+	publishDir "$params.outdir/j_index_creation", mode: 'copy'
     input:
 	path reference
 	val mtdna_tag
@@ -464,27 +508,9 @@ process INDEX_CREATION {
 }
 
 
-// process QUALITY_CONTROL {
-    
-//     publishDir "${params.output_reports}/multiqc", mode: "copy", pattern: '*.html'
-    
-//     input:
-//     path zip
-    
-//     output:
-// 	path "*.html"
-
-// 	"""
-// 	multiqc . --filename index.html
-// 	"""
-// }
-
-
-
-
-process MUTECT2 {
-    tag "mutect2 on $sample_id"
-    publishDir "$params.outdir/mutect2", mode: 'copy'
+process k_MUTECT2 {
+    tag "k: mutect2 on $sample_id"
+    publishDir "$params.outdir/k_mutect2", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
@@ -543,9 +569,9 @@ process MUTECT2 {
     """
 }
 
-process ANNOTATE_VARIANTS {
-    tag "annotate_variants on $sample_id"
-    publishDir "$params.outdir/filter_variants", mode: 'copy'
+process l_ANNOTATE_VARIANTS {
+    tag "l: annotate_variants on $sample_id"
+    publishDir "$params.outdir/l_filter_variants", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
@@ -657,19 +683,25 @@ workflow {
         .fromFilePairs(params.reads, checkIfExists: true)
         .set { read_pairs_ch }
 
-    write_log(log_text)
-    index_ch = INDEX(params.reference)
+    a_write_log(log_text)
+    index_ch = b_INDEX(params.reference)
+    def detected_contig = "chrM"
+    // INPUT_VALIDATION.out.contig_ch.text.trim()
+
+
     // merging_ch = MERGING(read_pairs_ch)
     // mapping_ch = 
-    MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
-    mapping_ch = MAPPING_2_SAM.out.mapping_test
-    cleaned_ch = REMOVE_SOFT_CLIPPED_BASES(mapping_ch)
-    fastq_ch = BACK_2_FASTQ(cleaned_ch)
-    merging_ch = MERGING(fastq_ch)
-    trimming_ch = TRIMMING(merging_ch)
-    mapping_final_ch = MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
+    c_MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
+    mapping_ch = c_MAPPING_2_SAM.out.mapping_test
+    cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch)
+    fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
+    merging_ch = f_MERGING(fastq_ch)
+    trimming_ch = g_TRIMMING(merging_ch)
+    mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
 
-    CALCULATE_STATISTICS(mapping_final_ch)
+    rnt_ch = hb_NUMTs(mapping_final_ch)
+
+    i_CALCULATE_STATISTICS(mapping_final_ch, rnt_ch)
 
     // INPUT_VALIDATION(
     //     CALCULATE_STATISTICS.out.fixed_file.collect(),
@@ -678,13 +710,7 @@ workflow {
     //     params.reference, index_ch
     // )
 
-    def detected_contig = "chrM"
-    // INPUT_VALIDATION.out.contig_ch.text.trim()
 
-    INDEX_CREATION(
-        params.reference,
-        detected_contig
-    )
 
     // QUALITY_CONTROL(
     //     CALCULATE_STATISTICS.out.fastqc_ch.collect()
@@ -697,20 +723,25 @@ workflow {
      
     // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
-    MUTECT2(
-        mapping_final_ch,
-        INDEX_CREATION.out.ref_ch,
-        INDEX_CREATION.out.fasta_index_ch,
+    j_INDEX_CREATION(
+        params.reference,
+        detected_contig
+    )
+
+    k_MUTECT2(
+        rnt_ch,
+        j_INDEX_CREATION.out.ref_ch,
+        j_INDEX_CREATION.out.fasta_index_ch,
         detected_contig,
         "mutect2_fusion"
     )
     
     // // vcf_ch = MUTSERVE.out.mutserve_ch
-    vcf_ch = MUTECT2.out.mutect2_ch 
+    vcf_ch = k_MUTECT2.out.mutect2_ch 
     // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     // file_count =  MUTSERVE.out.mutserve_ch.count()
     
-    ANNOTATE_VARIANTS (
+    l_ANNOTATE_VARIANTS (
         vcf_ch,
         params.reference
     )
