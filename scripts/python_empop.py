@@ -26,7 +26,7 @@ def rightmost_position(reference, pos, variant, ref_base):
     # print(reference[pos])
     
     # Move the insertion to the rightmost position in case of repeated bases
-    while pos + 1 < len(reference) and reference[pos + 1] == variant:
+    while pos + 1 < len(reference) and ''.join(reference[pos + 1]) == variant:
         pos += 1
 
     return pos + 1  # Convert back to 1-based index
@@ -37,13 +37,14 @@ def rightmost_position_segment_ins(reference, pos, segment):
     based on repeated sequences.
     """
     pos = int(pos) - 1  # Convert to zero-based index
-
+    # print(pos)
+    # print(reference[pos + 1: pos + 1 + len(segment)])
     # Move position to the rightmost occurrence of the repeated segment
-    while pos + len(segment) < len(reference) and reference[pos + 1: pos + 1 + len(segment)] == segment:
+    while pos + len(segment) < len(reference) and ''.join(reference[pos + 1: pos + 1 + len(segment)]) == segment:
         pos += len(segment)
-        print(pos)
-        print(reference[pos + 1: pos + 1 + len(segment)])
-
+        # print(pos)
+        # print(reference[pos + 1: pos + 1 + len(segment)])
+    # print(pos)
     return pos+len(segment)  # Convert back to 1-based index
 
 def rightmost_position_segment_del(reference, pos, segment):
@@ -51,14 +52,20 @@ def rightmost_position_segment_del(reference, pos, segment):
     Finds the rightmost position where an insertion or deletion should be placed
     based on repeated sequences.
     """
-    pos = int(pos) - 1  # Convert to zero-based index
-
+    pos = int(pos) -1 # Convert to zero-based index
+    # print(reference[pos + 1: pos + 1 + len(segment)])
+    # print(segment)
+        
+    # if ''.join(reference[pos + 1: pos + 1 + len(segment)]) == segment:
+    #     print("TRUE")
+    # else:
+    #     print("FALSE")
     # Move position to the rightmost occurrence of the repeated segment
-    while pos + len(segment) < len(reference) and reference[pos + 1: pos + 1 + len(segment)] == segment:
+    while pos + len(segment) < len(reference) and ''.join(reference[pos + 1: pos + 1 + len(segment)]) == segment:
         pos += len(segment)
-        print(pos)
-        print(reference[pos + 1: pos + 1 + len(segment)])
-
+        # print(pos)
+        # print(reference[pos + 1: pos + 1 + len(segment)])
+    # print(pos)
     return pos  # Convert back to 1-based index
 
 
@@ -68,9 +75,10 @@ def shift_insertion_right(reference, pos, inserted_segment):
     the next base after the rightmost position of the insertion.
     """
     rightmost_pos = rightmost_position_segment_ins(reference, pos, inserted_segment)
-
+    # print(rightmost_pos)
+    # print(inserted_segment)
     for _ in range(len(inserted_segment) - 1):
-        if rightmost_pos + len(inserted_segment) < len(reference) and reference[rightmost_pos + len(inserted_segment)] == inserted_segment[0]:
+        if rightmost_pos + len(inserted_segment) < len(reference) and ''.join(reference[rightmost_pos +1 : rightmost_pos + 1 + len(inserted_segment)]) == inserted_segment[0]:
             # Shift right by moving first base to last position
             inserted_segment = inserted_segment[1:] + inserted_segment[0]
             rightmost_pos += 1
@@ -85,15 +93,26 @@ def shift_deletion_right(reference, pos, deleted_segment):
     Shifts the deletion right if the first base of deleted_segment matches 
     the next base after the rightmost position of the deletion.
     """
+    # print(pos)
+    # print(deleted_segment)
     rightmost_pos = rightmost_position_segment_del(reference, pos, deleted_segment)
-    print(rightmost_pos)
+    # print(rightmost_pos)
+    # print(len(deleted_segment))
+
+    # if ''.join(reference[rightmost_pos + len(deleted_segment)]) == deleted_segment[0]:
+    #     print("TRUE")
+    # else:
+    #     print("FALSE")
+    
     for _ in range(len(deleted_segment) - 1):
-        if rightmost_pos + len(deleted_segment) < len(reference) and reference[rightmost_pos + len(deleted_segment)] == deleted_segment[0]:
+        if rightmost_pos + len(deleted_segment) < len(reference) and ''.join(reference[rightmost_pos + len(deleted_segment)]) == deleted_segment[0]:
             # Shift right by moving first base to last position
             deleted_segment = deleted_segment[1:] + deleted_segment[0]
             rightmost_pos += 1
+            # print(rightmost_pos)
         else:
             break  # Stop shifting if no more matches
+    
     print(deleted_segment)
     print(rightmost_pos)
     return rightmost_pos, deleted_segment
@@ -135,19 +154,26 @@ def format_variant(row, modified_reference):
             return f"{deleted_base}{rightmost_pos}-"  # Example: C524-
 
         elif len(ref) < len(var):  # Multi-base Insertion
+            # print(pos)
             inserted_segment = var[len(ref):]  # Extract inserted bases
             rightmost_pos, adjusted_segment = shift_insertion_right(modified_reference, pos, inserted_segment)  # Find rightmost repeat
+            # print(rightmost_pos)
+            # print(adjusted_segment)
             # Apply insertion to modified reference
+            # print(adjusted_segment)
             if var_level >= 0.925:
                 return " ".join([f"-{rightmost_pos}.{i+1}{adjusted_segment[i]}" for i in range(len(inserted_segment))])
             else: 
                 return " ".join([f"-{rightmost_pos}.{i+1}{adjusted_segment[i].lower()}" for i in range(len(inserted_segment))])
         
         elif len(ref) > len(var):  # Multi-base Deletion
-            deleted_segment = ref[len(var):]  # Extract deleted bases
-            print(deleted_segment)
-            rightmost_pos, adjusted_segment = shift_deletion_right(modified_reference, pos, deleted_segment)  # Find rightmost repeat
+           
+            deleted_segment = ref[len(var):] 
+            # print(deleted_segment) # Extract deleted bases
+            # print(deleted_segment)
             
+            rightmost_pos, adjusted_segment = shift_deletion_right(modified_reference, pos, deleted_segment)  # Find rightmost repeat
+            # print(modified_reference[rightmost_pos-10:rightmost_pos + len(adjusted_segment)+15])
             # Apply deletion to modified reference
             # del modified_reference[rightmost_pos:rightmost_pos + len(adjusted_segment)]
             

@@ -605,7 +605,7 @@ process l_ANNOTATE_VARIANTS {
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
     python $params.python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
-    ## 
+    
     """
 }
 
