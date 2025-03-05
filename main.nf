@@ -127,16 +127,17 @@ process c_MAPPING_2_SAM {
     cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
-    samtools-1.21 view -bS ${sample_id}_R1.sam | samtools-1.21 sort -o ${sample_id}_R1.bam
-    samtools-1.21 view -bS ${sample_id}_R2.sam | samtools-1.21 sort -o ${sample_id}_R2.bam
-    samtools-1.21 index ${sample_id}_R1.bam
-    samtools-1.21 index ${sample_id}_R2.bam 
+    samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
+    samtools view -bS ${sample_id}_R2.sam | samtools sort -o ${sample_id}_R2.bam
+    samtools index ${sample_id}_R1.bam
+    samtools index ${sample_id}_R2.bam 
     """
 }
     // mv ${reads[0]} tmp.fastq.gz
     // cutadapt -a $params.adapter -o ${reads[0]}  tmp.fastq.gz 
 
 process d_REMOVE_SOFT_CLIPPED_BASES {
+    container 'peterresutik/nimagen-pipeline:latest'
     tag "d: remove_scb on $sample_id"
     publishDir "$params.outdir/d_cleaned", mode: 'copy'
 
@@ -150,10 +151,10 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
 
     script:
     """
-    cat ${sam_r1} | python $params.python_script > ${sample_id}_R1_cleaned.sam 
-    cat ${sam_r2} | python $params.python_script > ${sample_id}_R2_cleaned.sam
-    samtools-1.21 view -Sb ${sample_id}_R1_cleaned.sam >  ${sample_id}_R1_cleaned.bam
-    samtools-1.21 view -Sb ${sample_id}_R2_cleaned.sam >  ${sample_id}_R2_cleaned.bam
+    cat ${sam_r1} | python /workspace/scripts/remove_soft_clipped_bases.py > ${sample_id}_R1_cleaned.sam 
+    cat ${sam_r2} | python /workspace/scripts/remove_soft_clipped_bases.py > ${sample_id}_R2_cleaned.sam
+    samtools view -Sb ${sample_id}_R1_cleaned.sam >  ${sample_id}_R1_cleaned.bam
+    samtools view -Sb ${sample_id}_R2_cleaned.sam >  ${sample_id}_R2_cleaned.bam
     """
 }
 
@@ -692,72 +693,73 @@ workflow {
     // merging_ch = MERGING(read_pairs_ch)
     // mapping_ch = 
     c_MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
+    
     mapping_ch = c_MAPPING_2_SAM.out.mapping_test
     cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch)
-    fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
-    merging_ch = f_MERGING(fastq_ch)
-    trimming_ch = g_TRIMMING(merging_ch)
-    mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
+    // fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
+    // merging_ch = f_MERGING(fastq_ch)
+    // trimming_ch = g_TRIMMING(merging_ch)
+    // mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
 
-    rnt_ch = hb_NUMTs(mapping_final_ch)
+    // rnt_ch = hb_NUMTs(mapping_final_ch)
 
-    i_CALCULATE_STATISTICS(mapping_final_ch, rnt_ch)
+    // i_CALCULATE_STATISTICS(mapping_final_ch, rnt_ch)
 
-    // INPUT_VALIDATION(
-    //     CALCULATE_STATISTICS.out.fixed_file.collect(),
-    //     CALCULATE_STATISTICS.out.stats_ch.collect(),
-    //     CALCULATE_STATISTICS.out.mapping_ch.collect(),
-    //     params.reference, index_ch
-    // )
+    // // INPUT_VALIDATION(
+    // //     CALCULATE_STATISTICS.out.fixed_file.collect(),
+    // //     CALCULATE_STATISTICS.out.stats_ch.collect(),
+    // //     CALCULATE_STATISTICS.out.mapping_ch.collect(),
+    // //     params.reference, index_ch
+    // // )
 
 
 
-    // QUALITY_CONTROL(
-    //     CALCULATE_STATISTICS.out.fastqc_ch.collect()
-    // )
+    // // QUALITY_CONTROL(
+    // //     CALCULATE_STATISTICS.out.fastqc_ch.collect()
+    // // )
 
-    // // haplogrep_ch = file("$projectDir/files/haplogroups.txt")
-    // // contamination_ch = file("$projectDir/files/haplocheck.txt")
+    // // // haplogrep_ch = file("$projectDir/files/haplogroups.txt")
+    // // // contamination_ch = file("$projectDir/files/haplocheck.txt")
 
-    // validated_files = INPUT_VALIDATION.out.validated_files.flatten()
+    // // validated_files = INPUT_VALIDATION.out.validated_files.flatten()
      
-    // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
+    // // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
-    j_INDEX_CREATION(
-        params.reference,
-        detected_contig
-    )
+    // j_INDEX_CREATION(
+    //     params.reference,
+    //     detected_contig
+    // )
 
-    k_MUTECT2(
-        rnt_ch,
-        j_INDEX_CREATION.out.ref_ch,
-        j_INDEX_CREATION.out.fasta_index_ch,
-        detected_contig,
-        "mutect2_fusion"
-    )
-    
-    // // vcf_ch = MUTSERVE.out.mutserve_ch
-    vcf_ch = k_MUTECT2.out.mutect2_ch 
-    // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
-    // file_count =  MUTSERVE.out.mutserve_ch.count()
-    
-    l_ANNOTATE_VARIANTS (
-        vcf_ch,
-        params.reference
-    )
-
-    // MERGING_VARIANTS(
-    //     FILTER_VARIANTS.out.combined_methods_ch.collect(),
-    //     params.mode
+    // k_MUTECT2(
+    //     rnt_ch,
+    //     j_INDEX_CREATION.out.ref_ch,
+    //     j_INDEX_CREATION.out.fasta_index_ch,
+    //     detected_contig,
+    //     "mutect2_fusion"
     // )
     
-    // variants_txt_ch = MERGING_VARIANTS.out.txt_summarized_ch    
+    // // // vcf_ch = MUTSERVE.out.mutserve_ch
+    // vcf_ch = k_MUTECT2.out.mutect2_ch 
+    // // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
+    // // file_count =  MUTSERVE.out.mutserve_ch.count()
+    
+    // l_ANNOTATE_VARIANTS (
+    //     vcf_ch,
+    //     params.reference
+    // )
+
+    // // MERGING_VARIANTS(
+    // //     FILTER_VARIANTS.out.combined_methods_ch.collect(),
+    // //     params.mode
+    // // )
+    
+    // // variants_txt_ch = MERGING_VARIANTS.out.txt_summarized_ch    
 
 
-    // MUTECT2(mapping_ch, params.reference, "mutect2_fusion")
+    // // MUTECT2(mapping_ch, params.reference, "mutect2_fusion")
         
-    // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
-    // file_count =  MUTSERVE.out.mutserve_ch.count()
+    // // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
+    // // file_count =  MUTSERVE.out.mutserve_ch.count()
 
     
 }
