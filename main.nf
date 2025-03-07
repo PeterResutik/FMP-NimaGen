@@ -151,8 +151,9 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
 
     script:
     """
-    cat ${sam_r1} | python /workspace/scripts/remove_soft_clipped_bases.py > ${sample_id}_R1_cleaned.sam 
-    cat ${sam_r2} | python /workspace/scripts/remove_soft_clipped_bases.py > ${sample_id}_R2_cleaned.sam
+    script_path="${workflow.projectDir}/scripts/remove_soft_clipped_bases.py"
+    cat ${sam_r1} | python \$script_path > ${sample_id}_R1_cleaned.sam 
+    cat ${sam_r2} | python \$script_path > ${sample_id}_R2_cleaned.sam
     samtools view -Sb ${sample_id}_R1_cleaned.sam >  ${sample_id}_R1_cleaned.bam
     samtools view -Sb ${sample_id}_R2_cleaned.sam >  ${sample_id}_R2_cleaned.bam
     """
