@@ -143,21 +143,35 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
-    // path merged_file
-    
+
     output:
     tuple val(sample_id), path("${sample_id}_R1_cleaned.bam"), path("${sample_id}_R2_cleaned.bam")
-    
 
     script:
     """
-    script_path="${workflow.projectDir}/scripts/remove_soft_clipped_bases.py"
-    cat ${sam_r1} | python \$script_path > ${sample_id}_R1_cleaned.sam 
+    # Check if running inside Docker
+    if [[ -f /workspace/scripts/remove_soft_clipped_bases.py ]]; then
+        script_path="/workspace/scripts/remove_soft_clipped_bases.py"
+    else
+        script_path="${workflow.projectDir}/scripts/remove_soft_clipped_bases.py"
+    fi
+
+    # Debugging: Print script path
+    echo "Using script path: \$script_path" >&2
+
+    if [[ ! -f \$script_path ]]; then
+        echo "Error: Script \$script_path not found!" >&2
+        exit 1
+    fi
+
+    
+    cat ${sam_r1} | python \$script_path > ${sample_id}_R1_cleaned.sam
     cat ${sam_r2} | python \$script_path > ${sample_id}_R2_cleaned.sam
-    samtools view -Sb ${sample_id}_R1_cleaned.sam >  ${sample_id}_R1_cleaned.bam
-    samtools view -Sb ${sample_id}_R2_cleaned.sam >  ${sample_id}_R2_cleaned.bam
+    samtools view -Sb ${sample_id}_R1_cleaned.sam > ${sample_id}_R1_cleaned.bam
+    samtools view -Sb ${sample_id}_R2_cleaned.sam > ${sample_id}_R2_cleaned.bam
     """
 }
+
 
 process e_BACK_2_FASTQ {
     tag "e: convert_2_fastq on $sample_id"
