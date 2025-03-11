@@ -137,36 +137,21 @@ process c_MAPPING_2_SAM {
     // cutadapt -a $params.adapter -o ${reads[0]}  tmp.fastq.gz 
 
 process d_REMOVE_SOFT_CLIPPED_BASES {
-    container 'peterresutik/nimagen-pipeline:latest'
+    // container 'peterresutik/nimagen-pipeline:latest'
     tag "d: remove_scb on $sample_id"
     publishDir "$params.outdir/d_cleaned", mode: 'copy'
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
+    path script
 
     output:
     tuple val(sample_id), path("${sample_id}_R1_cleaned.bam"), path("${sample_id}_R2_cleaned.bam")
 
     script:
-    """
-    # Check if running inside Docker
-    if [[ -f /workspace/scripts/remove_soft_clipped_bases.py ]]; then
-        script_path="/workspace/scripts/remove_soft_clipped_bases.py"
-    else
-        script_path="${workflow.projectDir}/scripts/remove_soft_clipped_bases.py"
-    fi
-
-    # Debugging: Print script path
-    echo "Using script path: \$script_path" >&2
-
-    if [[ ! -f \$script_path ]]; then
-        echo "Error: Script \$script_path not found!" >&2
-        exit 1
-    fi
-
-    
-    cat ${sam_r1} | python \$script_path > ${sample_id}_R1_cleaned.sam
-    cat ${sam_r2} | python \$script_path > ${sample_id}_R2_cleaned.sam
+    """ 
+    cat ${sam_r1} | python $script > ${sample_id}_R1_cleaned.sam
+    cat ${sam_r2} | python $script > ${sample_id}_R2_cleaned.sam
     samtools view -Sb ${sample_id}_R1_cleaned.sam > ${sample_id}_R1_cleaned.bam
     samtools view -Sb ${sample_id}_R2_cleaned.sam > ${sample_id}_R2_cleaned.bam
     """
@@ -186,12 +171,10 @@ process e_BACK_2_FASTQ {
 
     script:
     """
-    samtools-1.21 fastq ${cleaned_bam_r1} > ${sample_id}_R1_cleaned.fastq    
-    samtools-1.21 fastq ${cleaned_bam_r2} > ${sample_id}_R2_cleaned.fastq   
+    samtools fastq ${cleaned_bam_r1} > ${sample_id}_R1_cleaned.fastq    
+    samtools fastq ${cleaned_bam_r2} > ${sample_id}_R2_cleaned.fastq   
     """
 }
-
-
 
 
 process f_MERGING {
@@ -216,14 +199,16 @@ process g_TRIMMING {
 
     input:
     tuple val(sample_id), path(merged_fastq)
-    
+    path left_primers
+    path right_primers
+
     output:
     tuple val(sample_id), path("${sample_id}_cleaned_merged_trimmed_left_right.fastq")
 
     script:
-    """
-    cutadapt -g file:$params.left_primers -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_cleaned_merged_trimmed_left.fastq $merged_fastq  
-    cutadapt -a file:$params.right_primers_rc -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_cleaned_merged_trimmed_left_right.fastq ${sample_id}_cleaned_merged_trimmed_left.fastq    
+    """    
+    cutadapt -g file:$left_primers -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_cleaned_merged_trimmed_left.fastq $merged_fastq  
+    cutadapt -a file:$right_primers -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_cleaned_merged_trimmed_left_right.fastq ${sample_id}_cleaned_merged_trimmed_left.fastq    
     """
 }
 // --discard-untrimmed
@@ -236,44 +221,47 @@ process ha_MAPPING_2_BAM {
     path reference
     path index_files
     tuple val(sample_id), path(trimmed_fastq)
+    path amplicon_middle_positions
 
     output:
     tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), path("${sample_id}_coverage.txt")
 
     script:
     """
-    bwa mem $reference ${trimmed_fastq} | samtools-1.21 view -Sb - > ${sample_id}_tmp.bam    
-    samtools-1.21 view -h ${sample_id}_tmp.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools-1.21 view -b -o ${sample_id}.bam
-    samtools-1.21 sort -o ${sample_id}_tmp.bam ${sample_id}.bam
+    bwa mem $reference ${trimmed_fastq} | samtools view -Sb - > ${sample_id}_tmp.bam    
+    samtools view -h ${sample_id}_tmp.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools view -b -o ${sample_id}.bam
+    samtools sort -o ${sample_id}_tmp.bam ${sample_id}.bam
     
-    samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_tmp.bam  -o ${sample_id}_tmp2.bam
+    samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_tmp.bam  -o ${sample_id}_tmp2.bam
     mv ${sample_id}_tmp2.bam ${sample_id}.bam
-    samtools-1.21 index ${sample_id}.bam
+    samtools index ${sample_id}.bam
 
-    samtools-1.21 depth -a -b $params.amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
+    samtools depth -a -b $amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
     
     """
 }
 
 process hb_NUMTs {
-    tag "hb: rnt on $sample_id"
+    tag "hb: rtn on $sample_id"
     publishDir "$params.outdir/hb_numts", mode: 'copy'
 
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
+    path amplicon_middle_positions
+    path humans
+    path numts
 
     output:
     tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path("${sample_id}_coverage_numts.txt")
 
     script:
     """
-    /Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/rtn -p -h $params.humans -n $params.numts -b $bam_file
+    
+    rtn -p -h $humans -n $numts -b $bam_file
 
+    samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
 
-
-    samtools-1.21 view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
-
-    samtools-1.21 depth -a -b $params.amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
+    samtools depth -a -b $amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
     
     """
 }
@@ -293,23 +281,23 @@ process hb_NUMTs {
 
 //     script:
 //     """
-//     bwa mem ${index_files[0].baseName} ${merged_file} | samtools-1.21 view -Sb - > ${merged_file.baseName}.bam
-//     samtools-1.21 sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
-//     samtools-1.21 index ${merged_file[0].baseName}_sorted.bam
+//     bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file.baseName}.bam
+//     samtools sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
+//     samtools index ${merged_file[0].baseName}_sorted.bam
 //     """
 //     // | samtools view -Sb - > ${merged_file.baseName}.bam
 //     // samtools sort -o ${merged_file.baseName}_sorted.bam ${merged_file.baseName}.bam
 //     // samtools index ${merged_file.baseName}_sorted.bam
-//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools-1.21 view -Sb - > ${merged_file.baseName}.bam
-//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools-1.21 view -Sb - > ${merged_file[0].baseName}.bam
-//     // samtools-1.21 sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
-//     // samtools-1.21 index ${merged_file[0].baseName}_sorted.bam
+//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file.baseName}.bam
+//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file[0].baseName}.bam
+//     // samtools sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
+//     // samtools index ${merged_file[0].baseName}_sorted.bam
     
 //     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools sort -o ${merged_file[0].baseName}.bam
-//     // samtools-1.21 view -h ${merged_file[0].baseName}_sorted.bam | '\\\$1 ~ /^@/ || \\\$6 !~ /S/' | samtools-1.21 view -b -o ${merged_file[0].baseName}__sorted_filtered.bam  
+//     // samtools view -h ${merged_file[0].baseName}_sorted.bam | '\\\$1 ~ /^@/ || \\\$6 !~ /S/' | samtools view -b -o ${merged_file[0].baseName}__sorted_filtered.bam  
 //     // samtools index ${merged_file[0].baseName}.bam
-//     // samtools-1.21 view -h -F 4 ${merged_file[0].baseName}_sorted.bam | grep -v 'S' | samtools-1.21 view -b > ${merged_file[0].baseName}_sorted_filtered.bam  
-//     // samtools-1.21 index ${merged_file[0].baseName}_sorted_filtered.bam
+//     // samtools view -h -F 4 ${merged_file[0].baseName}_sorted.bam | grep -v 'S' | samtools view -b > ${merged_file[0].baseName}_sorted_filtered.bam  
+//     // samtools index ${merged_file[0].baseName}_sorted_filtered.bam
 // }
 
 process MUTSERVE {
@@ -365,8 +353,8 @@ process MUTSERVE {
 // 	// path "ref.fasta", emit: ref_ch
 	
 //     """
-//     samtools-1.21 faidx rCRS.fasta
-//     samtools-1.21 dict rCRS.fasta -o rCRS.dict
+//     samtools faidx rCRS.fasta
+//     samtools dict rCRS.fasta -o rCRS.dict
 // 	"""
 // }
 
@@ -396,7 +384,7 @@ process i_CALCULATE_STATISTICS {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
     // 16623 - lenght of the extended rCRS
-    // samtools-1.21 addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
+    // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
     // mv ${sample_id}_tmp.bam ${bam_file}
 
     """
@@ -405,10 +393,10 @@ process i_CALCULATE_STATISTICS {
     ## echo -e "Sample\tFilename" > /${sample_id}/$mapping_name
     echo -e "Sample\tFilename" > $mapping_name
 
-    echo "\$(samtools-1.21 samples ${bam_file})" >> $mapping_name
+    echo "\$(samtools samples ${bam_file})" >> $mapping_name
 
     ## Calculate summary statistics
-    samtools-1.21 coverage ${bam_file} > samtools_coverage_${sample_id}.txt
+    samtools coverage ${bam_file} > samtools_coverage_${sample_id}.txt
     csvtk grep -t -f3 -p 16623 -C '\$' samtools_coverage_${sample_id}.txt -T -o mtdna.txt --num-cpus ${task.cpus} 
         
     contig=\$(csvtk cut -t -f 1 mtdna.txt --num-cpus ${task.cpus})
@@ -418,7 +406,7 @@ process i_CALCULATE_STATISTICS {
     mean_depth=\$(csvtk cut -t -f 7 mtdna.txt --num-cpus ${task.cpus})
     mean_base_quality=\$(csvtk cut -t -f 8 mtdna.txt --num-cpus ${task.cpus})
     mean_map_quality=\$(csvtk cut -t -f 9 mtdna.txt --num-cpus ${task.cpus})
-    readgroup=\$(samtools-1.21 view -H ${bam_file} | csvtk grep -I -H -r -p "^@RG" --num-cpus ${task.cpus} | sed 's/\t/,/g' | head -n 1)
+    readgroup=\$(samtools view -H ${bam_file} | csvtk grep -I -H -r -p "^@RG" --num-cpus ${task.cpus} | sed 's/\t/,/g' | head -n 1)
     
     echo -e "Sample\tParameter\tValue" > $output_name
     echo -e "${bam_file}\tContig\t\${contig}" >> $output_name
@@ -517,8 +505,8 @@ process j_INDEX_CREATION {
 
 	"""
 	sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
-    samtools-1.21 faidx ref.fasta
-    	samtools-1.21 dict ref.fasta \
+    samtools faidx ref.fasta
+    	samtools dict ref.fasta \
 	    -o ref.dict
 	"""
 }
@@ -543,7 +531,7 @@ process k_MUTECT2 {
     if (task.memory) {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
-    // samtools-1.21 index ${bam_file}
+    // samtools index ${bam_file}
     
     """
 
@@ -710,15 +698,15 @@ workflow {
     c_MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
     
     mapping_ch = c_MAPPING_2_SAM.out.mapping_test
-    cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch)
-    // fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
-    // merging_ch = f_MERGING(fastq_ch)
-    // trimming_ch = g_TRIMMING(merging_ch)
-    // mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch)
+    cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch, params.python_script)
+    fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
+    merging_ch = f_MERGING(fastq_ch)
+    trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
+    mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
 
-    // rnt_ch = hb_NUMTs(mapping_final_ch)
+    rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.numts)
 
-    // i_CALCULATE_STATISTICS(mapping_final_ch, rnt_ch)
+    // i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch)
 
     // // INPUT_VALIDATION(
     // //     CALCULATE_STATISTICS.out.fixed_file.collect(),
@@ -746,7 +734,7 @@ workflow {
     // )
 
     // k_MUTECT2(
-    //     rnt_ch,
+    //     rtn_ch,
     //     j_INDEX_CREATION.out.ref_ch,
     //     j_INDEX_CREATION.out.fasta_index_ch,
     //     detected_contig,
