@@ -23,8 +23,19 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.humans = "/Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/humans.fa"
-params.numts = "/Users/peter/Documents/Postdoc/Projects/for_Mario/mtDNA_NimaGen/RtN/Calabrese_Dayama_Smart_Numts.fa"
+params.humans = "$baseDir/rtn_files/humans.fa"
+params.humans_amb = "$baseDir/rtn_files/humans.fa.amb"
+params.humans_ann = "$baseDir/rtn_files/humans.fa.ann"
+params.humans_bwt = "$baseDir/rtn_files/humans.fa.bwt"
+params.humans_pac = "$baseDir/rtn_files/humans.fa.pac"
+params.humans_sa = "$baseDir/rtn_files/humans.fa.sa"
+
+params.numts = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa"
+params.numts_amb = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.amb"
+params.numts_ann = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.ann"
+params.numts_bwt = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.bwt"
+params.numts_pac = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
+params.numts_sa = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
 
 
 // mutet2
@@ -249,14 +260,23 @@ process hb_NUMTs {
     tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
     path amplicon_middle_positions
     path humans
+    path humans_amb
+    path humans_ann
+    path humans_bwt
+    path humans_pac
+    path humans_sa
     path numts
+    path numts_amb
+    path numts_ann
+    path numts_bwt
+    path numts_pac
+    path numts_sa
 
     output:
     tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path("${sample_id}_coverage_numts.txt")
 
     script:
     """
-    
     rtn -p -h $humans -n $numts -b $bam_file
 
     samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
@@ -704,7 +724,7 @@ workflow {
     trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
     mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
 
-    rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.numts)
+    rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
 
     // i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch)
 

@@ -51,6 +51,7 @@ ENV RTN_PATH="/workspace/RtN/build"
 # Copy scripts into the container
 COPY scripts /workspace/scripts
 COPY primers /workspace/primers
+COPY rtn_files /workspace/rtn_files
 
 # Set default shell
 SHELL ["/bin/bash", "-c"]

@@ -18,6 +18,16 @@ data/
 results/
 output/
 
+#index files
+humans.fa
+humans.fa.sa
+humans.fa.amb
+humans.fa.ann
+humans.fa.bwt
+humans.fa.fai
+humans.fa.pac
+
+
 # Cache files
 .cache/
 *.cache
