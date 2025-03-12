@@ -1,84 +1,129 @@
 # mtDNA Processing Pipeline
 
-Welcome to the **mtDNA Processing Pipeline**, an optimized and reproducible workflow for processing raw FASTQ files from mitochondrial DNA (mtDNA) sequences generated using the **Nimagen RC-PCR Kit**. This pipeline is implemented using [Nextflow](https://www.nextflow.io/), ensuring seamless execution across various computational environments.
-
----
+This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated using the Nimagen RC-PCR Kit. It is implemented using Nextflow, enabling streamlined execution across different computational environments.
 
 ## Overview
 
-The pipeline automates essential steps in mtDNA sequencing data analysis, including:
+The pipeline automates the following steps:
 
-1. **Soft-clip Removal**: Eliminates soft-clipped bases for improved read quality.
-2. **Read Merging**: Uses FLASH to merge overlapping paired-end reads for enhanced sequence accuracy.
-3. **Primer Trimming**: Utilizes Cutadapt to remove primers and unwanted sequences.
-4. **Variant Calling**: Employs GATK's Mutect2 to detect mtDNA variants.
-5. **Forensic Nomenclature Conversion**: Converts variants into a forensic nomenclature consistent with the **EMPOP** database.
+1. **Soft-clip Removal**: Removes soft-clipped bases for improved read quality.
+2. **Read Merging**: Uses FLASH to merge overlapping paired-end reads.
+3. **Primer Trimming**: Uses Cutadapt to remove primers and unwanted sequences.
+4. **Variant Calling**: Uses GATK Mutect2 to detect mtDNA variants.
+5. **Forensic Nomenclature Conversion**: Converts variants into a nomenclature consistent with the EMPOP database.
 
-This pipeline provides a **transparent**, **reproducible**, and **scalable** workflow for scientists performing mtDNA analyses.
+The workflow is designed for reproducibility and scalability.
 
-<!-- ---
+## Installation and Setup
 
-## Features
-
-- **Reproducible**: Ensures consistent results across multiple runs.
-- **Scalable**: Supports execution on local machines, clusters, and cloud environments.
-- **Customizable**: Allows fine-tuning of parameters for read merging, trimming, and variant calling. -->
-
----
-
-## Requirements
-
-### Software
-
-- **Nextflow**: >= 22.10.0
-- **Java**: >= 8
-- **Docker** or **Singularity** (optional, for containerized execution)
-
-### Dependencies
-
-The pipeline relies on the following tools, which can be installed via conda or containerized environments:
-
-- [FLASH (for read merging)](https://ccb.jhu.edu/software/FLASH/)
-- [Cutadapt (for primer trimming)](https://cutadapt.readthedocs.io/)
-- [BWA (for sequence alignment)](http://bio-bwa.sourceforge.net/)
-- [GATK Mutect2 (for variant calling)](https://gatk.broadinstitute.org/)
-
----
-
-## Installation
-
-Clone the repository and navigate to the pipeline directory:
+### Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/mtDNA-pipeline.git
-cd mtDNA-pipeline
+git clone https://github.com/PeterResutik/mtDNA-NimaGen.git
+cd mtDNA-NimaGen
 ```
 
----
+### Prepare Reference Files
 
-## Execution
-
-To run the pipeline, execute the following command:
+Navigate to the reference files directory and index the genome:
 
 ```bash
-nextflow run main.nf
+cd resources/rtn_files
+bunzip2 humans.fa.bz2 && bwa index humans.fa
 ```
 
----
+### Organize Input Data
 
-## Configurable Parameters
-
-The following parameters can be adjusted in the pipeline:
-
-### Read Merging (FLASH)
+Move raw sequencing files into the designated folder:
 
 ```bash
-params.min_overlap = 10  # Default: 10
-params.max_overlap = 140 # Default in FLASH: 65
-params.max_mismatch_density = 0.25 # Default in FLASH: 0.25
+mkdir -p raw_data
+cp /path/to/your/FASTQ/*fastq.gz raw_data/
 ```
 
-### Primer Trimming (Cutadapt)
+## Running the Pipeline
+
+### Execution Options
+
+The pipeline can be executed using either Docker or local dependencies.
+
+#### Running with Docker (Recommended)
+
+```bash
+nextflow run main.nf -profile docker
+```
+
+This method ensures that all required dependencies are available.
+
+#### Running Locally
+
+If running locally, first install dependencies as outlined below. Then execute:
+
+```bash
+nextflow run main.nf -profile local
+```
+
+#### Resuming a Previous Run
+
+To avoid re-processing completed steps, use:
+
+```bash
+nextflow run main.nf -profile docker -resume
+```
+
+## Local Installation
+
+To run the pipeline locally, install the required software using Conda:
+
+```bash
+conda create -n mtDNA_env -c bioconda -c conda-forge -y \
+    nextflow=24.10.0 \
+    python=3.9 \
+    cutadapt=4.6 \
+    samtools=1.21 \
+    bwa=0.7.18 \
+    flash=1.2.11 \
+    csvtk=0.31.0 \
+    fastqc=0.11.9 \
+    bcftools=1.11-35-g8a744dd \
+    gatk4=4.6.1.0
+```
+
+Additional Python dependencies:
+
+```bash
+conda install -n mtDNA_env -c conda-forge pandas biopython matplotlib
+```
+
+### Virtual Environment
+
+A Conda environment is recommended to isolate dependencies. Before running the pipeline, activate it:
+
+```bash
+conda activate mtDNA_env
+nextflow run main.nf -profile local
+```
+
+## Configuration
+
+### Profiles
+
+- `-profile docker`: Uses a Docker container with pre-installed dependencies.
+- `-profile local`: Uses software installed locally.
+
+### Configurable Parameters
+
+Adjust parameters in `nextflow.config` or specify them at runtime.
+
+#### Read Merging (FLASH)
+
+```bash
+params.min_overlap = 10  
+params.max_overlap = 140 
+params.max_mismatch_density = 0.25  
+```
+
+#### Primer Trimming (Cutadapt)
 
 ```bash
 params.quality_cutoff = 25
@@ -86,7 +131,7 @@ params.minimum_length = 60
 params.maximum_length = 300
 ```
 
-### Variant Calling (GATK Mutect2)
+#### Variant Calling (GATK Mutect2)
 
 ```bash
 params.detection_limit = 0.075
@@ -95,23 +140,51 @@ params.baseQ = 32
 params.alignQ = 30
 ```
 
----
+## Cleaning Up
 
-## Output
+### Remove Cache and Temporary Files
 
-- **Processed Reads**: Trimmed and merged reads aligned to the reference genome.
-- **Variant Calls**: Identified variants in VCF format.
-- **Forensic Format Variants**: Variants converted to forensic nomenclature compatible with EMPOP.
+To start from a clean state, delete cached data:
 
----
+```bash
+rm -rf .nextflow.cache
+```
+
+To remove intermediate work files:
+
+```bash
+nextflow clean -f
+```
+
+### Remove Output Files (Optional)
+
+To delete previous results:
+
+```bash
+rm -r work.nosync
+rm -r results.nosync
+```
+
+Use this with caution, as it permanently deletes output data.
+
+## Output Files
+
+The pipeline generates the following:
+
+| File Type | Description |
+|-----------|-------------|
+| Processed Reads | Trimmed and merged sequences aligned to the reference genome |
+| Variant Calls | Identified variants in VCF format |
+| Forensic Format Variants | Variants formatted for EMPOP |
 
 ## Citation
 
-If you use this pipeline in your research, please cite this repository and the tools used.
+If this pipeline is used in research, please cite this repository along with the associated tools.
 
----
+## Contributing
 
-For any issues or questions, feel free to open an issue on the GitHub repository.
+Contributions are welcome. To report issues or suggest improvements, open an issue or pull request on GitHub.
 
-Happy Analyzing!
+## Contact
 
+For support, submit an issue on the GitHub repository.
