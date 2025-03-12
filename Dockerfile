@@ -56,9 +56,12 @@ RUN cp /workspace/RtN/Nix_binary/rtn /usr/local/bin/ && chmod +x /usr/local/bin/
 ENV RTN_PATH="/workspace/RtN/build"
 
 # Copy scripts into the container
-COPY scripts /workspace/scripts
-COPY primers /workspace/primers
-COPY rtn_files /workspace/rtn_filesg
+COPY resources/scripts /workspace/resources/scripts
+COPY resources/primers /workspace/resources/primers
+COPY resources/rtn_files /workspace/resources/rtn_filesg
+COPY resources/amplicon_bed /workspace/resources/amplicon_bed
+COPY resources/rCRS /workspace/resources/amplicon_bed
+
 
 # Set default shell
 SHELL ["/bin/bash", "-c"]

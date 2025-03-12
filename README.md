@@ -104,35 +104,6 @@ nextflow run main.nf -profile local
 - `-profile docker`: Uses a Docker container with pre-installed dependencies.
 - `-profile local`: Uses software installed locally.
 
-### Configurable Parameters
-
-Adjust parameters in `nextflow.config` or specify them at runtime.
-
-#### Read Merging (FLASH)
-
-```bash
-params.min_overlap = 10  
-params.max_overlap = 140 
-params.max_mismatch_density = 0.25  
-```
-
-#### Primer Trimming (Cutadapt)
-
-```bash
-params.quality_cutoff = 25
-params.minimum_length = 60
-params.maximum_length = 300
-```
-
-#### Variant Calling (GATK Mutect2)
-
-```bash
-params.detection_limit = 0.075
-params.mapQ = 30
-params.baseQ = 32
-params.alignQ = 30
-```
-
 ## Cleaning Up
 
 ### Remove Cache and Temporary Files
@@ -159,16 +130,6 @@ rm -r results.nosync
 ```
 
 Use this with caution, as it permanently deletes output data.
-
-## Output Files
-
-The pipeline generates the following:
-
-| File Type | Description |
-|-----------|-------------|
-| Processed Reads | Trimmed and merged sequences aligned to the reference genome |
-| Variant Calls | Identified variants in VCF format |
-| Forensic Format Variants | Variants formatted for EMPOP |
 
 ## Citation
 

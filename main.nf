@@ -3,8 +3,8 @@ nextflow.enable.dsl=2
 /* 
  * pipeline input parameters 
  */
-params.reads = "$baseDir/data/FASTQ/*_{R1,R2}_001.fastq.gz"
-params.reference = "$baseDir/data/rCRS2.fasta"
+params.reads = "$baseDir/raw_data/*_{R1,R2}_001.fastq.gz"
+params.reference = "$baseDir/resources/rCRS/rCRS2.fasta"
 params.min_overlap = 10 // default in FLASH is 10
 params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
@@ -14,28 +14,28 @@ params.outdir = "results.nosync"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
-params.left_primers = "$baseDir/primers/left_primers.fasta"
-params.right_primers_rc = "$baseDir/primers/right_primers_rc.fasta"
-params.amplicon_middle_positions = "$baseDir/primers/amplicons_bed.txt"
+params.left_primers = "$baseDir/resources/primers/left_primers.fasta"
+params.right_primers_rc = "$baseDir/resources/primers/right_primers_rc.fasta"
+params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_bed.txt"
 
 // cutadapt
 params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.humans = "$baseDir/rtn_files/humans.fa"
-params.humans_amb = "$baseDir/rtn_files/humans.fa.amb"
-params.humans_ann = "$baseDir/rtn_files/humans.fa.ann"
-params.humans_bwt = "$baseDir/rtn_files/humans.fa.bwt"
-params.humans_pac = "$baseDir/rtn_files/humans.fa.pac"
-params.humans_sa = "$baseDir/rtn_files/humans.fa.sa"
+params.humans = "$baseDir/resources/rtn_files/humans.fa"
+params.humans_amb = "$baseDir/resources/rtn_files/humans.fa.amb"
+params.humans_ann = "$baseDir/resources/rtn_files/humans.fa.ann"
+params.humans_bwt = "$baseDir/resources/rtn_files/humans.fa.bwt"
+params.humans_pac = "$baseDir/resources/rtn_files/humans.fa.pac"
+params.humans_sa = "$baseDir/resources/rtn_files/humans.fa.sa"
 
-params.numts = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa"
-params.numts_amb = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.amb"
-params.numts_ann = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.ann"
-params.numts_bwt = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.bwt"
-params.numts_pac = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
-params.numts_sa = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
+params.numts = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa"
+params.numts_amb = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.amb"
+params.numts_ann = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.ann"
+params.numts_bwt = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.bwt"
+params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
+params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
 
 
 // mutect2
@@ -43,11 +43,10 @@ params.detection_limit = 0.08
 params.mapQ = 30
 params.baseQ = 32
 params.alignQ = 30
-params.mode = 'fusion'
 
-params.python_script = "$baseDir/scripts/remove_soft_clipped_bases.py"
-params.python_script2 = "$baseDir/scripts/python_empop.py"
-params.python_script3 = "$baseDir/scripts/python_coverage.py"
+params.python_script = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
+params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
+params.python_script3 = "$baseDir/resources/scripts/python_coverage.py"
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -73,6 +72,7 @@ log_text = """\
          detection_limit          : $params.detection_limit
          mapQ                     : $params.mapQ
          baseQ                    : $params.baseQ
+         alignQ                   : $params.alignQ
 
          outdir                   : ${params.outdir}
          """
@@ -286,98 +286,6 @@ process hb_NUMTs {
     """
 }
 
-// process 2nd_MAPPING {
-//     tag "bwa mem on ${merged_file[0].baseName}"
-//     publishDir "$params.outdir/mapped", mode: params.publish_dir_mode
-
-//     input:
-//     path reference
-//     path index_files
-//     path merged_file
-    
-//     output:
-//     path "${merged_file[0].baseName}_sorted.bam"
-//     path "${merged_file[0].baseName}_sorted.bam.bai"
-
-//     script:
-//     """
-//     bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file.baseName}.bam
-//     samtools sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
-//     samtools index ${merged_file[0].baseName}_sorted.bam
-//     """
-//     // | samtools view -Sb - > ${merged_file.baseName}.bam
-//     // samtools sort -o ${merged_file.baseName}_sorted.bam ${merged_file.baseName}.bam
-//     // samtools index ${merged_file.baseName}_sorted.bam
-//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file.baseName}.bam
-//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools view -Sb - > ${merged_file[0].baseName}.bam
-//     // samtools sort -o ${merged_file[0].baseName}_sorted.bam ${merged_file[0].baseName}.bam
-//     // samtools index ${merged_file[0].baseName}_sorted.bam
-    
-//     // bwa mem ${index_files[0].baseName} ${merged_file} | samtools sort -o ${merged_file[0].baseName}.bam
-//     // samtools view -h ${merged_file[0].baseName}_sorted.bam | '\\\$1 ~ /^@/ || \\\$6 !~ /S/' | samtools view -b -o ${merged_file[0].baseName}__sorted_filtered.bam  
-//     // samtools index ${merged_file[0].baseName}.bam
-//     // samtools view -h -F 4 ${merged_file[0].baseName}_sorted.bam | grep -v 'S' | samtools view -b > ${merged_file[0].baseName}_sorted_filtered.bam  
-//     // samtools index ${merged_file[0].baseName}_sorted_filtered.bam
-// }
-
-process MUTSERVE {
-    tag "mutserve on $sample_id"
-    publishDir "$params.outdir/mutserve", mode: 'copy'
-
-    input:
-    path reference
-    path index_files
-    val method
-    tuple val(sample_id), path(sorted_bam), path(sorted_index)
-
-    output:
-    tuple path("${sample_id}.vcf.gz"), path("${sample_id}.vcf.gz.tbi"), val(method), emit: mutserve_ch
-    
-    script:
-    def avail_mem = 1024
-    if (task.memory) {
-        avail_mem = (task.memory.mega*0.8).intValue()
-    }    
-
-    """
-    #todo: check used mutserve strand-bias with default parameter 
-    java -Xmx${avail_mem}M -jar /opt/mutserve/mutserve.jar \
-        call \
-        --level ${params.detection_limit} \
-        --reference ${reference} \
-        --mapQ ${params.mapQ} \
-        --baseQ ${params.baseQ} \
-        --output ${sample_id}.vcf.gz \
-        --no-ansi \
-        --write-raw \
-        ${sorted_bam} 
-
-    bcftools norm \
-        -m-any \
-        -f ${reference} \
-        -o ${sample_id}.norm.vcf.gz -Oz \
-        ${sample_id}.vcf.gz 
-    
-    mv ${sample_id}.norm.vcf.gz ${sample_id}.vcf.gz
-    tabix -f ${sample_id}.vcf.gz
-    """
-}
-
-// process INDEX_CREATION {
-// 	input:
-// 	path reference
-    
-// 	output:
-// 	path "rCRS*.{dict,fai}", emit: fasta_index_ch
-//     // path "ref*.{dict,fai}", emit: fasta_index_ch
-// 	// path "ref.fasta", emit: ref_ch
-	
-//     """
-//     samtools faidx rCRS.fasta
-//     samtools dict rCRS.fasta -o rCRS.dict
-// 	"""
-// }
-
 process i_CALCULATE_STATISTICS {
     tag "i: calculate_statistics on $sample_id"
     publishDir "$params.outdir/i_calculate_statistics", mode: 'copy'
@@ -446,75 +354,10 @@ process i_CALCULATE_STATISTICS {
 }
 // echo "\$(${sample_id} ${bam_file})" >> $mapping_name
 
-process INPUT_VALIDATION {
-    // tag "input_validation on $sample_id"
-    publishDir "$params.outdir/input_validation", mode: 'copy'
-
-    input:
-    path bams_ch
-    path statistics
-    path mapping
-    path reference
-    path index_files
-
-    output:
-    path("sample_statistics.txt"), emit: summarized_ch
-    path("sample_mappings.txt"), emit: mapping_ch
-    path("excluded_samples.txt"), emit: excluded_ch
-    path("contig.txt"), emit: contig_ch
-    path("*.bam"), includeInputs: true, emit: validated_files
-
-    """
-    csvtk concat \
-        -t ${statistics} \
-        -T -o sample_statistics.txt \
-        --num-cpus ${task.cpus}
-    
-    csvtk concat \
-        -t ${mapping} \
-        -T -o sample_mappings.txt \
-        --num-cpus ${task.cpus}
-    
-    java -jar /opt/mutserve/mutserve.jar stats \
-        --input sample_statistics.txt \
-        --mapping sample_mappings.txt \
-        --detection-limit ${params.detection_limit}  \
-        --reference ${reference}  \
-        --baseQ ${params.baseQ}\
-        --mapQ ${params.mapQ} \
-        --alignQ ${params.alignQ} \
-        --output-excluded-samples excluded_samples.txt \
-        --output-contig contig.txt \
-        --tool ${params.mode}
-
-    # delete excluded_samples from BAM input channel directly
-    awk -v q='"' '{print "rm " q \$1 q }' excluded_samples.txt | sh
-
-   
-    """
-}
-//  python -m json.tool cloudgene.report.json
-
-
-
-
-// process QUALITY_CONTROL {
-    
-//     publishDir "${params.output_reports}/multiqc", mode: "copy", pattern: '*.html'
-    
-//     input:
-//     path zip
-    
-//     output:
-// 	path "*.html"
-
-// 	"""
-// 	multiqc . --filename index.html
-// 	"""
-// }
-
 process j_INDEX_CREATION {
-	publishDir "$params.outdir/j_index_creation", mode: 'copy'
+	tag "j: samtools on $reference"
+    publishDir "$params.outdir/j_index_creation", mode: 'copy'
+    
     input:
 	path reference
 	val mtdna_tag
@@ -553,9 +396,7 @@ process k_MUTECT2 {
     }    
     // samtools index ${bam_file}
     
-    """
-
-    
+    """  
     gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
         Mutect2 \
         -R ${reference} \
@@ -597,11 +438,11 @@ process k_MUTECT2 {
 
 
 // /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-//  /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+// /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
 
-process l_ANNOTATE_VARIANTS {
-    tag "l: annotate_variants on $sample_id"
-    publishDir "$params.outdir/l_filter_variants", mode: 'copy'
+process l_FINAL_VARIANTS {
+    tag "l: final_variants on $sample_id"
+    publishDir "$params.outdir/l_final_variants", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
@@ -640,157 +481,41 @@ process l_ANNOTATE_VARIANTS {
     """
 }
 
-    // if [[ ${method} == "mutserve_fusion" ]]
-    // then
-    //     awk -F'\t' 'NR == 1 || (length(\$4) == 1 && length(\$5) == 1)' \
-    //         ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
-
-    // elif [[ ${method} == "mutect2_fusion" ]]
-    // then
-    //     awk -F'\t' 'NR == 1 || ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5))' \
-    //         ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.tmp.txt
-    // else 
-    //     mv ${vcf_file.baseName}.${method}.txt ${vcf_file.baseName}.${method}.filtered.tmp.txt  
-    // fi
-    
-    // ## annotating SNVS and INDELs for reporting
-    // awk 'BEGIN {OFS="\t"} {
-    //     if (NR == 1) { print \$0, "Type"; next }
-    //     if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
-    //     else if (\$9 == "1") { \$10="1" }
-    //     else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
-    //     else { \$10="UNKNOWN" }
-    //     print
-    // }' ${vcf_file.baseName}.${method}.filtered.tmp.txt > ${vcf_file.baseName}.${method}.filtered.txt
-
-    // rm ${vcf_file.baseName}.${method}.filtered.tmp.txt
-
-process MERGING_VARIANTS {
-    publishDir "$params.outdir/merged_variants", mode: 'copy'
-    input:
-    path variants_txt
-    val mode
-
-    output:
-    path("variants.txt"), emit: txt_summarized_ch
-
-    """
-    csvtk concat \
-        -t ${variants_txt} \
-        -T -o variants.concat.txt \
-        --num-cpus ${task.cpus}
-    
-    csvtk sort \
-        -t variants.concat.txt \
-        -k ID:N -k Pos:n -k Ref:N -k Type:nr  -k Variant:N \
-        -T -o variants.sorted.txt \
-        --num-cpus ${task.cpus}
-
-    if [[ ${mode} == "fusion" ]]
-    then
-        java -cp "/opt/VariantMerger.jar:/opt/lib/*" VariantMerger \
-            variants.sorted.txt \
-            --output variants.txt
-    else
-        mv variants.sorted.txt variants.txt
-    fi
-    """
-}
-
-// process EMPOP {
-//     publishDir "$params.outdir/empop_variants", mode: 'copy'
-//     input:
-//     path variants_txt
-//     val mode
-
-//     """
-//     python empop_formatter.py variants.txt reference.fasta output.txt
-//     """
-// }
-
-
 workflow {
     Channel
         .fromFilePairs(params.reads, checkIfExists: true)
         .set { read_pairs_ch }
 
     a_write_log(log_text)
+ 
     index_ch = b_INDEX(params.reference)
+  
     def detected_contig = "chrM"
-    // INPUT_VALIDATION.out.contig_ch.text.trim()
 
-
-    // merging_ch = MERGING(read_pairs_ch)
-    // mapping_ch = 
     c_MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
     
     mapping_ch = c_MAPPING_2_SAM.out.mapping_test
+ 
     cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch, params.python_script)
+  
     fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
+   
     merging_ch = f_MERGING(fastq_ch)
+   
     trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
+    
     mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
 
     rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
 
     i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch, params.python_script3)
 
-    // // INPUT_VALIDATION(
-    // //     CALCULATE_STATISTICS.out.fixed_file.collect(),
-    // //     CALCULATE_STATISTICS.out.stats_ch.collect(),
-    // //     CALCULATE_STATISTICS.out.mapping_ch.collect(),
-    // //     params.reference, index_ch
-    // // )
+    j_INDEX_CREATION(params.reference, detected_contig)
 
+    k_MUTECT2(rtn_ch, j_INDEX_CREATION.out.ref_ch, j_INDEX_CREATION.out.fasta_index_ch, detected_contig, "mutect2_fusion")
 
-
-    // // QUALITY_CONTROL(
-    // //     CALCULATE_STATISTICS.out.fastqc_ch.collect()
-    // // )
-
-    // // // haplogrep_ch = file("$projectDir/files/haplogroups.txt")
-    // // // contamination_ch = file("$projectDir/files/haplocheck.txt")
-
-    // // validated_files = INPUT_VALIDATION.out.validated_files.flatten()
-     
-    // // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
-
-    j_INDEX_CREATION(
-        params.reference,
-        detected_contig
-    )
-
-    k_MUTECT2(
-        rtn_ch,
-        j_INDEX_CREATION.out.ref_ch,
-        j_INDEX_CREATION.out.fasta_index_ch,
-        detected_contig,
-        "mutect2_fusion"
-    )
-    
-    // // // vcf_ch = MUTSERVE.out.mutserve_ch
     vcf_ch = k_MUTECT2.out.mutect2_ch 
-    // // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
-    // // file_count =  MUTSERVE.out.mutserve_ch.count()
-    
-    l_ANNOTATE_VARIANTS (
-        vcf_ch,
-        params.reference, 
-        params.python_script2
-    )
 
-    // // MERGING_VARIANTS(
-    // //     FILTER_VARIANTS.out.combined_methods_ch.collect(),
-    // //     params.mode
-    // // )
-    
-    // // variants_txt_ch = MERGING_VARIANTS.out.txt_summarized_ch    
-
-
-    // // MUTECT2(mapping_ch, params.reference, "mutect2_fusion")
-        
-    // // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
-    // // file_count =  MUTSERVE.out.mutserve_ch.count()
-
+    l_FINAL_VARIANTS (vcf_ch, params.reference, params.python_script2)
     
 }
