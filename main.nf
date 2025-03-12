@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results"
+params.outdir = "results.nosync"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -38,8 +38,8 @@ params.numts_pac = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
 params.numts_sa = "$baseDir/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
 
 
-// mutet2
-params.detection_limit = 0.075
+// mutect2
+params.detection_limit = 0.08
 params.mapQ = 30
 params.baseQ = 32
 params.alignQ = 30
@@ -386,6 +386,7 @@ process i_CALCULATE_STATISTICS {
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
     tuple val(sample_id2), path(bam_file2), path(bam_index2), path(coverage_numts_txt)
+    path python_script3
 
     output:
     path "*summary.txt", emit: stats_ch
@@ -393,7 +394,6 @@ process i_CALCULATE_STATISTICS {
     path "*.zip", emit: fastqc_ch
     path("*.bam"), includeInputs: true, emit: fixed_file
     path("*coverage_plot.png")
-
 
     script:
     def output_name = "${sample_id}.summary.txt"
@@ -440,7 +440,7 @@ process i_CALCULATE_STATISTICS {
 
     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
 
-    python $params.python_script3 $coverage_txt $coverage_numts_txt ${sample_id}_coverage_plot.png
+    python $python_script3 $coverage_txt $coverage_numts_txt ${sample_id}_coverage_plot.png
 
     """
 }
@@ -555,22 +555,24 @@ process k_MUTECT2 {
     
     """
 
-    /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+    
+    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
-        -callable-depth 6 \
+        -callable-depth 2 \
         --native-pair-hmm-threads ${task.cpus} \
         --max-reads-per-alignment-start 0 \
+        --mitochondria-mode \
         --tmp-dir . \
         -I ${bam_file} \
         -O raw.vcf.gz
     
-    /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
         FilterMutectCalls \
         -R ${reference} \
-        --min-reads-per-strand 2 \
+        --min-reads-per-strand 0 \
         -V raw.vcf.gz \
         --tmp-dir . \
         -O ${bam_file.baseName}.vcf.gz
@@ -593,6 +595,10 @@ process k_MUTECT2 {
     """
 }
 
+
+// /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+//  /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+
 process l_ANNOTATE_VARIANTS {
     tag "l: annotate_variants on $sample_id"
     publishDir "$params.outdir/l_filter_variants", mode: 'copy'
@@ -601,6 +607,7 @@ process l_ANNOTATE_VARIANTS {
     input:
     tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method)
     path reference
+    path python_script2
 
     output:
     path("${vcf_file.baseName}.${method}.filtered.empop.txt"), emit: combined_methods_ch
@@ -628,7 +635,7 @@ process l_ANNOTATE_VARIANTS {
         print
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
-    python $params.python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
+    python $python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
     
     """
 }
@@ -726,7 +733,7 @@ workflow {
 
     rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
 
-    // i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch)
+    i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch, params.python_script3)
 
     // // INPUT_VALIDATION(
     // //     CALCULATE_STATISTICS.out.fixed_file.collect(),
@@ -748,28 +755,29 @@ workflow {
      
     // // MUTSERVE(params.reference, index_ch, "mutserve_fusion", mapping_final_ch)
 
-    // j_INDEX_CREATION(
-    //     params.reference,
-    //     detected_contig
-    // )
+    j_INDEX_CREATION(
+        params.reference,
+        detected_contig
+    )
 
-    // k_MUTECT2(
-    //     rtn_ch,
-    //     j_INDEX_CREATION.out.ref_ch,
-    //     j_INDEX_CREATION.out.fasta_index_ch,
-    //     detected_contig,
-    //     "mutect2_fusion"
-    // )
+    k_MUTECT2(
+        rtn_ch,
+        j_INDEX_CREATION.out.ref_ch,
+        j_INDEX_CREATION.out.fasta_index_ch,
+        detected_contig,
+        "mutect2_fusion"
+    )
     
     // // // vcf_ch = MUTSERVE.out.mutserve_ch
-    // vcf_ch = k_MUTECT2.out.mutect2_ch 
+    vcf_ch = k_MUTECT2.out.mutect2_ch 
     // // vcf_ch = MUTSERVE.out.mutserve_ch.concat(MUTECT2.out.mutect2_ch)
     // // file_count =  MUTSERVE.out.mutserve_ch.count()
     
-    // l_ANNOTATE_VARIANTS (
-    //     vcf_ch,
-    //     params.reference
-    // )
+    l_ANNOTATE_VARIANTS (
+        vcf_ch,
+        params.reference, 
+        params.python_script2
+    )
 
     // // MERGING_VARIANTS(
     // //     FILTER_VARIANTS.out.combined_methods_ch.collect(),

@@ -36,7 +36,14 @@ RUN mamba create -n bioinfo -c bioconda -c conda-forge -y \
     cutadapt=4.6 \
     samtools=1.21 \
     bwa=0.7.18 \
-    flash=1.2.11
+    flash=1.2.11 \
+    csvtk \
+    fastqc \
+    pandas \
+    biopython \
+    matplotlib \
+    gatk4 \
+    bcftools
 
 # Clone RtN repository and build it
 RUN git clone https://github.com/Ahhgust/RtN.git /workspace/RtN 
@@ -51,7 +58,7 @@ ENV RTN_PATH="/workspace/RtN/build"
 # Copy scripts into the container
 COPY scripts /workspace/scripts
 COPY primers /workspace/primers
-COPY rtn_files /workspace/rtn_files
+COPY rtn_files /workspace/rtn_filesg
 
 # Set default shell
 SHELL ["/bin/bash", "-c"]
