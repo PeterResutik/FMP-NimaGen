@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results.nosync"
+params.outdir = "results"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
