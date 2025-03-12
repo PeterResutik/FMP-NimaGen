@@ -55,14 +55,6 @@ nextflow run main.nf -profile docker
 
 This method ensures that all required dependencies are available.
 
-#### Running Locally
-
-If running locally, first install dependencies as outlined below. Then execute:
-
-```bash
-nextflow run main.nf -profile local
-```
-
 #### Resuming a Previous Run
 
 To avoid re-processing completed steps, use:
@@ -101,6 +93,7 @@ A Conda environment is recommended to isolate dependencies. Before running the p
 
 ```bash
 conda activate mtDNA_env
+
 nextflow run main.nf -profile local
 ```
 

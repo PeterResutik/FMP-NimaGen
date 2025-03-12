@@ -11,6 +11,8 @@ work/
 *.bam.bai
 *.vcf
 *.fastq.gz
+!raw_data/test_R1_001.fastq.gz
+!raw_data/test_R2_001.fastq.gz
 
 # Output directories (customize based on your pipeline configuration)
 merging/
