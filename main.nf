@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results.nosync"
+params.outdir = "results"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -398,26 +398,21 @@ process k_MUTECT2 {
     // samtools index ${bam_file}
     
     """  
-    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+    gatk --java-options "-Xmx8G" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
-        -callable-depth 2 \
-        --native-pair-hmm-threads ${task.cpus} \
+        --callable-depth 2 \
+        --native-pair-hmm-threads 4 \
         --max-reads-per-alignment-start 0 \
         --mitochondria-mode \
+        --initial-tumor-lod 2.0 \
+        --tumor-lod-to-emit 2.0 \
         --tmp-dir . \
         -I ${bam_file} \
-        -O raw.vcf.gz
-    
-    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-        FilterMutectCalls \
-        -R ${reference} \
-        --min-reads-per-strand 0 \
-        -V raw.vcf.gz \
-        --tmp-dir . \
         -O ${bam_file.baseName}.vcf.gz
+    
 
     bcftools norm \
         -m-any \
@@ -433,9 +428,17 @@ process k_MUTECT2 {
     tabix -f ${bam_file.baseName}.vcf.gz
 
     rm ${bam_file.baseName}.norm.vcf.gz 
-    rm raw.vcf.gz
+    
     """
 }
+// rm raw.vcf.gz
+    // gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+    //     FilterMutectCalls \
+    //     -R ${reference} \
+    //     --min-reads-per-strand 0 \
+    //     -V raw.vcf.gz \
+    //     --tmp-dir . \
+    //     -O ${bam_file.baseName}.vcf.gz
 
 
 // /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
