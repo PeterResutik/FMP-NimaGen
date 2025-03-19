@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results"
+params.outdir = "results.nosync"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -226,7 +226,7 @@ process g_TRIMMING {
 
 process ha_MAPPING_2_BAM {
     tag "ha: bwa mem on $sample_id"
-    publishDir "$params.outdir/h_mapped_final", mode: 'copy'
+    publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
 
     input:
     path reference
@@ -273,7 +273,7 @@ process hb_NUMTs {
     path numts_sa
 
     output:
-    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path("${sample_id}_coverage_numts.txt")
+    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path(coverage_txt), path("${sample_id}_coverage_numts.txt")
 
     script:
     """
@@ -292,8 +292,7 @@ process i_CALCULATE_STATISTICS {
 
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
-    tuple val(sample_id2), path(bam_file2), path(bam_index2), path(coverage_numts_txt)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_numts_txt)
     path python_script3
 
     output:
@@ -347,7 +346,9 @@ process i_CALCULATE_STATISTICS {
     echo -e "${bam_file}\tRG\t\${readgroup}" >> $output_name
 
     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
-
+    
+    sleep 2
+    rm -f ${sample_id}_coverage_plot.png
     python $python_script3 $coverage_txt $coverage_numts_txt ${sample_id}_coverage_plot.png
 
     """
@@ -380,7 +381,7 @@ process k_MUTECT2 {
     publishDir "$params.outdir/k_mutect2", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts)
     path reference
     path fasta_index_files
     val detected_contig
@@ -470,9 +471,7 @@ process l_FINAL_VARIANTS {
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
         if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
-        else if (\$9 == "1") { \$10="1" }
-        else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
-        else { \$10="UNKNOWN" }
+        else { \$10="2" }
         print
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
@@ -480,6 +479,8 @@ process l_FINAL_VARIANTS {
     
     """
 }
+        // else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
+
 
 workflow {
     Channel
@@ -493,26 +494,34 @@ workflow {
     def detected_contig = "chrM"
 
     c_MAPPING_2_SAM(params.reference, index_ch, read_pairs_ch)
-    
     mapping_ch = c_MAPPING_2_SAM.out.mapping_test
- 
-    cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch, params.python_script)
-  
-    fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
-   
-    merging_ch = f_MERGING(fastq_ch)
-   
-    trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
     
+    cleaned_ch = d_REMOVE_SOFT_CLIPPED_BASES(mapping_ch, params.python_script)
+    // cleaned_ch.waitFor()
+
+    fastq_ch = e_BACK_2_FASTQ(cleaned_ch)
+    // fastq_ch.waitFor()
+
+    merging_ch = f_MERGING(fastq_ch)
+    // merging_ch.waitFor()
+
+    trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
+    // trimming_ch.waitFor()
+
     mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
+    // mapping_final_ch.waitFor()
 
     rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
+    // rtn_ch.waitFor()
 
-    i_CALCULATE_STATISTICS(mapping_final_ch, rtn_ch, params.python_script3)
+    i_ch = i_CALCULATE_STATISTICS(rtn_ch, params.python_script3)
+    // i_ch.waitFor()
 
-    j_INDEX_CREATION(params.reference, detected_contig)
+    j_ch = j_INDEX_CREATION(params.reference, detected_contig, )
+    // j_ch.waitFor()
 
-    k_MUTECT2(rtn_ch, j_INDEX_CREATION.out.ref_ch, j_INDEX_CREATION.out.fasta_index_ch, detected_contig, "mutect2_fusion")
+    k_ch = k_MUTECT2(rtn_ch, j_INDEX_CREATION.out.ref_ch, j_INDEX_CREATION.out.fasta_index_ch, detected_contig, "mutect2_fusion")
+    // k_ch.waitFor()
 
     vcf_ch = k_MUTECT2.out.mutect2_ch 
 
