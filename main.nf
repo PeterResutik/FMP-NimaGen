@@ -411,8 +411,15 @@ process k_MUTECT2 {
         --tumor-lod-to-emit 2.0 \
         --tmp-dir . \
         -I ${bam_file} \
-        -O ${bam_file.baseName}.vcf.gz
+        -O raw.vcf.gz
     
+    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
+        FilterMutectCalls \
+        -R ${reference} \
+        --min-reads-per-strand 0 \
+        -V raw.vcf.gz \
+        --tmp-dir . \
+        -O ${bam_file.baseName}.vcf.gz
 
     bcftools norm \
         -m-any \
@@ -428,17 +435,11 @@ process k_MUTECT2 {
     tabix -f ${bam_file.baseName}.vcf.gz
 
     rm ${bam_file.baseName}.norm.vcf.gz 
-    
+    rm raw.vcf.gz
     """
 }
-// rm raw.vcf.gz
-    // gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-    //     FilterMutectCalls \
-    //     -R ${reference} \
-    //     --min-reads-per-strand 0 \
-    //     -V raw.vcf.gz \
-    //     --tmp-dir . \
-    //     -O ${bam_file.baseName}.vcf.gz
+
+
 
 
 // /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
@@ -466,7 +467,7 @@ process l_FINAL_VARIANTS {
         > ${vcf_file.baseName}.${method}.txt
 
     bcftools query -u \
-        -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%BQ\t%DP\t%GT]\n' \
+        -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n' \
         ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
     
 
