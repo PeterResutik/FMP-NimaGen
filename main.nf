@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results"
+params.outdir = "results.nosync"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -171,7 +171,7 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
 
 process e_BACK_2_FASTQ {
     tag "e: convert_2_fastq on $sample_id"
-    publishDir "$params.outdir/e_fastq", mode: 'copy'
+    // publishDir "$params.outdir/e_fastq", mode: 'copy'
 
     input:
     tuple val(sample_id), path(cleaned_bam_r1), path(cleaned_bam_r2)
@@ -190,7 +190,7 @@ process e_BACK_2_FASTQ {
 
 process f_MERGING {
     tag "f: flash on $sample_id"
-    publishDir "$params.outdir/f_merged", mode: 'copy'
+    // publishDir "$params.outdir/f_merged", mode: 'copy'
 
     input:
     tuple val(sample_id), path(cleaned_fastq_r1), path(cleaned_fastq_r2)
@@ -206,7 +206,7 @@ process f_MERGING {
 
 process g_TRIMMING {
     tag "g: cutadapt on $sample_id"
-    publishDir "$params.outdir/g_cutadapt", mode: 'copy'
+    // publishDir "$params.outdir/g_cutadapt", mode: 'copy'
 
     input:
     tuple val(sample_id), path(merged_fastq)
@@ -226,7 +226,7 @@ process g_TRIMMING {
 
 process ha_MAPPING_2_BAM {
     tag "ha: bwa mem on $sample_id"
-    publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
+    // publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
 
     input:
     path reference
@@ -389,6 +389,7 @@ process k_MUTECT2 {
 
     output:
     tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
+    path("${bam_file.baseName}.bamout")
 
     script:
     def avail_mem = 1024
@@ -398,28 +399,20 @@ process k_MUTECT2 {
     // samtools index ${bam_file}
     
     """  
-    gatk --java-options "-Xmx8G" \
+    gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
         --callable-depth 2 \
-        --native-pair-hmm-threads 4 \
-        --max-reads-per-alignment-start 0 \
-        --mitochondria-mode \
-        --initial-tumor-lod 2.0 \
-        --tumor-lod-to-emit 2.0 \
+        --initial-tumor-lod 0 \
+        --tumor-lod-to-emit 0 \
+        --bam-output ${bam_file.baseName}.bamout \
+        --genotype-germline-sites true \
         --tmp-dir . \
         -I ${bam_file} \
-        -O raw.vcf.gz
+        -O ${bam_file.baseName}.vcf.gz 
     
-    gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-        FilterMutectCalls \
-        -R ${reference} \
-        --min-reads-per-strand 0 \
-        -V raw.vcf.gz \
-        --tmp-dir . \
-        -O ${bam_file.baseName}.vcf.gz
 
     bcftools norm \
         -m-any \
@@ -435,11 +428,28 @@ process k_MUTECT2 {
     tabix -f ${bam_file.baseName}.vcf.gz
 
     rm ${bam_file.baseName}.norm.vcf.gz 
-    rm raw.vcf.gz
+    
     """
 }
-
-
+    // --normal-lod -20 \
+        // --mitochondria-mode true \
+        // --native-pair-hmm-threads 7 \
+        // --max-reads-per-alignment-start 0 \
+        // --pruning-lod-threshold -5 \
+        // --af-of-alleles-not-in-resource 0.01 \
+// --mitochondria-mode true \
+// --af-of-alleles-not-in-resource 0.000001 \
+// rm raw.vcf.gz
+    // gatk  --java-options "-Xmx16G" \
+    //     FilterMutectCalls \
+    //     -R ${reference} \
+    //     --min-reads-per-strand 0 \
+    //     -V raw.vcf.gz \
+    //     --tmp-dir . \
+    //     -O ${bam_file.baseName}.vcf.gz
+    //   --mitochondria-mode \
+        // --initial-tumor-lod 0 \
+        // --tumor-lod-to-emit 0 \
 
 
 // /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
