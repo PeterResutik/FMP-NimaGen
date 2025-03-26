@@ -1,0 +1,17 @@
+name: nimagen
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - samtools=1.21
+  - bwa=0.7.18
+  - flash=1.2.11
+  - csvtk
+  - fastqc
+  - pandas
+  - biopython
+  - matplotlib
+  - gatk4
+  - bcftools

@@ -389,7 +389,9 @@ process k_MUTECT2 {
 
     output:
     tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
-    path("${bam_file.baseName}.bamout")
+    // path("${bam_file.baseName}.bamout")
+    path("${bam_file.baseName}_sorted.bamout.bam")
+    path("${bam_file.baseName}_sorted.bamout.bam.bai")
 
     script:
     def avail_mem = 1024
@@ -404,15 +406,28 @@ process k_MUTECT2 {
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
-        --callable-depth 2 \
-        --initial-tumor-lod 0 \
-        --tumor-lod-to-emit 0 \
-        --bam-output ${bam_file.baseName}.bamout \
+        --callable-depth 20 \
+        --initial-tumor-lod -10 \
+        --tumor-lod-to-emit -10 \
+        --linked-de-bruijn-graph true \
+        --max-reads-per-alignment-start 0 \
+        --bam-output ${bam_file.baseName}.bamout.bam \
         --genotype-germline-sites true \
+        --af-of-alleles-not-in-resource 4e-3 \
         --tmp-dir . \
         -I ${bam_file} \
-        -O ${bam_file.baseName}.vcf.gz 
+        -O raw.vcf.gz 
     
+    samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
+    samtools index ${bam_file.baseName}_sorted.bamout.bam 
+
+    gatk  --java-options "-Xmx16G" \
+        FilterMutectCalls \
+        -R ${reference} \
+        --min-reads-per-strand 0 \
+        -V raw.vcf.gz \
+        --tmp-dir . \
+        -O ${bam_file.baseName}.vcf.gz
 
     bcftools norm \
         -m-any \
@@ -431,6 +446,9 @@ process k_MUTECT2 {
     
     """
 }
+        // --genotype-germline-sites true \
+        // --dont-use-soft-clipped-base true \
+        // --linked-de-bruijn-graph true \
     // --normal-lod -20 \
         // --mitochondria-mode true \
         // --native-pair-hmm-threads 7 \
@@ -448,8 +466,8 @@ process k_MUTECT2 {
     //     --tmp-dir . \
     //     -O ${bam_file.baseName}.vcf.gz
     //   --mitochondria-mode \
-        // --initial-tumor-lod 0 \
-        // --tumor-lod-to-emit 0 \
+    //     --initial-tumor-lod 0 \
+    //     --tumor-lod-to-emit 0 \
 
 
 // /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
