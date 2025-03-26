@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results.nosync"
+params.outdir = "results"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -102,7 +102,7 @@ process a_write_log{
 
 process b_INDEX {
     tag "b: bwa index on $reference"   
-    publishDir "$params.outdir/b_index", mode: 'copy'
+    // publishDir "$params.outdir/b_index", mode: 'copy'
 
     input:
     path reference
@@ -407,13 +407,13 @@ process k_MUTECT2 {
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
         --callable-depth 20 \
-        --initial-tumor-lod -10 \
-        --tumor-lod-to-emit -10 \
+        --initial-tumor-lod -20 \
+        --tumor-lod-to-emit -20 \
         --linked-de-bruijn-graph true \
         --max-reads-per-alignment-start 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --genotype-germline-sites true \
-        --af-of-alleles-not-in-resource 4e-3 \
+        --af-of-alleles-not-in-resource 1e-3 \
         --tmp-dir . \
         -I ${bam_file} \
         -O raw.vcf.gz 
@@ -495,8 +495,11 @@ process l_FINAL_VARIANTS {
         > ${vcf_file.baseName}.${method}.txt
 
     bcftools query -u \
-        -f '${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n' \
-        ${vcf_file} >> ${vcf_file.baseName}.${method}.txt    
+        -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
+        ${vcf_file} | \
+        awk -F'\t' '(\$2 !~ /contamination/)' \
+        >> ${vcf_file.baseName}.${method}.txt
+         
     
 
     ## annotating SNVS and INDELs for reporting
