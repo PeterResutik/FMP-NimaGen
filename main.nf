@@ -101,7 +101,7 @@ process a_write_log{
     """
 }
 
-process b_INDEX {
+process b_INDEXING {
     tag "b: bwa index on $reference"   
     // publishDir "$params.outdir/b_index", mode: 'copy'
 
@@ -114,8 +114,12 @@ process b_INDEX {
     script:
     """
     bwa index $reference 
+    
+    samtools faidx $reference 
+    samtools dict $reference
     """
 }
+//     // sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
 
 process c_MAPPING_2_SAM {
     tag "c: bwa mem on $sample_id"
@@ -134,9 +138,6 @@ process c_MAPPING_2_SAM {
 
     script:
     """
-    mv ${reads[0]} tmp.fastq.gz
-    cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
-
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
     samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
@@ -622,7 +623,7 @@ workflow {
 
     a_write_log(log_text)
  
-    index_ch = b_INDEX(params.reference)
+    index_ch = b_INDEXING(params.reference)
   
     def detected_contig = "chrM"
 
@@ -650,7 +651,7 @@ workflow {
     i_ch = i_CALCULATE_STATISTICS(rtn_ch, params.python_script3)
     // i_ch.waitFor()
 
-    j_ch = j_INDEX_CREATION(params.reference, detected_contig, )
+    j_ch = j_INDEX_CREATION(params.reference, detected_contig )
     // j_ch.waitFor()
 
     k_ch = k_MUTECT2(rtn_ch, j_INDEX_CREATION.out.ref_ch, j_INDEX_CREATION.out.fasta_index_ch, detected_contig, "mutect2_fusion")
