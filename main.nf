@@ -10,7 +10,7 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results"
+params.outdir = "results.nosync"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -37,6 +37,7 @@ params.numts_bwt = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa
 params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
 params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
 
+params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 
 // mutect2
 params.detection_limit = 0.08
@@ -131,11 +132,11 @@ process c_MAPPING_2_SAM {
     // , emit: mapping_sam_ch
     tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai"), emit: test
 
-
     script:
     """
     mv ${reads[0]} tmp.fastq.gz
     cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
+
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
     samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
@@ -144,6 +145,9 @@ process c_MAPPING_2_SAM {
     samtools index ${sample_id}_R2.bam 
     """
 }
+    // mv ${reads[0]} tmp.fastq.gz
+    // cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
+
     // mv ${reads[0]} tmp.fastq.gz
     // cutadapt -a $params.adapter -o ${reads[0]}  tmp.fastq.gz 
 
@@ -392,6 +396,8 @@ process k_MUTECT2 {
     // path("${bam_file.baseName}.bamout")
     path("${bam_file.baseName}_sorted.bamout.bam")
     path("${bam_file.baseName}_sorted.bamout.bam.bai")
+    // path("${sample_id}_mpileup.vcf.gz")
+    // path("${sample_id}_mpileup_bamout.vcf.gz")
 
     script:
     def avail_mem = 1024
@@ -406,28 +412,22 @@ process k_MUTECT2 {
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
-        --callable-depth 20 \
-        --initial-tumor-lod -20 \
-        --tumor-lod-to-emit -20 \
-        --linked-de-bruijn-graph true \
-        --max-reads-per-alignment-start 0 \
+        --callable-depth 2 \
+        --initial-tumor-lod 0 \
+        --tumor-lod-to-emit 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --genotype-germline-sites true \
+        --linked-de-bruijn-graph true \
+        --mitochondria-mode true \
+        --max-reads-per-alignment-start 0 \
         --af-of-alleles-not-in-resource 1e-3 \
+        --germline-resource ${params.mtdna_database} \
         --tmp-dir . \
         -I ${bam_file} \
-        -O raw.vcf.gz 
+        -O ${bam_file.baseName}.vcf.gz
     
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
-
-    gatk  --java-options "-Xmx16G" \
-        FilterMutectCalls \
-        -R ${reference} \
-        --min-reads-per-strand 0 \
-        -V raw.vcf.gz \
-        --tmp-dir . \
-        -O ${bam_file.baseName}.vcf.gz
 
     bcftools norm \
         -m-any \
@@ -446,6 +446,104 @@ process k_MUTECT2 {
     
     """
 }
+        // 
+
+//  samtools view -H ${bam_file.baseName}.bamout.bam | grep -v "HaplotypeBAMWriter" > clean_header.sam
+//     samtools reheader clean_header.sam ${bam_file.baseName}.bamout.bam > ${bam_file.baseName}.bamout.clean.bam
+
+//     samtools sort -o ${bam_file.baseName}_sorted.bamout.clean.bam ${bam_file.baseName}.bamout.clean.bam
+//     samtools index ${bam_file.baseName}_sorted.bamout.clean.bam
+
+//     gatk --java-options "-Xmx16G" \
+//         Mutect2 \
+//         -R ${reference} \
+//         -L '${detected_contig}' \
+//         --min-base-quality-score ${params.baseQ} \
+//         --callable-depth 2 \
+//         --initial-tumor-lod 0 \
+//         --tumor-lod-to-emit 0 \
+//         --bam-output ${bam_file.baseName}.bamout2.bam \
+//         --genotype-germline-sites true \
+//         --linked-de-bruijn-graph true \
+//         --max-reads-per-alignment-start 0 \
+//         --af-of-alleles-not-in-resource 1e-3 \
+//         --germline-resource ${params.mtdna_database} \
+//         --tmp-dir . \
+//         -I ${bam_file.baseName}_sorted.bamout.clean.bam \
+//         -O ${bam_file.baseName}.vcf.gz
+
+
+
+//     bcftools mpileup \
+//         -f ${reference} \
+//         --redo-BAQ \
+//         --min-MQ 30 \
+//         --min-BQ 32 \
+//         -d 4000 \
+//         -L 4000 \
+//         -Ou \
+//         ${bam_file} | \
+//     bcftools call \
+//         --ploidy 1 \
+//         --multiallelic-caller \
+//         --variants-only \
+//         -Oz -o ${sample_id}_mpileup.vcf.gz
+
+
+
+
+
+
+        // --max-reads-per-alignment-start 0 \
+
+    
+    // bcftools mpileup \
+    //     -f ${reference} \
+    //     --min-BQ 30 \
+    //     -d 4000 \
+    //     -L 4000 \
+    //     -Ou \
+    //     ${bam_file.baseName}.bamout.bam | \
+    // bcftools call \
+    //     --ploidy 1 \
+    //     --multiallelic-caller \
+    //     --variants-only \
+    //     -Oz -o ${sample_id}_mpileup_bamout.vcf.gz
+
+    // bcftools mpileup \
+    //     --redo-BAQ \
+    //     --min-BQ ${params.baseQ} \
+    //     --per-sample-mF \
+    //     --ploidy 1 \
+    //     -f "${reference}" \
+    //     --BCF ${bam_file} | \
+    // bcftools call \
+    //     --multiallelic-caller \
+    //     --variants-only \
+    //     -Oz > ${bam_file.baseName}_mpileup.vcf.gz
+
+
+    // bcftools mpileup \
+    //     --redo-BAQ \
+    //     --min-BQ ${params.baseQ} \
+    //     --per-sample-mF \
+    //     -f "${reference}" \
+    //     --BCF ${bam_file} | \
+    // bcftools call \
+    //     --multiallelic-caller \
+    //     --variants-only \
+    //     -Oz > ${bam_file.baseName}_mpileup.vcf.gz
+
+    //  --output-tags DP,AD \
+// --linked-de-bruijn-graph true \ TEST THIS TOMORROW! 27. March 2025
+    // gatk  --java-options "-Xmx16G" \
+    //     FilterMutectCalls \
+    //     -R ${reference} \
+    //     --min-reads-per-strand 0 \
+    //     -V raw.vcf.gz \
+    //     --tmp-dir . \
+    //     -O ${bam_file.baseName}.vcf.gz
+
         // --genotype-germline-sites true \
         // --dont-use-soft-clipped-base true \
         // --linked-de-bruijn-graph true \
@@ -497,7 +595,7 @@ process l_FINAL_VARIANTS {
     bcftools query -u \
         -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
         ${vcf_file} | \
-        awk -F'\t' '(\$2 !~ /contamination/)' \
+        awk -F'\t' '(\$2 !~ /bla/)' \
         >> ${vcf_file.baseName}.${method}.txt
          
     
