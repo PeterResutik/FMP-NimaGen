@@ -1,0 +1,113 @@
+@echo off
+REM Get the current user's profile path
+setlocal enabledelayedexpansion
+set USER_PROFILE=%USERPROFILE%
+
+REM Navigate to the desired directory for the virtual environment
+cd %USER_PROFILE%
+
+REM Create the virtual environment if it doesn't exist
+if not exist venv_MH_FDSv211 (
+    py -3.8 -m venv %USER_PROFILE%\venv_mtNG_FDSv211
+)
+
+REM Activate the virtual environment
+call %USER_PROFILE%\venv_MH_FDSv211\Scripts\activate
+
+REM Display the virtual environment directory
+echo Virtual environment created at: %USER_PROFILE%\venv_mtNG_FDSv211
+
+REM Optional: Install required packages or run Python scripts
+pip install -r C:\Users\gyma\venv_mtNG_FDSv211\requirements.txt
+
+
+setlocal
+
+set "psCommand="(new-object -COM 'Shell.Application')^
+.BrowseForFolder(0,'Please choose a folder with fastq files.',0,'R:\Runs_MPS\Nimagen_mtDNA\Runs\').self.path""
+REM .BrowseForFolder(0,'Please choose a folder with fastq files.',0,'R:\').self.path""
+REM .BrowseForFolder(0,'Please choose a folder with fastq files.',0,'C:\Users\gyma\Desktop\Nima_flash_tmp').self.path""
+
+for /f "usebackq delims=" %%I in (`powershell %psCommand%`) do set "var=%%I"
+
+setlocal enabledelayedexpansion
+echo You chose !var!
+
+cd /D !var!
+echo %cd%
+mkdir cutadapt
+mkdir cutadapt\intermediate_files\intermediate_files
+mkdir merged
+mkdir trimmed
+mkdir merged\supplementary
+@echo off
+
+for %%f in (*R1_001.fastq.gz) do (
+	set var1=%%~nf
+	set var1=!var1:~0,-6!
+	echo var1 is: !var1!
+	set var2=!var1:R1=R2!
+	echo var2 is: !var2!
+	set var3=!var1:R1_001=merged!
+	echo var3 is: !var3!
+	echo fastq1 is: !var1!.fastq.gz
+	echo fastq2 is: !var2!.fastq.gz
+	:: remove 3' primers of R1 and R2
+	cutadapt -a file:"R:\Runs_MPS\Nimagen_mtDNA\primer_sequences\right_primers_rc.fasta" -o cutadapt\intermediate_files\!var1!-P.fastq !var1!.fastq.gz -j 4
+	cutadapt -a file:"R:\Runs_MPS\Nimagen_mtDNA\primer_sequences\left_primers_rc.fasta" -o cutadapt\intermediate_files\!var2!-P.fastq !var2!.fastq.gz -j 4
+	
+	cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o cutadapt\intermediate_files\!var1!-278.fastq cutadapt\intermediate_files\!var1!-P.fastq -j 4
+	cutadapt -a CATCAATACAACCCC -o cutadapt\intermediate_files\!var1!-499.fastq cutadapt\intermediate_files\!var1!-278.fastq -j 4
+	cutadapt -a ACCCCCCCCC -e 0 -o cutadapt\intermediate_files\!var1!-16192.fastq cutadapt\intermediate_files\!var1!-499.fastq -j 4
+REM	cutadapt -a AATCCACATCAAACCCCCCCCCC -e 0 -o cutadapt\intermediate_files\!var1!-16192_AAA.fastq cutadapt\intermediate_files\!var1!-16192_AAAA.fastq -j 4
+REM	cutadapt -a AATCCACATCAACCCCCCCCCC -e 0 -o cutadapt\intermediate_files\!var1!-16192_AA.fastq cutadapt\intermediate_files\!var1!-16192_AAA.fastq -j 4
+	cutadapt -a GCGA$ -o cutadapt\intermediate_files\!var1!-GCGA.fastq cutadapt\intermediate_files\!var1!-16192.fastq -j 4
+	cutadapt -a AGAT$ -o cutadapt\intermediate_files\!var2!-AGAT.fastq cutadapt\intermediate_files\!var2!-P.fastq -j 4
+REM	cutadapt -u -4 -o cutadapt\intermediate_files\!var1!-4.fastq cutadapt\intermediate_files\!var1!-278.fastq -j 4
+REM	cutadapt -u -4 -o cutadapt\intermediate_files\!var2!-4.fastq !var2!.fastq.gz -j 4
+
+	:: flash
+	flash cutadapt\intermediate_files\!var1!-GCGA.fastq cutadapt\intermediate_files\!var2!-AGAT.fastq -m 18 --max-mismatch-density 0.1 -d merged\supplementary -o !var3!
+	move merged\supplementary\!var3!.extendedFrags.fastq merged
+	Ren merged\!var3!.extendedFrags.fastq !var3!.fastq
+	
+	:: remove primers
+	cutadapt -g file:"R:\Runs_MPS\Nimagen_mtDNA\primer_sequences\left_primers.fasta" -o cutadapt\intermediate_files\!var3!-left.fastq merged\!var3!.fastq -j 4
+	cutadapt -a file:"R:\Runs_MPS\Nimagen_mtDNA\primer_sequences\right_primers_rc.fasta" -o cutadapt\!var3!-adapt.fastq cutadapt\intermediate_files\!var3!-left.fastq -j 4
+	move cutadapt\!var3!-adapt.fastq trimmed
+	)
+
+set "merged_path=%cd%"
+for %%a in ("%merged_path%") do set "p_dir=%%~dpa"
+REM move merged %p_dir%
+
+:: FDSTools
+
+mkdir FDSTools
+
+REM Check the version of `fdstools`
+fdstools -v
+
+for %%f in (merged\*.fastq) do (
+	set var=%%~nf
+	echo !var!
+	mkdir FDSTools\!var!
+	echo tssv running
+	fdstools tssv R:\Runs_MPS\Nimagen_mtDNA\FDSTools\mtNG_lib2_v211-flank.txt merged\!var!.fastq ^
+		FDSTools\!var!\!var!.tssv.csv --minimum 5 --num-threads 6 --report FDSTools\!var!\!var!.report.txt
+	echo seqconvert running
+	fdstools seqconvert allelename FDSTools\!var!\!var!.tssv.csv FDSTools\!var!\!var!.sc.csv ^
+		--library R:\Runs_MPS\Nimagen_mtDNA\FDSTools\mtNG_lib2_v211-flank.txt
+	echo samplestats running
+	fdstools samplestats --min-reads-filt 2 FDSTools\!var!\!var!.sc.csv FDSTools\!var!\!var!.sast.csv
+	echo vis running
+	fdstools vis --min-abs 5 --min-pct-of-max 0 --min-pct-of-sum 3 --allele-min-abs 5 --allele-min-pct-of-max 0 ^
+		--allele-min-pct-of-sum 3 sample FDSTools\!var!\!var!.sast.csv FDSTools\!var!\!var!.html
+REM	move %%f !var!
+	)
+
+REM python R:\Microhaplotypes\Analysis_Files\Run_analysis_MH.py %p_dir%\FDSTools
+
+endlocal
+
+PAUSE

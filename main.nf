@@ -15,6 +15,7 @@ params.outdir = "results.nosync"
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
 params.left_primers = "$baseDir/resources/primers/left_primers.fasta"
+params.left_primers_rc = "$baseDir/resources/primers/left_primers_rc.fasta"
 params.right_primers_rc = "$baseDir/resources/primers/right_primers_rc.fasta"
 params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_bed.txt"
 
@@ -38,6 +39,9 @@ params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa
 params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
 
 params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
+
+params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt"
+
 
 // mutect2
 params.detection_limit = 0.08
@@ -138,6 +142,9 @@ process c_MAPPING_2_SAM {
 
     script:
     """
+    mv ${reads[0]} tmp.fastq.gz
+    cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
+
     bwa mem $reference ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem $reference ${reads[1]} > ${sample_id}_R2.sam 
     samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
@@ -146,6 +153,15 @@ process c_MAPPING_2_SAM {
     samtools index ${sample_id}_R2.bam 
     """
 }
+    // cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o tmp2_R1.fastq.gz  ${reads[0]} 
+
+    // cutadapt -a file:$right_primers_rc  -o tmp_R1.fastq.gz tmp2_R1.fastq.gz -j 4
+	// cutadapt -a file:$left_primers_rc -o tmp_R2.fastq.gz ${reads[1]}  -j 4
+
+
+    // cutadapt -a file:$right_primers_rc  -o tmp_R1.fastq.gz tmp2_R1.fastq.gz -j 4
+	// cutadapt -a file:$left_primers_rc -o tmp_R2.fastq.gz ${reads[1]}  -j 4
+	
     // mv ${reads[0]} tmp.fastq.gz
     // cutadapt -a ATCATAACAAAAAATTTCCACCAAA -o ${reads[0]}  tmp.fastq.gz 
 
@@ -163,6 +179,7 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
 
     output:
     tuple val(sample_id), path("${sample_id}_R1_cleaned.bam"), path("${sample_id}_R2_cleaned.bam")
+    // , path("${sample_id}_R1_cleaned.bam.bai"), path("${sample_id}_R2_cleaned.bam.bai")
 
     script:
     """ 
@@ -170,9 +187,15 @@ process d_REMOVE_SOFT_CLIPPED_BASES {
     cat ${sam_r2} | python $script > ${sample_id}_R2_cleaned.sam
     samtools view -Sb ${sample_id}_R1_cleaned.sam > ${sample_id}_R1_cleaned.bam
     samtools view -Sb ${sample_id}_R2_cleaned.sam > ${sample_id}_R2_cleaned.bam
+
     """
 }
 
+    // samtools view -Sb ${sample_id}_R1_cleaned.sam | samtools sort -o ${sample_id}_R1_cleaned.bam
+    // samtools view -Sb ${sample_id}_R2_cleaned.sam | samtools sort -o ${sample_id}_R2_cleaned.bam
+    
+    // samtools index ${sample_id}_R1_cleaned.bam
+    // samtools index ${sample_id}_R2_cleaned.bam
 
 process e_BACK_2_FASTQ {
     tag "e: convert_2_fastq on $sample_id"
@@ -180,6 +203,7 @@ process e_BACK_2_FASTQ {
 
     input:
     tuple val(sample_id), path(cleaned_bam_r1), path(cleaned_bam_r2)
+    // , path(cleaned_bai_r1), path(cleaned_bai_r2)
     // path merged_file
     
     output:
@@ -229,13 +253,14 @@ process g_TRIMMING {
 }
 // --discard-untrimmed
 
-process ha_MAPPING_2_BAM {
+process ha_MAPPING_2_BAM_trimmed {
     tag "ha: bwa mem on $sample_id"
     // publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
 
     input:
     path reference
     path index_files
+    // tuple val(sample_id), path(merged_fastq)
     tuple val(sample_id), path(trimmed_fastq)
     path amplicon_middle_positions
 
@@ -253,11 +278,48 @@ process ha_MAPPING_2_BAM {
     samtools index ${sample_id}.bam
 
     samtools depth -a -b $amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
+
+    """
+}
+    // bwa mem $reference ${trimmed_fastq} | samtools view -Sb - > ${sample_id}_trimmed_tmp3.bam    
+    // samtools view -h ${sample_id}_trimmed_tmp3.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools view -b -o ${sample_id}_trimmed_tmp4.bam
+    // samtools sort -o ${sample_id}_trimmed_tmp.bam ${sample_id}_trimmed_tmp4.bam
     
+    // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_trimmed_tmp.bam  -o ${sample_id}_trimmed_tmp2.bam
+    // mv ${sample_id}_trimmed_tmp2.bam ${sample_id}_trimmed.bam
+    // samtools index ${sample_id}_trimmed.bam
+
+
+process ha2_MAPPING_2_BAM_merged {
+    tag "ha2: bwa mem on $sample_id"
+    // publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
+
+    input:
+    path reference
+    path index_files
+    tuple val(sample_id), path(merged_fastq)
+    // tuple val(sample_id), path(trimmed_fastq)
+    path amplicon_middle_positions
+
+    output:
+    tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), path("${sample_id}_coverage.txt")
+
+    script:
+    """
+    bwa mem $reference ${merged_fastq} | samtools view -Sb - > ${sample_id}_tmp.bam    
+    samtools view -h ${sample_id}_tmp.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools view -b -o ${sample_id}.bam
+    samtools sort -o ${sample_id}_tmp.bam ${sample_id}.bam
+    
+    samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${sample_id}_tmp.bam  -o ${sample_id}_tmp2.bam
+    mv ${sample_id}_tmp2.bam ${sample_id}.bam
+    samtools index ${sample_id}.bam
+
+    samtools depth -a -b $amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
+
     """
 }
 
-process hb_NUMTs {
+process hb_NUMTs_trimmed {
     tag "hb: rtn on $sample_id"
     publishDir "$params.outdir/hb_numts", mode: 'copy'
 
@@ -278,7 +340,7 @@ process hb_NUMTs {
     path numts_sa
 
     output:
-    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path(coverage_txt), path("${sample_id}_coverage_numts.txt")
+    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path(coverage_txt), path("${sample_id}_coverage_numts.txt"), path("${sample_id}_rtn_filtered.fastq")
 
     script:
     """
@@ -288,8 +350,48 @@ process hb_NUMTs {
 
     samtools depth -a -b $amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
     
+    samtools fastq ${sample_id}.rtn_tmp.bam > ${sample_id}_rtn_filtered.fastq
+
     """
 }
+
+process hb2_NUMTs_merged {
+    tag "hb2: rtn on $sample_id"
+    publishDir "$params.outdir/hb2_numts", mode: 'copy'
+
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt)
+    path amplicon_middle_positions
+    path humans
+    path humans_amb
+    path humans_ann
+    path humans_bwt
+    path humans_pac
+    path humans_sa
+    path numts
+    path numts_amb
+    path numts_ann
+    path numts_bwt
+    path numts_pac
+    path numts_sa
+
+    output:
+    tuple val(sample_id), path("${sample_id}.rtn.bam"), path("${sample_id}.rtn.bam.bai"), path(coverage_txt), path("${sample_id}_coverage_numts.txt"), path("${sample_id}_rtn_filtered.fastq")
+
+    script:
+    """
+    rtn -p -h $humans -n $numts -b $bam_file
+
+    samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
+
+    samtools depth -a -b $amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
+    
+    samtools fastq ${sample_id}.rtn_tmp.bam > ${sample_id}_rtn_filtered.fastq
+
+    """
+}
+
+    // rtn -p -h $humans -n $numts -b $trimmed_bam_file
 
 process i_CALCULATE_STATISTICS {
     tag "i: calculate_statistics on $sample_id"
@@ -297,7 +399,7 @@ process i_CALCULATE_STATISTICS {
 
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_numts_txt)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_numts_txt), path(rtn_fastq)
     path python_script3
 
     output:
@@ -380,13 +482,39 @@ process j_INDEX_CREATION {
 	"""
 }
 
-
-process k_MUTECT2 {
-    tag "k: mutect2 on $sample_id"
-    publishDir "$params.outdir/k_mutect2", mode: 'copy'
+process FDSTOOLS{
+    tag "ka: fdstools on $sample_id"
+    publishDir "$params.outdir/ka_fdstools", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts), path(rtn_fastq)
+    // path reference
+    // path fasta_index_files
+    // val detected_contig
+    // val method
+
+    output:
+    tuple  val(sample_id), path("${sample_id}.tssv.csv"), path("${sample_id}.report.txt"), path("${sample_id}.sc.csv"), path("${sample_id}.sast.csv"), path("${sample_id}.html")
+
+    """
+
+    fdstools tssv $params.fdstools_library  ${rtn_fastq} ${sample_id}.tssv.csv --minimum 5 --num-threads 6 --report ${sample_id}.report.txt
+
+	fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
+	
+	fdstools samplestats --min-reads-filt 2 ${sample_id}.sc.csv ${sample_id}.sast.csv
+	
+	fdstools vis --min-abs 5 --min-pct-of-max 0 --min-pct-of-sum 3 --allele-min-abs 5 --allele-min-pct-of-max 0 --allele-min-pct-of-sum 3 sample ${sample_id}.sast.csv ${sample_id}.html
+    """
+}
+
+
+process k_MUTECT2 {
+    tag "kb: mutect2 on $sample_id"
+    publishDir "$params.outdir/kb_mutect2", mode: 'copy'
+    
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts), path(rtn_fastq)
     path reference
     path fasta_index_files
     val detected_contig
@@ -414,21 +542,25 @@ process k_MUTECT2 {
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
         --callable-depth 2 \
-        --initial-tumor-lod 0 \
-        --tumor-lod-to-emit 0 \
-        --bam-output ${bam_file.baseName}.bamout.bam \
-        --genotype-germline-sites true \
+        --initial-tumor-lod -10 \
+        --tumor-lod-to-emit -10 \
         --linked-de-bruijn-graph true \
-        --mitochondria-mode true \
         --max-reads-per-alignment-start 0 \
-        --af-of-alleles-not-in-resource 1e-3 \
-        --germline-resource ${params.mtdna_database} \
+        --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir . \
         -I ${bam_file} \
-        -O ${bam_file.baseName}.vcf.gz
+        -O raw.vcf.gz \
     
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
+
+    gatk  --java-options "-Xmx16G" \
+        FilterMutectCalls \
+        -R ${reference} \
+        --min-reads-per-strand 0 \
+        -V raw.vcf.gz \
+        --tmp-dir . \
+        -O ${bam_file.baseName}.vcf.gz
 
     bcftools norm \
         -m-any \
@@ -448,6 +580,13 @@ process k_MUTECT2 {
     """
 }
         // 
+
+        // --genotype-germline-sites true \
+        // --linked-de-bruijn-graph true \
+        // --mitochondria-mode true \
+
+        // --af-of-alleles-not-in-resource 1e-3 \
+        // --germline-resource ${params.mtdna_database} \
 
 //  samtools view -H ${bam_file.baseName}.bamout.bam | grep -v "HaplotypeBAMWriter" > clean_header.sam
 //     samtools reheader clean_header.sam ${bam_file.baseName}.bamout.bam > ${bam_file.baseName}.bamout.clean.bam
@@ -557,13 +696,7 @@ process k_MUTECT2 {
 // --mitochondria-mode true \
 // --af-of-alleles-not-in-resource 0.000001 \
 // rm raw.vcf.gz
-    // gatk  --java-options "-Xmx16G" \
-    //     FilterMutectCalls \
-    //     -R ${reference} \
-    //     --min-reads-per-strand 0 \
-    //     -V raw.vcf.gz \
-    //     --tmp-dir . \
-    //     -O ${bam_file.baseName}.vcf.gz
+
     //   --mitochondria-mode \
     //     --initial-tumor-lod 0 \
     //     --tumor-lod-to-emit 0 \
@@ -642,11 +775,19 @@ workflow {
     trimming_ch = g_TRIMMING(merging_ch, params.left_primers, params.right_primers_rc)
     // trimming_ch.waitFor()
 
-    mapping_final_ch = ha_MAPPING_2_BAM(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
+    mapping_final_ch = ha_MAPPING_2_BAM_trimmed(params.reference, index_ch, trimming_ch, params.amplicon_middle_positions)
     // mapping_final_ch.waitFor()
 
-    rtn_ch = hb_NUMTs(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
+    mapping2_final_ch = ha2_MAPPING_2_BAM_merged(params.reference, index_ch, merging_ch, params.amplicon_middle_positions)
+    // mapping_final_ch.waitFor()
+
+
+    rtn_ch = hb_NUMTs_trimmed(mapping_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
     // rtn_ch.waitFor()
+
+    rtn2_ch = hb2_NUMTs_merged(mapping2_final_ch, params.amplicon_middle_positions, params.humans, params.humans_amb, params.humans_ann, params.humans_bwt, params.humans_pac, params.humans_sa, params.numts, params.numts_amb, params.numts_ann, params.numts_bwt, params.numts_pac, params.numts_sa)
+    // rtn_ch.waitFor()
+
 
     i_ch = i_CALCULATE_STATISTICS(rtn_ch, params.python_script3)
     // i_ch.waitFor()
@@ -661,4 +802,6 @@ workflow {
 
     l_FINAL_VARIANTS (vcf_ch, params.reference, params.python_script2)
     
+    fdstools_ch = FDSTOOLS(rtn2_ch)
+
 }
