@@ -31,12 +31,12 @@ params.humans_bwt = "$baseDir/resources/rtn_files/humans.fa.bwt"
 params.humans_pac = "$baseDir/resources/rtn_files/humans.fa.pac"
 params.humans_sa = "$baseDir/resources/rtn_files/humans.fa.sa"
 
-params.numts = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa"
-params.numts_amb = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.amb"
-params.numts_ann = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.ann"
-params.numts_bwt = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.bwt"
-params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.pac"
-params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts.fa.sa"
+params.numts = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa"
+params.numts_amb = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.amb"
+params.numts_ann = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.ann"
+params.numts_bwt = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.bwt"
+params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.pac"
+params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.sa"
 
 params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 
@@ -52,6 +52,9 @@ params.alignQ = 30
 params.python_script = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
 params.python_script3 = "$baseDir/resources/scripts/python_coverage.py"
+params.python_script4 = "$baseDir/resources/scripts/process_fdstools_output.py"
+params.python_script5 = "$baseDir/resources/scripts/process_mutect2_output.py"
+params.python_script6 = "$baseDir/resources/scripts/merge_fdstools_mutect2.py"
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -255,7 +258,7 @@ process g_TRIMMING {
 
 process ha_MAPPING_2_BAM_trimmed {
     tag "ha: bwa mem on $sample_id"
-    // publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
+    publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
 
     input:
     path reference
@@ -292,7 +295,7 @@ process ha_MAPPING_2_BAM_trimmed {
 
 process ha2_MAPPING_2_BAM_merged {
     tag "ha2: bwa mem on $sample_id"
-    // publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
+    publishDir "$params.outdir/ha_mapped_final", mode: 'copy'
 
     input:
     path reference
@@ -545,6 +548,7 @@ process k_MUTECT2 {
         --initial-tumor-lod -10 \
         --tumor-lod-to-emit -10 \
         --linked-de-bruijn-graph true \
+        --mitochondria-mode true \
         --max-reads-per-alignment-start 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir . \
@@ -711,12 +715,15 @@ process l_FINAL_VARIANTS {
     // publishDir "${params.output}", mode: 'copy'
 
     input:
-    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method)
+    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
+    // tuple  val(sample_id), , 
     path reference
     path python_script2
+    path python_script4
+    path python_script5
 
     output:
-    path("${vcf_file.baseName}.${method}.filtered.empop.txt"), emit: combined_methods_ch
+    tuple val(sample_id), path("${vcf_file.baseName}.${method}.filtered.empop.txt"), path("${vcf_file.baseName}.${method}.filtered.empop_final.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -743,10 +750,51 @@ process l_FINAL_VARIANTS {
     }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
 
     python $python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
-    
+    python $python_script5 ${vcf_file.baseName}.${method}.filtered.empop.txt ${vcf_file.baseName}.${method}.filtered.empop_final.txt
+    python $python_script4 ${sast_file} ${sample_id}_fdstools_processed.txt 
     """
 }
         // else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
+
+
+// process m_PROCESS_FDSTOOLS {
+//     tag "m: process_fdstools on $sample_id"
+//     publishDir "$params.outdir/m_processed_fdstools", mode: 'copy'
+//     // publishDir "${params.output}", mode: 'copy'
+
+//     input:
+//     tuple  val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
+
+//     output:
+//     tuple val(sample_id), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_variants_ch
+
+
+//     """
+//     python $python_script4 ${sast_file} ${sample_id}_fdstools_processed.txt 
+//     """
+// }
+
+process n_MERGE_FDSTOOLS_MUTECT2 {
+    tag "n: merged_callers on $sample_id"
+    publishDir "$params.outdir/n_merged_callers", mode: 'copy'
+    // publishDir "${params.output}", mode: 'copy'
+
+    input:
+    tuple val(sample_id), path(filtered_mutect2), path(filtered_mutect2_final), path(filtered_fdstools)
+    path python_script6
+    // tuple val(sample_id), path(filtered_fdstools)
+
+    output:
+    path("${sample_id}_merged_variants.txt"), emit: merged_variants_ch
+
+
+    """
+    python $python_script6 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.txt
+
+    """
+}
+
+
 
 
 workflow {
@@ -800,8 +848,25 @@ workflow {
 
     vcf_ch = k_MUTECT2.out.mutect2_ch 
 
-    l_FINAL_VARIANTS (vcf_ch, params.reference, params.python_script2)
+    // l_FINAL_VARIANTS(vcf_ch, params.reference, params.python_script2)
     
     fdstools_ch = FDSTOOLS(rtn2_ch)
+
+    final_inputs = vcf_ch.join(fdstools_ch, by: 0)
+    //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
+
+    // final_inputs = vcf_ch
+    // .join(fdstools_ch, by: 0)
+    // .map { sid, vcf_parts, fdstools_parts ->
+    //     tuple(sid, *vcf_parts, *fdstools_parts)  // <-- this flattens the list properly
+    // }
+
+    // final_inputs.view()
+    // final_inputs.into { final_variants_inputs }
+
+    l_ch = l_FINAL_VARIANTS(final_inputs, params.reference, params.python_script2, params.python_script4, params.python_script5)
+    variant_callers_ch = l_FINAL_VARIANTS.out.fdstools_mutect2_variants_ch
+
+    n_ch = n_MERGE_FDSTOOLS_MUTECT2(variant_callers_ch, params.python_script6)
 
 }
