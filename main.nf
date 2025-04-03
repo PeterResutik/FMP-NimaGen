@@ -19,6 +19,8 @@ params.left_primers_rc = "$baseDir/resources/primers/left_primers_rc.fasta"
 params.right_primers_rc = "$baseDir/resources/primers/right_primers_rc.fasta"
 params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_bed.txt"
 
+params.force_sites = "$baseDir/force_sites.vcf.gz"
+
 // cutadapt
 params.quality_cutoff = 25
 params.minimum_length = 60
@@ -539,21 +541,28 @@ process k_MUTECT2 {
     // samtools index ${bam_file}
     
     """  
-    gatk --java-options "-Xmx16G" \
+    mkdir tmp_${sample_id}
+    gatk --java-options "-Xmx16G -XX:ActiveProcessorCount=1" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
         --callable-depth 2 \
-        --initial-tumor-lod -10 \
-        --tumor-lod-to-emit -10 \
         --linked-de-bruijn-graph true \
-        --mitochondria-mode true \
+        --dont-use-soft-clipped-bases true \
+        --alleles $params.force_sites \
+        --initial-tumor-lod -10   \
+        --tumor-lod-to-emit -10   \
         --max-reads-per-alignment-start 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
-        --tmp-dir . \
+        --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \
         -O raw.vcf.gz \
+
+        
+    
+
+
     
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
@@ -583,7 +592,26 @@ process k_MUTECT2 {
     
     """
 }
-        // 
+
+        // --genotype-pon-sites true \
+        // --panel-of-normals $params.force_sites \
+
+// --mitochondria-mode true \
+// gatk --java-options "-Xmx16G"    \
+//       Mutect2  \
+//       -R ref.fasta   \
+//       -L 'chrM'   \
+//       --min-base-quality-score 32  \
+//       --callable-depth 2  \
+//       --initial-tumor-lod -10   \
+//       --tumor-lod-to-emit -10   \
+//       --linked-de-bruijn-graph true         --max-reads-$
+
+// --bam-output s24-12889a_S3_L001.rtn.bamout.bam         
+// --tmp-dir .         
+// -I s24-12889a_S3_L001.rtn.bam         
+// -O raw.vcf.gz
+        //         --mitochondria-mode true \
 
         // --genotype-germline-sites true \
         // --linked-de-bruijn-graph true \
