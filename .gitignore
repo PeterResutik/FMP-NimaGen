@@ -6,6 +6,8 @@
 work.nosync/
 work/
 
+later/
+
 # Ignore BAM and large VCF files
 *.bam
 *.bam.bai

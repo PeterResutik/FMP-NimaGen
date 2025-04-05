@@ -26,12 +26,12 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.humans = "$baseDir/resources/rtn_files/humans.fa"
-params.humans_amb = "$baseDir/resources/rtn_files/humans.fa.amb"
-params.humans_ann = "$baseDir/resources/rtn_files/humans.fa.ann"
-params.humans_bwt = "$baseDir/resources/rtn_files/humans.fa.bwt"
-params.humans_pac = "$baseDir/resources/rtn_files/humans.fa.pac"
-params.humans_sa = "$baseDir/resources/rtn_files/humans.fa.sa"
+params.humans = "$baseDir/resources/rtn_files/humans_modified.fa"
+params.humans_amb = "$baseDir/resources/rtn_files/humans_modified.fa.amb"
+params.humans_ann = "$baseDir/resources/rtn_files/humans_modified.fa.ann"
+params.humans_bwt = "$baseDir/resources/rtn_files/humans_modified.fa.bwt"
+params.humans_pac = "$baseDir/resources/rtn_files/humans_modified.fa.pac"
+params.humans_sa = "$baseDir/resources/rtn_files/humans_modified.fa.sa"
 
 params.numts = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa"
 params.numts_amb = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.amb"
@@ -349,6 +349,7 @@ process hb_NUMTs_trimmed {
 
     script:
     """
+
     rtn -p -h $humans -n $numts -b $bam_file
 
     samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
@@ -385,6 +386,7 @@ process hb2_NUMTs_merged {
 
     script:
     """
+    
     rtn -p -h $humans -n $numts -b $bam_file
 
     samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
@@ -542,15 +544,14 @@ process k_MUTECT2 {
     
     """  
     mkdir tmp_${sample_id}
-    gatk --java-options "-Xmx16G -XX:ActiveProcessorCount=1" \
+    gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
         --callable-depth 2 \
         --linked-de-bruijn-graph true \
-        --dont-use-soft-clipped-bases true \
-        --alleles $params.force_sites \
+        --recover-all-dangling-branches true \
         --initial-tumor-lod -10   \
         --tumor-lod-to-emit -10   \
         --max-reads-per-alignment-start 0 \
@@ -558,10 +559,6 @@ process k_MUTECT2 {
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \
         -O raw.vcf.gz \
-
-        
-    
-
 
     
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
