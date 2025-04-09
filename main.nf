@@ -48,7 +48,7 @@ params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt"
 // mutect2
 params.detection_limit = 0.08
 params.mapQ = 30
-params.baseQ = 32
+params.baseQ = 30
 params.alignQ = 30
 
 params.python_script = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
@@ -224,7 +224,7 @@ process e_BACK_2_FASTQ {
 
 process f_MERGING {
     tag "f: flash on $sample_id"
-    // publishDir "$params.outdir/f_merged", mode: 'copy'
+    publishDir "$params.outdir/f_merged", mode: 'copy'
 
     input:
     tuple val(sample_id), path(cleaned_fastq_r1), path(cleaned_fastq_r2)
@@ -240,7 +240,7 @@ process f_MERGING {
 
 process g_TRIMMING {
     tag "g: cutadapt on $sample_id"
-    // publishDir "$params.outdir/g_cutadapt", mode: 'copy'
+    publishDir "$params.outdir/g_cutadapt", mode: 'copy'
 
     input:
     tuple val(sample_id), path(merged_fastq)
@@ -350,7 +350,7 @@ process hb_NUMTs_trimmed {
     script:
     """
 
-    rtn -p -h $humans -n $numts -b $bam_file
+    rtn -h $humans -n $numts -b $bam_file
 
     samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
 
@@ -386,8 +386,8 @@ process hb2_NUMTs_merged {
 
     script:
     """
-    
-    rtn -p -h $humans -n $numts -b $bam_file
+
+    rtn -h $humans -n $numts -b $bam_file
 
     samtools view -h -q 30 ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
 
@@ -532,6 +532,8 @@ process k_MUTECT2 {
     // path("${bam_file.baseName}.bamout")
     path("${bam_file.baseName}_sorted.bamout.bam")
     path("${bam_file.baseName}_sorted.bamout.bam.bai")
+    // path("run1.vcf.gz ")
+    // path("run2.vcf.gz ")
     // path("${sample_id}_mpileup.vcf.gz")
     // path("${sample_id}_mpileup_bamout.vcf.gz")
 
@@ -544,23 +546,27 @@ process k_MUTECT2 {
     
     """  
     mkdir tmp_${sample_id}
+
+
     gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
         -L '${detected_contig}' \
         --min-base-quality-score ${params.baseQ} \
-        --callable-depth 2 \
+        --callable-depth 6 \
         --linked-de-bruijn-graph true \
         --recover-all-dangling-branches true \
-        --initial-tumor-lod -10   \
-        --tumor-lod-to-emit -10   \
+        --initial-tumor-lod 0   \
+        --tumor-lod-to-emit 0   \
+        --native-pair-hmm-threads 1 \
         --max-reads-per-alignment-start 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \
-        -O raw.vcf.gz \
+        -O raw.vcf.gz 
 
-    
+
+
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
 
@@ -589,6 +595,33 @@ process k_MUTECT2 {
     
     """
 }
+    //     gatk --java-options "-Xmx16G" \
+    //     Mutect2 \
+    //     -R ${reference} \
+    //     -L '${detected_contig}' \
+    //     --min-base-quality-score 30 \
+    //     --callable-depth 6 \
+    //     --initial-tumor-lod -10   \
+    //     --tumor-lod-to-emit -10   \
+    //     --native-pair-hmm-threads 1 \
+    //     --max-reads-per-alignment-start 0 \
+    //     --bam-output ${bam_file.baseName}_1.bamout.bam \
+    //     --tmp-dir tmp_${sample_id} \
+    //     -I ${bam_file} \
+    //     -O run1.vcf.gz 
+
+
+    // bcftools isec -C -w1 -Oz -o run2_unique.vcf.gz run2.vcf.gz run1.vcf.gz
+    // tabix -p vcf run2_unique.vcf.gz 
+    // bcftools concat -a -Oz -o merged.vcf.gz run1.vcf.gz run2_unique.vcf.gz
+    // bcftools sort merged.vcf.gz -Oz -o raw.vcf.gz
+    // tabix -f raw.vcf.gz
+    // cp run1.vcf.gz.stats raw.vcf.gz.stats
+
+
+    // samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}_1.bamout.bam
+    // samtools index ${bam_file.baseName}_sorted.bamout.bam 
+
 
         // --genotype-pon-sites true \
         // --panel-of-normals $params.force_sites \
