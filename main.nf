@@ -73,7 +73,6 @@ params.callable_depth = 6
 params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 1
-params.max_reads_per_aglignment_start = 0
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
@@ -125,12 +124,15 @@ log_text = """\
          initial-tumor-lod              : $params.initial_tumor_lod #
          tumor_lod_to_emit              : $params.tumor_lod_to_emit #
          native_pair_hmm_threads        : $params.native_pair_hmm_threads #
-         max_reads_per_aglignment_start : $params.max_reads_per_aglignment_start #
 
          outdir                         : ${params.outdir}
          """
 
 log.info(log_text)
+
+assert params.reference, "Missing reference genome path"
+assert params.reads, "Missing input reads"
+assert file(params.humans_index_dir).exists(), "Humans index directory does not exist"
 
 process p00_pipeline_parameters{
     publishDir "$params.outdir", mode: params.publish_dir_mode
@@ -155,14 +157,15 @@ process p01_index_reference_fasta {
     path reference
 
     output:
-    path("${reference}.*")
+    path("${reference}.*"), emit: reference
+    path("${reference.baseName}.dict"), emit: reference_dict
 
     script:
     """
     bwa index $reference 
     
     samtools faidx $reference 
-    samtools dict $reference
+    samtools dict $reference -o ${reference.baseName}.dict
     """
 }
 
@@ -375,8 +378,8 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
     // rtn -p -h $humans -n $numts -b $trimmed_bam_file
 
 process p11_variant_calling_fdstools_p09 {
-    tag "ka: fdstools on $sample_id"
-    publishDir "$params.outdir/ka_fdstools", mode: 'copy'
+    tag "p11: fdstools on $sample_id"
+    publishDir "$params.outdir/p11_fdstools", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(rtn_fastq)
@@ -462,39 +465,38 @@ process i_CALCULATE_STATISTICS {
 }
 // echo "\$(${sample_id} ${bam_file})" >> $mapping_name
 
-process j_INDEX_CREATION {
-	tag "j: samtools on $reference"
-    publishDir "$params.outdir/j_index_creation", mode: 'copy'
+// process j_INDEX_CREATION {
+// 	tag "j: samtools on $reference"
+//     publishDir "$params.outdir/j_index_creation", mode: 'copy'
     
-    input:
-	path reference
-	val mtdna_tag
+//     input:
+// 	path reference
+// 	val mtdna_tag
 
-	output:
-	path "ref*.{dict,fai}", emit: fasta_index_ch
-	path "ref.fasta", emit: ref_ch
+// 	output:
+// 	path "ref*.{dict,fai}", emit: fasta_index_ch
+// 	path "ref.fasta", emit: ref_ch
 
-	"""
-	sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
-    samtools faidx ref.fasta
-    	samtools dict ref.fasta \
-	    -o ref.dict
-	"""
-}
+// 	"""
+// 	sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
+//     samtools faidx ref.fasta
+//     	samtools dict ref.fasta \
+// 	    -o ref.dict
+// 	"""
+// }
 
 process p12_variant_calling_mutect2_p10 {
     tag "p12: mutect2 on $sample_id"
-    publishDir "$params.outdir/kb_mutect2", mode: 'copy'
+    publishDir "$params.outdir/p12_mutect2", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts), path(rtn_fastq)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts)
     path reference
-    path fasta_index_files
-    val detected_contig
-    val method
+    path fasta_index
+    path mutect2_index
 
     output:
-    tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), val(method), emit: mutect2_ch
+    tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), emit: mutect2_ch
     // path("${bam_file.baseName}.bamout")
     path("${bam_file.baseName}_sorted.bamout.bam")
     path("${bam_file.baseName}_sorted.bamout.bam.bai")
@@ -519,11 +521,11 @@ process p12_variant_calling_mutect2_p10 {
         -R ${reference} \
         -L 'chrM' \
         --min-base-quality-score ${params.baseQ} \
-        --callable-depth $params.callable_depth \
+        --callable-depth 6 \
         --linked-de-bruijn-graph true \
         --recover-all-dangling-branches true \
         --initial-tumor-lod 0   \
-        --tumor-lod-to-emit 0   \
+        --tumor-lod-to-emit 0  \
         --native-pair-hmm-threads 1 \
         --max-reads-per-alignment-start 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
@@ -819,40 +821,10 @@ process n_MERGE_FDSTOOLS_MUTECT2 {
 }
 
 
-
-
 workflow {
     Channel
         .fromFilePairs(params.reads, checkIfExists: true)
         .set { read_pairs_ch }
-
-    p00_pipeline_parameters(log_text)
- 
-    index_ch = p01_index_reference_fasta(params.reference)
-  
-    def detected_contig = "chrM"
-
-    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, index_ch)
-    mapping_ch = p02_map_raw_fastq_p01.out.p02_raw_sam_ch
-    
-    p03_filter_softclipped_sam_p02(mapping_ch, params.python_script_remove_scb)
-    cleaned_ch = p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch
-    // cleaned_ch.waitFor()
-
-    fastq_ch = p04_convert_bam_2_fastq_p03(cleaned_ch)
-    // fastq_ch.waitFor()
-
-    merging_ch = p05_merge_fastq_p04(fastq_ch)
-    // merging_ch.waitFor()
-
-    trimming_ch = p06_trim_merged_fastq_p05(merging_ch, params.left_primers, params.right_primers_rc)
-    // trimming_ch.waitFor()
-
-    mapping_final_ch = p07_map_merged_fastq_p01_p05(merging_ch, params.reference, index_ch, params.amplicon_middle_positions)
-    // // mapping_final_ch.waitFor()
-
-    mapping2_final_ch = p08_map_merged_trimmed_fastq_p01_p06(trimming_ch, params.reference, index_ch, params.amplicon_middle_positions)
-    // mapping_final_ch.waitFor()
 
     humans_index_ch = Channel.value(file(params.humans_index_dir))
     numts_index_ch  = Channel.value(file(params.numts_index_dir))
@@ -860,10 +832,36 @@ workflow {
     humans_base_ch = Channel.value(params.humans_index_base)
     numts_base_ch  = Channel.value(params.numts_index_base)
 
-    rtn_ch = p09_filter_numts_merged_bam_p07(mapping_final_ch, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    // ────────────────── LOG PARAMETERS ──────────────────────
+    p00_pipeline_parameters(log_text)
+ 
+    // ──────────────── REFERENCE INDEXING ────────────────────
+    p01_index_reference_fasta(params.reference)
+    p01_index_ch = p01_index_reference_fasta.out.reference
+    p01_index_mutect2_ch = p01_index_reference_fasta.out.reference_dict
+
+    // ─────────── RAW READ MAPPING & FILTERING ───────────────
+    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
+    p03_filter_softclipped_sam_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb)
+    p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
+
+    // ──────────────── MERGING & TRIMMING ────────────────────
+    p05_merge_fastq_p04(p04_convert_bam_2_fastq_p03.out)
+    p06_trim_merged_fastq_p05(p05_merge_fastq_p04.out, params.left_primers, params.right_primers_rc)
+
+    // ────────────────── FINAL MAPPING ───────────────────────
+    p07_map_merged_fastq_p01_p05(p05_merge_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
+    p08_map_merged_trimmed_fastq_p01_p06(p06_trim_merged_fastq_p05.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
+
+    // ────────────────── NUMTs FILTERING ─────────────────────
+
+
+
+
+    rtn_ch = p09_filter_numts_merged_bam_p07(p07_map_merged_fastq_p01_p05.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
     // // rtn_ch.waitFor()
 
-    rtn2_ch = p10_filter_numts_trimmed_merged_bam_p08(mapping2_final_ch, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    rtn2_ch = p10_filter_numts_trimmed_merged_bam_p08(p08_map_merged_trimmed_fastq_p01_p06.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
     // // rtn_ch.waitFor()
 
 
@@ -873,15 +871,17 @@ workflow {
     // j_ch = j_INDEX_CREATION(params.reference, detected_contig )
     // // j_ch.waitFor()
 
-    // k_ch = k_MUTECT2(rtn_ch, j_INDEX_CREATION.out.ref_ch, j_INDEX_CREATION.out.fasta_index_ch, detected_contig, "mutect2_fusion")
+
     // // k_ch.waitFor()
 
-    // vcf_ch = k_MUTECT2.out.mutect2_ch 
+    
 
     // // l_FINAL_VARIANTS(vcf_ch, params.reference, params.python_script2)
     
     fdstools_ch = p11_variant_calling_fdstools_p09(rtn_ch)
+    // vcf_ch = k_MUTECT2.out.mutect2_ch 
 
+    k_ch = p12_variant_calling_mutect2_p10(rtn2_ch, params.reference, p01_index_ch, p01_index_mutect2_ch)
     // final_inputs = vcf_ch.join(fdstools_ch, by: 0)
     // //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
 
