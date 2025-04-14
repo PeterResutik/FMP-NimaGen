@@ -33,20 +33,6 @@ params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
 
 
-// params.humans = "$baseDir/resources/rtn_files/humans_modified.fa"
-// params.humans_amb = "$baseDir/resources/rtn_files/humans_modified.fa.amb"
-// params.humans_ann = "$baseDir/resources/rtn_files/humans_modified.fa.ann"
-// params.humans_bwt = "$baseDir/resources/rtn_files/humans_modified.fa.bwt"
-// params.humans_pac = "$baseDir/resources/rtn_files/humans_modified.fa.pac"
-// params.humans_sa = "$baseDir/resources/rtn_files/humans_modified.fa.sa"
-
-// params.numts = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa"
-// params.numts_amb = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.amb"
-// params.numts_ann = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.ann"
-// params.numts_bwt = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.bwt"
-// params.numts_pac = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.pac"
-// params.numts_sa = "$baseDir/resources/rtn_files/Calabrese_Dayama_Smart_Numts_modified.fa.sa"
-
 params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 
 params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt"
@@ -72,11 +58,15 @@ params.baseQ = 30
 params.callable_depth = 6
 params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
-params.native_pair_hmm_threads = 1
+params.native_pair_hmm_threads = 4
+params.max_reads_per_alignment_start = 0
+params.min_reads_per_strand = 3
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
+params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot.py"
+
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
-params.python_script3 = "$baseDir/resources/scripts/python_coverage.py"
+
 params.python_script4 = "$baseDir/resources/scripts/process_fdstools_output.py"
 params.python_script5 = "$baseDir/resources/scripts/process_mutect2_output.py"
 params.python_script6 = "$baseDir/resources/scripts/merge_fdstools_mutect2.py"
@@ -88,44 +78,46 @@ params.python_script6 = "$baseDir/resources/scripts/merge_fdstools_mutect2.py"
 log_text = """\
          m t D N A - N i m a G e n  P I P E L I N E    
          ==========================================
-         mtDNA reference genome         : ${params.reference}
-         reads                          : ${params.reads}
+         mtDNA reference genome           : ${params.reference}
+         reads                            : ${params.reads}
          
          MERGING (with FLASH)
-         min-overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
-         max-overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
-         max-mismatch-density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
-         allow-outies                   : enabled (hard coded) # If a read pair can be combined in both "innie" and "outie" orientations, the better-fitting one will be chosen.
+         --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
+         --max_overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
+         --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
+         allow_outies                     : enabled (hard coded) # If a read pair can be combined in both "innie" and "outie" orientations, the better-fitting one will be chosen.
 
          TRIMMING (with CUTADAPT) 
-         quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
-         minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
-         maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
-         discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter.
+         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
+         --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
+         --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
+         --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
 
          NUMTs REMOVAL (with RTN)
-         mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
+         --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
 
          VARIANT CALLING (with FDSTOOLS)
-         tssv: minimum                  : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
-         tssv: num-threads              : $params.num_threads # number of worker threads to use (default: 1)
-         samplestats: min-reads-filt    : $params.min_reads_filt # the minimum number of reads (default: 1)
-         vis: min-abs                   : $params.min_abs # only show sequences with this minimum number of reads (default: 5)
-         vis: min-pct-of-max            : $params.min_pct_of_max # for sample: only show sequences with at least this percentage of the number of reads of the highest allele of a marker
-         vis: min-pct-of-sum            : $params.min_pct_of_sum # only show sequences with at least this percentage of the total number of reads of a marker (default: 0.0)
-         vis: allele-min-abs            : $params.allele_min_abs # the minimum number of reads (default: 30)
-         vis: allele-min-pct-of-max     : $params.allele_min_pct_of_max # the minimum percentage of reads w.r.t. the highest allele of the marker (default: 2.0)
-         vis: allele-min-pct-of-sum     : $params.allele_min_pct_of_sum # the minimum percentage of reads w.r.t. the markers total number of reads (default: 1.5)
+         --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
+         --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
+         --min_reads_filt                 : $params.min_reads_filt # the minimum number of reads (default: 1)
+         --min_abs                        : $params.min_abs # only show sequences with this minimum number of reads (default: 5)
+         --min_pct_of_max                 : $params.min_pct_of_max # for sample: only show sequences with at least this percentage of the number of reads of the highest allele of a marker
+         --min-pct-of-sum                 : $params.min_pct_of_sum # only show sequences with at least this percentage of the total number of reads of a marker (default: 0.0)
+         --allele_min_abs                 : $params.allele_min_abs # the minimum number of reads (default: 30)
+         --allele_min_pct_of_max          : $params.allele_min_pct_of_max # the minimum percentage of reads w.r.t. the highest allele of the marker (default: 2.0)
+         --allele_min_pct_of_sum          : $params.allele_min_pct_of_sum # the minimum percentage of reads w.r.t. the markers total number of reads (default: 1.5)
 
          VARIANT CALLING (with MUTECT2)
-         detection_limit                : $params.detection_limit #
-         baseQ                          : $params.baseQ # 
-         callable-depth                 : $params.callable_depth #
-         initial-tumor-lod              : $params.initial_tumor_lod #
-         tumor_lod_to_emit              : $params.tumor_lod_to_emit #
-         native_pair_hmm_threads        : $params.native_pair_hmm_threads #
+         --detection_limit                : $params.detection_limit #
+         --baseQ                          : $params.baseQ # 
+         --callable_depth                 : $params.callable_depth #
+         --initial_tumor_lod              : $params.initial_tumor_lod #
+         --tumor_lod_to_emit              : $params.tumor_lod_to_emit #
+         --native_pair_hmm_threads        : $params.native_pair_hmm_threads #
+         --max_reads_per_alignment_start  : $params.max_reads_per_alignment_start # 
+         --min_reads_per_strand           : $params.min_reads_per_strand #
 
-         outdir                         : ${params.outdir}
+         outdir                           : ${params.outdir}
          """
 
 log.info(log_text)
@@ -276,8 +268,8 @@ process p06_trim_merged_fastq_p05 {
 }
 
 process p07_map_merged_fastq_p01_p05 {
-    tag "p07: bwa mem on ${fastq_wo_scb_merged.baseName}"
-    publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam", mode: 'copy', pattern: '*.bam*'
+    tag "p07: bwa mem on $sample_id"
+    // publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)
@@ -296,12 +288,10 @@ process p07_map_merged_fastq_p01_p05 {
     samtools index ${sample_id}_wo_scb_merged.bam
     """
 }
-    // samtools depth -a -b $amplicon_middle_positions ${sample_id}.bam > ${sample_id}_coverage.txt
-// samtools view -h ${sample_id}_tmp.bam | awk '\$1 ~ /^@/ || \$6 !~ /S/' | samtools view -b -o ${sample_id}.bam
 
 process p08_map_merged_trimmed_fastq_p01_p06 {
-    tag "p08: bwa mem on ${fastq_wo_scb_merged_trimmed.baseName}"
-    publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam", mode: 'copy', pattern: '*.bam*'
+    tag "p08: bwa mem on $sample_id"
+    // publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged_trimmed)
@@ -311,7 +301,7 @@ process p08_map_merged_trimmed_fastq_p01_p06 {
     path amplicon_middle_positions
 
     output:
-    tuple val(sample_id), path("${fastq_wo_scb_merged_trimmed.baseName}.bam"), path("${fastq_wo_scb_merged_trimmed.baseName}.bam.bai"), path("${fastq_wo_scb_merged_trimmed.baseName}_coverage.txt")
+    tuple val(sample_id), path("${fastq_wo_scb_merged_trimmed.baseName}.bam"), path("${fastq_wo_scb_merged_trimmed.baseName}.bam.bai"), path("${fastq_wo_scb_merged_trimmed.baseName}_read_depth.txt")
 
     script:
     """
@@ -320,12 +310,12 @@ process p08_map_merged_trimmed_fastq_p01_p06 {
     samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${fastq_wo_scb_merged_trimmed.baseName}_sorted.bam  -o ${fastq_wo_scb_merged_trimmed.baseName}.bam
     samtools index ${fastq_wo_scb_merged_trimmed.baseName}.bam
 
-    samtools depth -a -b $amplicon_middle_positions ${fastq_wo_scb_merged_trimmed.baseName}.bam > ${fastq_wo_scb_merged_trimmed.baseName}_coverage.txt
+    samtools depth -a -b $amplicon_middle_positions ${fastq_wo_scb_merged_trimmed.baseName}.bam > ${fastq_wo_scb_merged_trimmed.baseName}_read_depth.txt
     """
 }
 
 process p09_filter_numts_merged_bam_p07 {
-    tag "p09: rtn on ${bam_wo_scb_merged.baseName}"
+    tag "p09: rtn on $sample_id"
     publishDir "$params.outdir/p09_filtered_numts_bam_for_fdstoold", mode: 'copy'
 
     input:
@@ -346,16 +336,14 @@ process p09_filter_numts_merged_bam_p07 {
     samtools fastq ${bam_wo_scb_merged.baseName}.rtn_tmp.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
     """
 }
-    // samtools view -h -q $params.mapQ ${sample_id}.rtn.bam > ${sample_id}.rtn_tmp.bam
-    // samtools depth -a -b $amplicon_middle_positions ${sample_id}.rtn_tmp.bam > ${sample_id}_coverage_numts.txt
 
 process p10_filter_numts_trimmed_merged_bam_p08 {
-    tag "p10: rtn on ${bam_wo_scb_merged_trimmed.baseName}"
+    tag "p10: rtn on $sample_id"
     publishDir "$params.outdir/p10_filtered_numts_bam_for_mutect2", mode: 'copy', pattern: '*.bam*'
-    publishDir "$params.outdir/p10_coverage_txt", mode: 'copy', pattern: '*.txt'
+    // publishDir "$params.outdir/p10_read_depth_txt", mode: 'copy', pattern: '*.txt'
 
     input:
-    tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(coverage_txt)
+    tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(read_depth_txt)
     path amplicon_middle_positions
     path humans_index
     val humans_base
@@ -364,20 +352,17 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
 
 
     output:
-    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam.bai"), path(coverage_txt), path("${bam_wo_scb_merged_trimmed.baseName}_coverage_wo_NUMTs.txt")
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt")
 
     script:
     """
     rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
-    samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_coverage_wo_NUMTs.txt
+    samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
     """
 }
-    // samtools fastq ${sample_id}.rtn_tmp.bam > ${sample_id}_rtn_filtered.fastq
-    // samtools fastq ${sample_id}.rtn_tmp.bam > ${sample_id}_rtn_filtered.fastq
-    // rtn -p -h $humans -n $numts -b $trimmed_bam_file
 
-process p11_variant_calling_fdstools_p09 {
+process p11_variant_calling_fdstools_vcfgz_p09 {
     tag "p11: fdstools on $sample_id"
     publishDir "$params.outdir/p11_fdstools", mode: 'copy'
     
@@ -395,145 +380,47 @@ process p11_variant_calling_fdstools_p09 {
     """
 }
 
-
-process i_CALCULATE_STATISTICS {
-    tag "i: calculate_statistics on $sample_id"
-    publishDir "$params.outdir/i_calculate_statistics", mode: 'copy'
-
-    
-    input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_numts_txt), path(rtn_fastq)
-    path python_script3
-
-    output:
-    path "*summary.txt", emit: stats_ch
-    path "*mapping.txt", emit: mapping_ch
-    path "*.zip", emit: fastqc_ch
-    path("*.bam"), includeInputs: true, emit: fixed_file
-    path("*coverage_plot.png")
-
-    script:
-    def output_name = "${sample_id}.summary.txt"
-    def mapping_name = "${sample_id}.mapping.txt"
- 
-    def avail_mem = 1024
-    if (task.memory) {
-        avail_mem = (task.memory.mega*0.8).intValue()
-    }    
-    // 16623 - lenght of the extended rCRS
-    // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
-    // mv ${sample_id}_tmp.bam ${bam_file}
-
-    """
-    ## Create Mapping File
-    ## mkdir "${sample_id}"
-    ## echo -e "Sample\tFilename" > /${sample_id}/$mapping_name
-    echo -e "Sample\tFilename" > $mapping_name
-
-    echo "\$(samtools samples ${bam_file})" >> $mapping_name
-
-    ## Calculate summary statistics
-    samtools coverage ${bam_file} > samtools_coverage_${sample_id}.txt
-    csvtk grep -t -f3 -p 16623 -C '\$' samtools_coverage_${sample_id}.txt -T -o mtdna.txt --num-cpus ${task.cpus} 
-        
-    contig=\$(csvtk cut -t -f 1 mtdna.txt --num-cpus ${task.cpus})
-    numreads=\$(csvtk cut -t -f 4 mtdna.txt --num-cpus ${task.cpus})
-    covered_bases=\$(csvtk cut -t -f 5 mtdna.txt --num-cpus ${task.cpus})
-    covered_bases_percentage=\$(csvtk cut -t -f 6 mtdna.txt --num-cpus ${task.cpus})
-    mean_depth=\$(csvtk cut -t -f 7 mtdna.txt --num-cpus ${task.cpus})
-    mean_base_quality=\$(csvtk cut -t -f 8 mtdna.txt --num-cpus ${task.cpus})
-    mean_map_quality=\$(csvtk cut -t -f 9 mtdna.txt --num-cpus ${task.cpus})
-    readgroup=\$(samtools view -H ${bam_file} | csvtk grep -I -H -r -p "^@RG" --num-cpus ${task.cpus} | sed 's/\t/,/g' | head -n 1)
-    
-    echo -e "Sample\tParameter\tValue" > $output_name
-    echo -e "${bam_file}\tContig\t\${contig}" >> $output_name
-    echo -e "${bam_file}\tNumberofReads\t\${numreads}" >> $output_name
-    echo -e "${bam_file}\tCoveredBases\t\${covered_bases}" >> $output_name
-    echo -e "${bam_file}\tCoveragePercentage\t\${covered_bases_percentage}" >> $output_name
-    echo -e "${bam_file}\tMeanDepth\t\${mean_depth}" >> $output_name
-    echo -e "${bam_file}\tMeanBaseQuality\t\${mean_base_quality}" >> $output_name
-    echo -e "${bam_file}\tMeanMapQuality\t\${mean_map_quality}" >> $output_name
-    echo -e "${bam_file}\tRG\t\${readgroup}" >> $output_name
-
-    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
-    
-    sleep 2
-    rm -f ${sample_id}_coverage_plot.png
-    python $python_script3 $coverage_txt $coverage_numts_txt ${sample_id}_coverage_plot.png
-
-    """
-}
-// echo "\$(${sample_id} ${bam_file})" >> $mapping_name
-
-// process j_INDEX_CREATION {
-// 	tag "j: samtools on $reference"
-//     publishDir "$params.outdir/j_index_creation", mode: 'copy'
-    
-//     input:
-// 	path reference
-// 	val mtdna_tag
-
-// 	output:
-// 	path "ref*.{dict,fai}", emit: fasta_index_ch
-// 	path "ref.fasta", emit: ref_ch
-
-// 	"""
-// 	sed -e "s/^>.*/>$mtdna_tag/" $reference > ref.fasta
-//     samtools faidx ref.fasta
-//     	samtools dict ref.fasta \
-// 	    -o ref.dict
-// 	"""
-// }
-
-process p12_variant_calling_mutect2_p10 {
+process p12_variant_calling_mutect2_vcfgz_p10 {
     tag "p12: mutect2 on $sample_id"
     publishDir "$params.outdir/p12_mutect2", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(coverage_txt), path(coverage_txt_numts)
+    tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts) // the coverages do not need to be passed to mutect2 process
     path reference
     path fasta_index
     path mutect2_index
 
     output:
     tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), emit: mutect2_ch
-    // path("${bam_file.baseName}.bamout")
     path("${bam_file.baseName}_sorted.bamout.bam")
     path("${bam_file.baseName}_sorted.bamout.bam.bai")
-    // path("run1.vcf.gz ")
-    // path("run2.vcf.gz ")
-    // path("${sample_id}_mpileup.vcf.gz")
-    // path("${sample_id}_mpileup_bamout.vcf.gz")
+
 
     script:
     def avail_mem = 1024
     if (task.memory) {
         avail_mem = (task.memory.mega*0.8).intValue()
     }    
-    // samtools index ${bam_file}
     
     """  
     mkdir tmp_${sample_id}
-
 
     gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
         -L 'chrM' \
         --min-base-quality-score ${params.baseQ} \
-        --callable-depth 6 \
+        --callable-depth $params.callable_depth \
         --linked-de-bruijn-graph true \
         --recover-all-dangling-branches true \
-        --initial-tumor-lod 0   \
-        --tumor-lod-to-emit 0  \
-        --native-pair-hmm-threads 1 \
-        --max-reads-per-alignment-start 0 \
+        --initial-tumor-lod "${params.initial_tumor_lod}" \
+        --tumor-lod-to-emit "${params.tumor_lod_to_emit}"  \
+        --native-pair-hmm-threads "${params.native_pair_hmm_threads}"  \
+        --max-reads-per-alignment-start "${params.max_reads_per_alignment_start}" \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \
         -O raw.vcf.gz 
-
-
 
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
@@ -541,7 +428,7 @@ process p12_variant_calling_mutect2_p10 {
     gatk  --java-options "-Xmx16G" \
         FilterMutectCalls \
         -R ${reference} \
-        --min-reads-per-strand 0 \
+        --min-reads-per-strand "${params.min_reads_per_strand}" \
         -V raw.vcf.gz \
         --tmp-dir . \
         -O ${bam_file.baseName}.vcf.gz
@@ -557,184 +444,49 @@ process p12_variant_calling_mutect2_p10 {
     -o ${bam_file.baseName}.vcf.gz -Oz \
     ${bam_file.baseName}.norm.vcf.gz 
     
-    tabix -f ${bam_file.baseName}.vcf.gz
-
-    rm ${bam_file.baseName}.norm.vcf.gz 
-    
+    tabix -f ${bam_file.baseName}.vcf.gz 
     """
 }
-    //     gatk --java-options "-Xmx16G" \
-    //     Mutect2 \
-    //     -R ${reference} \
-    //     -L '${detected_contig}' \
-    //     --min-base-quality-score 30 \
-    //     --callable-depth 6 \
-    //     --initial-tumor-lod -10   \
-    //     --tumor-lod-to-emit -10   \
-    //     --native-pair-hmm-threads 1 \
-    //     --max-reads-per-alignment-start 0 \
-    //     --bam-output ${bam_file.baseName}_1.bamout.bam \
-    //     --tmp-dir tmp_${sample_id} \
-    //     -I ${bam_file} \
-    //     -O run1.vcf.gz 
 
+process p13_CALCULATE_STATISTICS {
+    tag "p13: calculate_statistics on $sample_id"
+    publishDir "$params.outdir/i_calculate_statistics", mode: 'copy'
 
-    // bcftools isec -C -w1 -Oz -o run2_unique.vcf.gz run2.vcf.gz run1.vcf.gz
-    // tabix -p vcf run2_unique.vcf.gz 
-    // bcftools concat -a -Oz -o merged.vcf.gz run1.vcf.gz run2_unique.vcf.gz
-    // bcftools sort merged.vcf.gz -Oz -o raw.vcf.gz
-    // tabix -f raw.vcf.gz
-    // cp run1.vcf.gz.stats raw.vcf.gz.stats
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
+    path python_script_generate_read_depth_plot
 
+    output:
+    // path "*summary.txt", emit: stats_ch
+    // path "*mapping.txt", emit: mapping_ch
+    path "*.zip", emit: fastqc_ch
+    // path("*.bam"), includeInputs: true, emit: fixed_file
+    path(read_depth_txt)
+    path(read_depth_txt_numts)
+    path("*read_depth_plot.png")
 
-    // samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}_1.bamout.bam
-    // samtools index ${bam_file.baseName}_sorted.bamout.bam 
+    script:
+    // def output_name = "${sample_id}.summary.txt"
+    // def mapping_name = "${sample_id}.mapping.txt"
+ 
+    def avail_mem = 1024
+    if (task.memory) {
+        avail_mem = (task.memory.mega*0.8).intValue()
+    }    
+    // 16623 - lenght of the extended rCRS
+    // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
+    // mv ${sample_id}_tmp.bam ${bam_file}
 
-
-        // --genotype-pon-sites true \
-        // --panel-of-normals $params.force_sites \
-
-// --mitochondria-mode true \
-// gatk --java-options "-Xmx16G"    \
-//       Mutect2  \
-//       -R ref.fasta   \
-//       -L 'chrM'   \
-//       --min-base-quality-score 32  \
-//       --callable-depth 2  \
-//       --initial-tumor-lod -10   \
-//       --tumor-lod-to-emit -10   \
-//       --linked-de-bruijn-graph true         --max-reads-$
-
-// --bam-output s24-12889a_S3_L001.rtn.bamout.bam         
-// --tmp-dir .         
-// -I s24-12889a_S3_L001.rtn.bam         
-// -O raw.vcf.gz
-        //         --mitochondria-mode true \
-
-        // --genotype-germline-sites true \
-        // --linked-de-bruijn-graph true \
-        // --mitochondria-mode true \
-
-        // --af-of-alleles-not-in-resource 1e-3 \
-        // --germline-resource ${params.mtdna_database} \
-
-//  samtools view -H ${bam_file.baseName}.bamout.bam | grep -v "HaplotypeBAMWriter" > clean_header.sam
-//     samtools reheader clean_header.sam ${bam_file.baseName}.bamout.bam > ${bam_file.baseName}.bamout.clean.bam
-
-//     samtools sort -o ${bam_file.baseName}_sorted.bamout.clean.bam ${bam_file.baseName}.bamout.clean.bam
-//     samtools index ${bam_file.baseName}_sorted.bamout.clean.bam
-
-//     gatk --java-options "-Xmx16G" \
-//         Mutect2 \
-//         -R ${reference} \
-//         -L '${detected_contig}' \
-//         --min-base-quality-score ${params.baseQ} \
-//         --callable-depth 2 \
-//         --initial-tumor-lod 0 \
-//         --tumor-lod-to-emit 0 \
-//         --bam-output ${bam_file.baseName}.bamout2.bam \
-//         --genotype-germline-sites true \
-//         --linked-de-bruijn-graph true \
-//         --max-reads-per-alignment-start 0 \
-//         --af-of-alleles-not-in-resource 1e-3 \
-//         --germline-resource ${params.mtdna_database} \
-//         --tmp-dir . \
-//         -I ${bam_file.baseName}_sorted.bamout.clean.bam \
-//         -O ${bam_file.baseName}.vcf.gz
-
-
-
-//     bcftools mpileup \
-//         -f ${reference} \
-//         --redo-BAQ \
-//         --min-MQ 30 \
-//         --min-BQ 32 \
-//         -d 4000 \
-//         -L 4000 \
-//         -Ou \
-//         ${bam_file} | \
-//     bcftools call \
-//         --ploidy 1 \
-//         --multiallelic-caller \
-//         --variants-only \
-//         -Oz -o ${sample_id}_mpileup.vcf.gz
-
-
-
-
-
-
-        // --max-reads-per-alignment-start 0 \
-
+    """
+    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
     
-    // bcftools mpileup \
-    //     -f ${reference} \
-    //     --min-BQ 30 \
-    //     -d 4000 \
-    //     -L 4000 \
-    //     -Ou \
-    //     ${bam_file.baseName}.bamout.bam | \
-    // bcftools call \
-    //     --ploidy 1 \
-    //     --multiallelic-caller \
-    //     --variants-only \
-    //     -Oz -o ${sample_id}_mpileup_bamout.vcf.gz
+    sleep 2
+    rm -f ${sample_id}_read_depth_plot.png
+    python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
 
-    // bcftools mpileup \
-    //     --redo-BAQ \
-    //     --min-BQ ${params.baseQ} \
-    //     --per-sample-mF \
-    //     --ploidy 1 \
-    //     -f "${reference}" \
-    //     --BCF ${bam_file} | \
-    // bcftools call \
-    //     --multiallelic-caller \
-    //     --variants-only \
-    //     -Oz > ${bam_file.baseName}_mpileup.vcf.gz
-
-
-    // bcftools mpileup \
-    //     --redo-BAQ \
-    //     --min-BQ ${params.baseQ} \
-    //     --per-sample-mF \
-    //     -f "${reference}" \
-    //     --BCF ${bam_file} | \
-    // bcftools call \
-    //     --multiallelic-caller \
-    //     --variants-only \
-    //     -Oz > ${bam_file.baseName}_mpileup.vcf.gz
-
-    //  --output-tags DP,AD \
-// --linked-de-bruijn-graph true \ TEST THIS TOMORROW! 27. March 2025
-    // gatk  --java-options "-Xmx16G" \
-    //     FilterMutectCalls \
-    //     -R ${reference} \
-    //     --min-reads-per-strand 0 \
-    //     -V raw.vcf.gz \
-    //     --tmp-dir . \
-    //     -O ${bam_file.baseName}.vcf.gz
-
-        // --genotype-germline-sites true \
-        // --dont-use-soft-clipped-base true \
-        // --linked-de-bruijn-graph true \
-    // --normal-lod -20 \
-        // --mitochondria-mode true \
-        // --native-pair-hmm-threads 7 \
-        // --max-reads-per-alignment-start 0 \
-        // --pruning-lod-threshold -5 \
-        // --af-of-alleles-not-in-resource 0.01 \
-// --mitochondria-mode true \
-// --af-of-alleles-not-in-resource 0.000001 \
-// rm raw.vcf.gz
-
-    //   --mitochondria-mode \
-    //     --initial-tumor-lod 0 \
-    //     --tumor-lod-to-emit 0 \
-
-
-// /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-// /Users/peter/anaconda3/pkgs/gatk4-4.6.1.0-py310hdfd78af_0/share/gatk4-4.6.1.0-0/gatk  --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \
-
+    """
+}
+    
 process l_FINAL_VARIANTS {
     tag "l: final_variants on $sample_id"
     publishDir "$params.outdir/l_final_variants", mode: 'copy'
@@ -865,8 +617,7 @@ workflow {
     // // rtn_ch.waitFor()
 
 
-    // i_ch = i_CALCULATE_STATISTICS(rtn_ch, params.python_script3)
-    // // i_ch.waitFor()
+
 
     // j_ch = j_INDEX_CREATION(params.reference, detected_contig )
     // // j_ch.waitFor()
@@ -878,12 +629,15 @@ workflow {
 
     // // l_FINAL_VARIANTS(vcf_ch, params.reference, params.python_script2)
     
-    fdstools_ch = p11_variant_calling_fdstools_p09(rtn_ch)
+    fdstools_ch = p11_variant_calling_fdstools_vcfgz_p09(rtn_ch)
     // vcf_ch = k_MUTECT2.out.mutect2_ch 
 
-    k_ch = p12_variant_calling_mutect2_p10(rtn2_ch, params.reference, p01_index_ch, p01_index_mutect2_ch)
+    k_ch = p12_variant_calling_mutect2_vcfgz_p10(rtn2_ch, params.reference, p01_index_ch, p01_index_mutect2_ch)
     // final_inputs = vcf_ch.join(fdstools_ch, by: 0)
     // //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
+
+    i_ch = p13_CALCULATE_STATISTICS(rtn2_ch, params.python_script_generate_read_depth_plot)
+    // // i_ch.waitFor()
 
     // // final_inputs = vcf_ch
     // // .join(fdstools_ch, by: 0)
