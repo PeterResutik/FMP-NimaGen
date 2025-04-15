@@ -27,7 +27,7 @@ params.minimum_length = 60
 params.maximum_length = 300
 
 params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
-params.humans_index_base = "humans_modified.fa"
+params.humans_index_base = "humans_deleted_AS_PH_0430.fa"
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
