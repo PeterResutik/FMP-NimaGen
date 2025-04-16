@@ -1,4 +1,5 @@
 import sys
+import re
 
 def process_sam_line(line):
     # Keep header lines unchanged
@@ -17,7 +18,7 @@ def process_sam_line(line):
 
     # Process only if soft-clipping exists
     if 'S' in cigar:
-        import re
+        
         # Remove soft-clipping from the start
         match_start = re.match(r'(\d+)S', cigar)
         if match_start:

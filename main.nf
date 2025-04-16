@@ -62,7 +62,7 @@ params.native_pair_hmm_threads = 4
 params.max_reads_per_alignment_start = 0
 params.min_reads_per_strand = 3
 
-params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases.py"
+params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot.py"
 
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
@@ -172,7 +172,8 @@ process p02_map_raw_fastq_p01 {
 
     output:
     tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: p02_raw_sam_ch
-    tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
+    // tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
+    tuple path("${sample_id}_R1_R2.bam"), path("${sample_id}_R1_R2.bam.bai")
 
     script:
     """
@@ -181,12 +182,15 @@ process p02_map_raw_fastq_p01 {
 
     bwa mem ${reference} ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem ${reference} ${reads[1]} > ${sample_id}_R2.sam 
-    samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
-    samtools view -bS ${sample_id}_R2.sam | samtools sort -o ${sample_id}_R2.bam
-    samtools index ${sample_id}_R1.bam
-    samtools index ${sample_id}_R2.bam 
+    bwa mem ${reference} ${reads[0]} ${reads[1]} > ${sample_id}_R1_R2.sam  
+    samtools view -bS ${sample_id}_R1_R2.sam | samtools sort -o ${sample_id}_R1_R2.bam
+    samtools index ${sample_id}_R1_R2.bam
     """
 }
+    // samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
+    // samtools view -bS ${sample_id}_R2.sam | samtools sort -o ${sample_id}_R2.bam
+    // samtools index ${sample_id}_R1.bam
+    // samtools index ${sample_id}_R2.bam 
 
 process p03_filter_softclipped_sam_p02 {
     tag "p03: removing scb from $sample_id"
@@ -202,8 +206,8 @@ process p03_filter_softclipped_sam_p02 {
 
     script:
     """ 
-    cat ${sam_r1} | python $python_script_remove_scb > ${sample_id}_R1_wo_scb.sam
-    cat ${sam_r2} | python $python_script_remove_scb > ${sample_id}_R2_wo_scb.sam
+    python $python_script_remove_scb ${sam_r1} ${sample_id}_R1_wo_scb.sam
+    python $python_script_remove_scb ${sam_r2} ${sample_id}_R2_wo_scb.sam
     samtools view -Sb ${sample_id}_R1_wo_scb.sam > ${sample_id}_R1_wo_scb.bam
     samtools view -Sb ${sample_id}_R2_wo_scb.sam > ${sample_id}_R2_wo_scb.bam
     samtools sort -o ${sample_id}_R1_wo_scb_sorted.bam ${sample_id}_R1_wo_scb.bam
@@ -212,6 +216,8 @@ process p03_filter_softclipped_sam_p02 {
     samtools index ${sample_id}_R2_wo_scb_sorted.bam
     """
 }
+    // cat ${sam_r1} | python $python_script_remove_scb > ${sample_id}_R1_wo_scb.sam
+    // cat ${sam_r2} | python $python_script_remove_scb > ${sample_id}_R2_wo_scb.sam
 
 process p04_convert_bam_2_fastq_p03 {
     tag "p04: convert BAM_wo_scb to FASTQ on $sample_id"
