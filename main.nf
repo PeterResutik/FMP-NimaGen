@@ -63,7 +63,8 @@ params.max_reads_per_alignment_start = 0
 params.min_reads_per_strand = 3
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
-params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot.py"
+params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
+params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved.py"
 
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
 
@@ -97,9 +98,12 @@ log_text = """\
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
 
          VARIANT CALLING (with FDSTOOLS)
+         (tssv)
          --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
          --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
+         (samplestats)
          --min_reads_filt                 : $params.min_reads_filt # the minimum number of reads (default: 1)
+         (vis)
          --min_abs                        : $params.min_abs # only show sequences with this minimum number of reads (default: 5)
          --min_pct_of_max                 : $params.min_pct_of_max # for sample: only show sequences with at least this percentage of the number of reads of the highest allele of a marker
          --min-pct-of-sum                 : $params.min_pct_of_sum # only show sequences with at least this percentage of the total number of reads of a marker (default: 0.0)
@@ -116,6 +120,10 @@ log_text = """\
          --native_pair_hmm_threads        : $params.native_pair_hmm_threads #
          --max_reads_per_alignment_start  : $params.max_reads_per_alignment_start # 
          --min_reads_per_strand           : $params.min_reads_per_strand #
+
+
+         POSTPROCESSING
+         
 
          outdir                           : ${params.outdir}
          """
@@ -163,7 +171,7 @@ process p01_index_reference_fasta {
 
 process p02_map_raw_fastq_p01 {
     tag "p02: bwa mem on $sample_id"
-    publishDir "$params.outdir/p02_mapped_w_scb_bam", mode: 'copy', pattern: '*.bam*'
+    publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(reads)
@@ -172,7 +180,7 @@ process p02_map_raw_fastq_p01 {
 
     output:
     tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: p02_raw_sam_ch
-    // tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
+    tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
     tuple path("${sample_id}_R1_R2.bam"), path("${sample_id}_R1_R2.bam.bai")
 
     script:
@@ -183,18 +191,21 @@ process p02_map_raw_fastq_p01 {
     bwa mem ${reference} ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem ${reference} ${reads[1]} > ${sample_id}_R2.sam 
     bwa mem ${reference} ${reads[0]} ${reads[1]} > ${sample_id}_R1_R2.sam  
+    
     samtools view -bS ${sample_id}_R1_R2.sam | samtools sort -o ${sample_id}_R1_R2.bam
     samtools index ${sample_id}_R1_R2.bam
+
+    samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
+    samtools view -bS ${sample_id}_R2.sam | samtools sort -o ${sample_id}_R2.bam
+    samtools index ${sample_id}_R1.bam
+    samtools index ${sample_id}_R2.bam 
     """
 }
-    // samtools view -bS ${sample_id}_R1.sam | samtools sort -o ${sample_id}_R1.bam
-    // samtools view -bS ${sample_id}_R2.sam | samtools sort -o ${sample_id}_R2.bam
-    // samtools index ${sample_id}_R1.bam
-    // samtools index ${sample_id}_R2.bam 
+
 
 process p03_filter_softclipped_sam_p02 {
     tag "p03: removing scb from $sample_id"
-    publishDir "$params.outdir/p03_mapped_wo_scb_bam", mode: 'copy', pattern: '*sorted.bam*'
+    publishDir "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}", mode: 'copy', pattern: '*sorted.bam*'
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
@@ -221,7 +232,7 @@ process p03_filter_softclipped_sam_p02 {
 
 process p04_convert_bam_2_fastq_p03 {
     tag "p04: convert BAM_wo_scb to FASTQ on $sample_id"
-    // publishDir "$params.outdir/p04_wo_scb_fastq", mode: 'copy'
+    // publishDir "$params.outdir/p04_wo_scb_fastq/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(bam_r1_wo_scb), path(bam_r2_wo_scb)
@@ -239,7 +250,7 @@ process p04_convert_bam_2_fastq_p03 {
 
 process p05_merge_fastq_p04 {
     tag "p05: flash on $sample_id"
-    // publishDir "$params.outdir/p05_wo_scb_merged_fastq", mode: 'copy'
+    // publishDir "$params.outdir/p05_wo_scb_merged_fastq/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq_r1_wo_scb), path(fastq_r2_wo_scb)
@@ -255,7 +266,7 @@ process p05_merge_fastq_p04 {
 
 process p06_trim_merged_fastq_p05 {
     tag "p06: cutadapt on $sample_id"
-    // publishDir "$params.outdir/p06_wo_scb_merged_trimmed_fastq", mode: 'copy'
+    // publishDir "$params.outdir/p06_wo_scb_merged_trimmed_fastq/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)
@@ -275,7 +286,7 @@ process p06_trim_merged_fastq_p05 {
 
 process p07_map_merged_fastq_p01_p05 {
     tag "p07: bwa mem on $sample_id"
-    // publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam", mode: 'copy', pattern: '*.bam*'
+    // publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)
@@ -297,7 +308,7 @@ process p07_map_merged_fastq_p01_p05 {
 
 process p08_map_merged_trimmed_fastq_p01_p06 {
     tag "p08: bwa mem on $sample_id"
-    // publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam", mode: 'copy', pattern: '*.bam*'
+    // publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged_trimmed)
@@ -322,7 +333,7 @@ process p08_map_merged_trimmed_fastq_p01_p06 {
 
 process p09_filter_numts_merged_bam_p07 {
     tag "p09: rtn on $sample_id"
-    publishDir "$params.outdir/p09_filtered_numts_bam_for_fdstoold", mode: 'copy'
+    publishDir "$params.outdir/p09_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index)
@@ -345,7 +356,7 @@ process p09_filter_numts_merged_bam_p07 {
 
 process p10_filter_numts_trimmed_merged_bam_p08 {
     tag "p10: rtn on $sample_id"
-    publishDir "$params.outdir/p10_filtered_numts_bam_for_mutect2", mode: 'copy', pattern: '*.bam*'
+    publishDir "$params.outdir/p10_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*'
     // publishDir "$params.outdir/p10_read_depth_txt", mode: 'copy', pattern: '*.txt'
 
     input:
@@ -370,7 +381,7 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
 
 process p11_variant_calling_fdstools_vcfgz_p09 {
     tag "p11: fdstools on $sample_id"
-    publishDir "$params.outdir/p11_fdstools", mode: 'copy'
+    publishDir "$params.outdir/p11_fdstools/${sample_id}", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(rtn_fastq)
@@ -388,7 +399,7 @@ process p11_variant_calling_fdstools_vcfgz_p09 {
 
 process p12_variant_calling_mutect2_vcfgz_p10 {
     tag "p12: mutect2 on $sample_id"
-    publishDir "$params.outdir/p12_mutect2", mode: 'copy'
+    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts) // the coverages do not need to be passed to mutect2 process
@@ -454,44 +465,77 @@ process p12_variant_calling_mutect2_vcfgz_p10 {
     """
 }
 
-process p13_CALCULATE_STATISTICS {
-    tag "p13: calculate_statistics on $sample_id"
-    publishDir "$params.outdir/i_calculate_statistics", mode: 'copy'
-
+process p13_quality_control {
+    tag "p13: fastqc + read depth on $sample_id"
+    publishDir "${params.outdir}/p13_quality_control_FASTQC_READDEPTH/${sample_id}", mode: 'copy'
+    
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
     path python_script_generate_read_depth_plot
 
     output:
-    // path "*summary.txt", emit: stats_ch
-    // path "*mapping.txt", emit: mapping_ch
     path "*.zip", emit: fastqc_ch
-    // path("*.bam"), includeInputs: true, emit: fixed_file
     path(read_depth_txt)
     path(read_depth_txt_numts)
     path("*read_depth_plot.png")
 
     script:
-    // def output_name = "${sample_id}.summary.txt"
-    // def mapping_name = "${sample_id}.mapping.txt"
- 
     def avail_mem = 1024
     if (task.memory) {
-        avail_mem = (task.memory.mega*0.8).intValue()
-    }    
-    // 16623 - lenght of the extended rCRS
-    // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
-    // mv ${sample_id}_tmp.bam ${bam_file}
+        avail_mem = (task.memory.mega * 0.8).intValue()
+    }
 
     """
     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
-    
-    sleep 2
-    rm -f ${sample_id}_read_depth_plot.png
-    python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
 
+    # Remove any pre-existing plot from a rerun (ensures reproducibility)
+    rm -f ${sample_id}_read_depth_plot.png
+
+    # Generate static read depth plot
+    python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
     """
 }
+
+
+// process p13_CALCULATE_STATISTICS {
+//     tag "p13: calculate_statistics on $sample_id"
+//     publishDir "$params.outdir/p13_calculate_statistics", mode: 'copy'
+
+//     input:
+//     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
+//     path python_script_generate_read_depth_plot
+
+//     output:
+//     // path "*summary.txt", emit: stats_ch
+//     // path "*mapping.txt", emit: mapping_ch
+//     path "*.zip", emit: fastqc_ch
+//     // path("*.bam"), includeInputs: true, emit: fixed_file
+//     path(read_depth_txt)
+//     path(read_depth_txt_numts)
+//     path("*read_depth_plot.png")
+//     // path("${sample_id}_read_depth_plot_interactive.html")
+
+//     script:
+//     // def output_name = "${sample_id}.summary.txt"
+//     // def mapping_name = "${sample_id}.mapping.txt"
+ 
+//     def avail_mem = 1024
+//     if (task.memory) {
+//         avail_mem = (task.memory.mega*0.8).intValue()
+//     }    
+//     // 16623 - lenght of the extended rCRS
+//     // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
+//     // mv ${sample_id}_tmp.bam ${bam_file}
+
+//     """
+//     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
+    
+//     sleep 2
+//     rm -f ${sample_id}_read_depth_plot.png
+//     python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
+
+//     """
+// }
     
 process l_FINAL_VARIANTS {
     tag "l: final_variants on $sample_id"
@@ -499,15 +543,15 @@ process l_FINAL_VARIANTS {
     // publishDir "${params.output}", mode: 'copy'
 
     input:
-    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), val(method), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
+    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
     // tuple  val(sample_id), , 
     path reference
     path python_script2
-    path python_script4
+    path python_script_process_fdstools_sast
     path python_script5
 
     output:
-    tuple val(sample_id), path("${vcf_file.baseName}.${method}.filtered.empop.txt"), path("${vcf_file.baseName}.${method}.filtered.empop_final.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
+    tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${vcf_file.baseName}.filtered.empop_final.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -515,27 +559,26 @@ process l_FINAL_VARIANTS {
     """
     echo -e "test"
     echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
-        > ${vcf_file.baseName}.${method}.txt
+        > ${vcf_file.baseName}.txt
 
     bcftools query -u \
         -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
         ${vcf_file} | \
         awk -F'\t' '(\$2 !~ /bla/)' \
-        >> ${vcf_file.baseName}.${method}.txt
+        >> ${vcf_file.baseName}.txt
          
-    
-
     ## annotating SNVS and INDELs for reporting
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
         if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
         else { \$10="2" }
         print
-    }' ${vcf_file.baseName}.${method}.txt > ${vcf_file.baseName}.${method}.filtered.txt
+    }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
-    python $python_script2 ${vcf_file.baseName}.${method}.filtered.txt ${vcf_file.baseName}.${method}.filtered.empop.txt $reference 
-    python $python_script5 ${vcf_file.baseName}.${method}.filtered.empop.txt ${vcf_file.baseName}.${method}.filtered.empop_final.txt
-    python $python_script4 ${sast_file} ${sample_id}_fdstools_processed.txt 
+    python $python_script2 ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference 
+    python $python_script5 ${vcf_file.baseName}.filtered.empop.txt ${vcf_file.baseName}.filtered.empop_final.txt
+    
+    python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
     """
 }
         // else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
@@ -636,15 +679,17 @@ workflow {
     // // l_FINAL_VARIANTS(vcf_ch, params.reference, params.python_script2)
     
     fdstools_ch = p11_variant_calling_fdstools_vcfgz_p09(rtn_ch)
-    // vcf_ch = k_MUTECT2.out.mutect2_ch 
+    
 
     k_ch = p12_variant_calling_mutect2_vcfgz_p10(rtn2_ch, params.reference, p01_index_ch, p01_index_mutect2_ch)
-    // final_inputs = vcf_ch.join(fdstools_ch, by: 0)
+
     // //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
 
-    i_ch = p13_CALCULATE_STATISTICS(rtn2_ch, params.python_script_generate_read_depth_plot)
+    i_ch = p13_quality_control(rtn2_ch, params.python_script_generate_read_depth_plot)
     // // i_ch.waitFor()
 
+    vcf_ch = p12_variant_calling_mutect2_vcfgz_p10.out.mutect2_ch 
+    final_inputs = vcf_ch.join(fdstools_ch, by: 0)
     // // final_inputs = vcf_ch
     // // .join(fdstools_ch, by: 0)
     // // .map { sid, vcf_parts, fdstools_parts ->
@@ -654,7 +699,7 @@ workflow {
     // // final_inputs.view()
     // // final_inputs.into { final_variants_inputs }
 
-    // l_ch = l_FINAL_VARIANTS(final_inputs, params.reference, params.python_script2, params.python_script4, params.python_script5)
+    l_ch = l_FINAL_VARIANTS(final_inputs, params.reference, params.python_script2, params.python_script_process_fdstools_sast, params.python_script5)
     // variant_callers_ch = l_FINAL_VARIANTS.out.fdstools_mutect2_variants_ch
 
     // n_ch = n_MERGE_FDSTOOLS_MUTECT2(variant_callers_ch, params.python_script6)
