@@ -65,7 +65,11 @@ def main():
 
         # Add x-axis ticks at every amplicon position
         positions = merged_data["Position"].tolist()
-        plt.xticks(positions, labels=[str(pos) for pos in positions], rotation=90, fontsize=5)
+        # Combine marker label and position
+        marker_labels = [f"mtNG_{i:03d} ({pos})" for i, pos in enumerate(positions, start=1)]
+        plt.xticks(positions, labels=marker_labels, rotation=90, fontsize=4)
+
+
 
         # Legend and save
         plt.legend()

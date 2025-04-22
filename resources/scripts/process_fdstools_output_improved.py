@@ -48,7 +48,7 @@ def load_marker_ranges(filepath):
                 parts = [v.strip() for v in values.split(",")]
                 if len(parts) >= 3:
                     chrom, start, end = parts[:3]
-                    marker_ranges[marker.strip()] = f"{chrom}:{start}–{end}"
+                    marker_ranges[marker.strip()] = f"{start}-{end}"
     return marker_ranges
 
 # Main processing function
@@ -73,6 +73,8 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         df["marker"].isin(marker_counts[marker_counts == 1].index) & 
         (df["total"] < depth_threshold)
     ].copy()
+    single_low_coverage["sequence"] = "LOW OR NO COVERAGE"
+    single_low_coverage = single_low_coverage.drop(columns=["total_mp_sum", "flags"], errors="ignore")
 
     df["is_noise_or_low_frq"] = df["sequence"].isin(["Other sequences"]) | (df["total_mp_sum"] < min_variant_frequency_pct)
     clean_total_per_marker = df[~df["is_noise_or_low_frq"]].groupby("marker")["total"].sum().rename("total_wo_noise_or_low_frq")

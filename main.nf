@@ -376,6 +376,7 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
     rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
+    
     """
 }
 
@@ -465,7 +466,7 @@ process p12_variant_calling_mutect2_vcfgz_p10 {
     """
 }
 
-process p13_quality_control {
+process p13_quality_control_p10 {
     tag "p13: fastqc + read depth on $sample_id"
     publishDir "${params.outdir}/p13_quality_control_FASTQC_READDEPTH/${sample_id}", mode: 'copy'
     
@@ -577,7 +578,7 @@ process l_FINAL_VARIANTS {
 
     python $python_script2 ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference 
     python $python_script5 ${vcf_file.baseName}.filtered.empop.txt ${vcf_file.baseName}.filtered.empop_final.txt
-    
+
     python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
     """
 }
@@ -685,7 +686,7 @@ workflow {
 
     // //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
 
-    i_ch = p13_quality_control(rtn2_ch, params.python_script_generate_read_depth_plot)
+    i_ch = p13_quality_control_p10(rtn2_ch, params.python_script_generate_read_depth_plot)
     // // i_ch.waitFor()
 
     vcf_ch = p12_variant_calling_mutect2_vcfgz_p10.out.mutect2_ch 
