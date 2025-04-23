@@ -68,7 +68,7 @@ params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process
 
 params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
 
-params.python_script4 = "$baseDir/resources/scripts/process_fdstools_output.py"
+// params.python_script4 = "$baseDir/resources/scripts/process_fdstools_output.py"
 params.python_script5 = "$baseDir/resources/scripts/process_mutect2_output.py"
 params.python_script6 = "$baseDir/resources/scripts/merge_fdstools_mutect2.py"
 
@@ -552,7 +552,7 @@ process l_FINAL_VARIANTS {
     path python_script5
 
     output:
-    tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${vcf_file.baseName}.filtered.empop_final.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
+    tuple val(sample_id), path("${vcf_file.baseName}.filtered.txt"), path("${vcf_file.baseName}.filtered.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -576,12 +576,13 @@ process l_FINAL_VARIANTS {
         print
     }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
-    python $python_script2 ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference 
-    python $python_script5 ${vcf_file.baseName}.filtered.empop.txt ${vcf_file.baseName}.filtered.empop_final.txt
 
     python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
     """
 }
+    // python $python_script2 ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference 
+    // python $python_script5 ${vcf_file.baseName}.filtered.empop.txt ${vcf_file.baseName}.filtered.empop_final.txt
+// 
         // else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
 
 
