@@ -12,6 +12,12 @@ def extract_position(seq):
     match = re.search(r"(\d+\.?\d*)", seq)
     return float(match.group(1)) if match else float('inf')
 
+# Adjust for circular mtDNA positions (16570–16587 → 1–18)
+def adjust_circular_position(pos):
+    if 16570 <= pos <= 16587:
+        return pos - 16569
+    return pos
+
 # IUPAC resolution for heteroplasmies
 def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES):
     seq = row['sequence']
@@ -158,6 +164,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     marker_map = load_marker_ranges(marker_map_path)
     final["marker_range"] = final["marker"].map(marker_map)
     final["position"] = final["marker"].apply(extract_position)
+    final["position"] = final["position"].apply(adjust_circular_position)
     final = final.sort_values(by="position").drop(columns=["position"])
 
     final.to_csv(output_file, sep="\t", index=False)

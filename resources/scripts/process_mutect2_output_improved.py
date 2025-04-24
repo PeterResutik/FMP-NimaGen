@@ -133,9 +133,18 @@ def finalize_output_table(df):
 
     grouped = df.groupby(group_keys, as_index=False).agg(full_agg)
 
+    # def extract_position(variant):
+    #     match = re.search(r"(\d+\.?\d*)", str(variant))
+    #     return float(match.group(1)) if match else float('inf')
+
     def extract_position(variant):
         match = re.search(r"(\d+\.?\d*)", str(variant))
-        return float(match.group(1)) if match else float('inf')
+        if match:
+            pos = int(float(match.group(1)))
+            if 16570 <= pos <= 16587:
+                return pos - 16569  # map 16570–16587 → 1–18
+            return pos
+        return float('inf')
 
     grouped["position"] = grouped["EMPOP_Variant"].apply(extract_position)
     grouped = grouped.sort_values(by="position").drop(columns=["position"])
