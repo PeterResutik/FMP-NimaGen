@@ -65,12 +65,9 @@ params.min_reads_per_strand = 3
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
 params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved.py"
+params.python_script_process_mutect2_vcfgz = "$baseDir/resources/scripts/process_mutect2_output_improved.py"
+params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_fdstools_mutect2_improved.py"
 
-params.python_script2 = "$baseDir/resources/scripts/python_empop.py"
-
-// params.python_script4 = "$baseDir/resources/scripts/process_fdstools_output.py"
-params.python_script5 = "$baseDir/resources/scripts/process_mutect2_output.py"
-params.python_script6 = "$baseDir/resources/scripts/merge_fdstools_mutect2.py"
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -123,8 +120,12 @@ log_text = """\
 
 
          POSTPROCESSING
-         
+         --depth                          : $params.depth # Read depth threshold for low coverage
+         --min_vf                         : $params.min_vf # Minor allele frequency threshold
+         --lh_thresh                      : $params.lh_thresh # Length heteroplasmy frequency threshold
+         --marker_map                     : $params.fdstools_library # Path to marker map file
 
+         OUTPUT DIRECTORY   
          outdir                           : ${params.outdir}
          """
 
@@ -380,7 +381,7 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
     """
 }
 
-process p11_variant_calling_fdstools_vcfgz_p09 {
+process p11_variant_calling_fdstools_sast_p09 {
     tag "p11: fdstools on $sample_id"
     publishDir "$params.outdir/p11_fdstools/${sample_id}", mode: 'copy'
     
@@ -398,7 +399,7 @@ process p11_variant_calling_fdstools_vcfgz_p09 {
     """
 }
 
-process p12_variant_calling_mutect2_vcfgz_p10 {
+process p12_variant_calling_mutect2_vcfgz_p01_p10 {
     tag "p12: mutect2 on $sample_id"
     publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy'
     
@@ -468,7 +469,7 @@ process p12_variant_calling_mutect2_vcfgz_p10 {
 
 process p13_quality_control_p10 {
     tag "p13: fastqc + read depth on $sample_id"
-    publishDir "${params.outdir}/p13_quality_control_FASTQC_READDEPTH/${sample_id}", mode: 'copy'
+    publishDir "${params.outdir}/p13_quality_control/${sample_id}", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
@@ -497,62 +498,22 @@ process p13_quality_control_p10 {
     """
 }
 
-
-// process p13_CALCULATE_STATISTICS {
-//     tag "p13: calculate_statistics on $sample_id"
-//     publishDir "$params.outdir/p13_calculate_statistics", mode: 'copy'
-
-//     input:
-//     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
-//     path python_script_generate_read_depth_plot
-
-//     output:
-//     // path "*summary.txt", emit: stats_ch
-//     // path "*mapping.txt", emit: mapping_ch
-//     path "*.zip", emit: fastqc_ch
-//     // path("*.bam"), includeInputs: true, emit: fixed_file
-//     path(read_depth_txt)
-//     path(read_depth_txt_numts)
-//     path("*read_depth_plot.png")
-//     // path("${sample_id}_read_depth_plot_interactive.html")
-
-//     script:
-//     // def output_name = "${sample_id}.summary.txt"
-//     // def mapping_name = "${sample_id}.mapping.txt"
- 
-//     def avail_mem = 1024
-//     if (task.memory) {
-//         avail_mem = (task.memory.mega*0.8).intValue()
-//     }    
-//     // 16623 - lenght of the extended rCRS
-//     // samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${bam_file}  -o ${sample_id}_tmp.bam
-//     // mv ${sample_id}_tmp.bam ${bam_file}
-
-//     """
-//     fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
     
-//     sleep 2
-//     rm -f ${sample_id}_read_depth_plot.png
-//     python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
-
-//     """
-// }
-    
-process l_FINAL_VARIANTS {
-    tag "l: final_variants on $sample_id"
-    publishDir "$params.outdir/l_final_variants", mode: 'copy'
+process p14_process_variants_p11_p12 {
+    tag "p14: processing variants on $sample_id"
+    publishDir "$params.outdir/p14_processed_variants_txt/${sample_id}", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
     tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
     // tuple  val(sample_id), , 
     path reference
-    path python_script2
+    path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
-    path python_script5
+    // path python_script5
 
     output:
-    tuple val(sample_id), path("${vcf_file.baseName}.filtered.txt"), path("${vcf_file.baseName}.filtered.txt"), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_mutect2_variants_ch
+    tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${sample_id}_fdstools_processed.txt")
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -571,55 +532,32 @@ process l_FINAL_VARIANTS {
     ## annotating SNVS and INDELs for reporting
     awk 'BEGIN {OFS="\t"} {
         if (NR == 1) { print \$0, "Type"; next }
-        if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="3" }
-        else { \$10="2" }
+        if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
+        else { \$10="SNP" }
         print
     }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
-
+    python $python_script_process_mutect2_vcfgz ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference --min_vf 8 --lh_thresh 90
     python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
     """
 }
-    // python $python_script2 ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference 
-    // python $python_script5 ${vcf_file.baseName}.filtered.empop.txt ${vcf_file.baseName}.filtered.empop_final.txt
-// 
-        // else if (\$9 == "0/1" || \$9 == "1/0" || \$9 == "0|1" || \$9 == "1|0") { \$10="2" }
 
 
-// process m_PROCESS_FDSTOOLS {
-//     tag "m: process_fdstools on $sample_id"
-//     publishDir "$params.outdir/m_processed_fdstools", mode: 'copy'
-//     // publishDir "${params.output}", mode: 'copy'
-
-//     input:
-//     tuple  val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
-
-//     output:
-//     tuple val(sample_id), path("${sample_id}_fdstools_processed.txt"), emit: fdstools_variants_ch
-
-
-//     """
-//     python $python_script4 ${sast_file} ${sample_id}_fdstools_processed.txt 
-//     """
-// }
-
-process n_MERGE_FDSTOOLS_MUTECT2 {
-    tag "n: merged_callers on $sample_id"
-    publishDir "$params.outdir/n_merged_callers", mode: 'copy'
+process p15_merge_variants_p14 {
+    tag "p15: merging variants on $sample_id"
+    publishDir "$params.outdir/p15_merged_variants", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
-    tuple val(sample_id), path(filtered_mutect2), path(filtered_mutect2_final), path(filtered_fdstools)
-    path python_script6
+    tuple val(sample_id), path(filtered_mutect2_final), path(filtered_fdstools)
+    path python_script_merge_fdstools_mutect2
     // tuple val(sample_id), path(filtered_fdstools)
 
     output:
-    path("${sample_id}_merged_variants.txt"), emit: merged_variants_ch
-
+    path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
 
     """
-    python $python_script6 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.txt
-
+    python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx
     """
 }
 
@@ -657,53 +595,22 @@ workflow {
     p08_map_merged_trimmed_fastq_p01_p06(p06_trim_merged_fastq_p05.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
-
-
-
-
-    rtn_ch = p09_filter_numts_merged_bam_p07(p07_map_merged_fastq_p01_p05.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
-    // // rtn_ch.waitFor()
-
-    rtn2_ch = p10_filter_numts_trimmed_merged_bam_p08(p08_map_merged_trimmed_fastq_p01_p06.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
-    // // rtn_ch.waitFor()
-
-
-
-
-    // j_ch = j_INDEX_CREATION(params.reference, detected_contig )
-    // // j_ch.waitFor()
-
-
-    // // k_ch.waitFor()
-
+    p09_filter_numts_merged_bam_p07(p07_map_merged_fastq_p01_p05.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    p10_filter_numts_trimmed_merged_bam_p08(p08_map_merged_trimmed_fastq_p01_p06.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
     
+    // ────────────────── VARIANT CALLING ─────────────────────
+    p11_fdstools_ch = p11_variant_calling_fdstools_sast_p09(p09_filter_numts_merged_bam_p07.out)
+    p12_variant_calling_mutect2_vcfgz_p01_p10(p10_filter_numts_trimmed_merged_bam_p08.out, params.reference, p01_index_ch, p01_index_mutect2_ch)
+    p12_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p10.out.mutect2_ch 
 
-    // // l_FINAL_VARIANTS(vcf_ch, params.reference, params.python_script2)
+    // ────────────────── QUALITY CONTROL ─────────────────────
+    p13_quality_control_p10(p10_filter_numts_trimmed_merged_bam_p08.out, params.python_script_generate_read_depth_plot)
     
-    fdstools_ch = p11_variant_calling_fdstools_vcfgz_p09(rtn_ch)
-    
+    // ────────────────── PROCESS VARIANTS ────────────────────
+    p11_p12_final_inputs = p11_fdstools_ch.join(p12_mutect2_ch, by: 0)
+    p14_process_variants_p11_p12(p11_p12_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast)
 
-    k_ch = p12_variant_calling_mutect2_vcfgz_p10(rtn2_ch, params.reference, p01_index_ch, p01_index_mutect2_ch)
-
-    // //     .map { sid, vcf_parts, fdstools_parts -> tuple(sid, *vcf_parts, *fdstools_parts) }
-
-    i_ch = p13_quality_control_p10(rtn2_ch, params.python_script_generate_read_depth_plot)
-    // // i_ch.waitFor()
-
-    vcf_ch = p12_variant_calling_mutect2_vcfgz_p10.out.mutect2_ch 
-    final_inputs = vcf_ch.join(fdstools_ch, by: 0)
-    // // final_inputs = vcf_ch
-    // // .join(fdstools_ch, by: 0)
-    // // .map { sid, vcf_parts, fdstools_parts ->
-    // //     tuple(sid, *vcf_parts, *fdstools_parts)  // <-- this flattens the list properly
-    // // }
-
-    // // final_inputs.view()
-    // // final_inputs.into { final_variants_inputs }
-
-    l_ch = l_FINAL_VARIANTS(final_inputs, params.reference, params.python_script2, params.python_script_process_fdstools_sast, params.python_script5)
-    // variant_callers_ch = l_FINAL_VARIANTS.out.fdstools_mutect2_variants_ch
-
-    // n_ch = n_MERGE_FDSTOOLS_MUTECT2(variant_callers_ch, params.python_script6)
+    // ─────────────────── MERGE VARIANTS ─────────────────────
+    p15_merge_variants_p14(p14_process_variants_p11_p12.out, params.python_script_merge_fdstools_mutect2)
 
 }
