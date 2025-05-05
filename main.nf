@@ -15,11 +15,10 @@ params.outdir = "results_new"
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
 params.left_primers = "$baseDir/resources/primers/left_primers.fasta"
-params.left_primers_rc = "$baseDir/resources/primers/left_primers_rc.fasta"
+// params.left_primers_rc = "$baseDir/resources/primers/left_primers_rc.fasta"
 params.right_primers_rc = "$baseDir/resources/primers/right_primers_rc.fasta"
 params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_bed.txt"
-
-params.force_sites = "$baseDir/force_sites.vcf.gz"
+// params.force_sites = "$baseDir/force_sites.vcf.gz"
 
 // cutadapt
 params.quality_cutoff = 25
@@ -32,9 +31,7 @@ params.humans_index_base = "humans_deleted_AS_PH_0430.fa"
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
 
-
-params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
-
+// params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt"
 
 // rtn
@@ -51,7 +48,6 @@ params.allele_min_abs = 5
 params.allele_min_pct_of_max = 0 
 params.allele_min_pct_of_sum = 3
  
-
 // mutect2
 params.detection_limit = 0.08
 params.baseQ = 30
@@ -68,6 +64,10 @@ params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process
 params.python_script_process_mutect2_vcfgz = "$baseDir/resources/scripts/process_mutect2_output_improved.py"
 params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_fdstools_mutect2_improved.py"
 
+// merging
+params.depth = 10
+params.min_vf = 5
+params.lh_thresh = 90
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -537,15 +537,19 @@ process p14_process_variants_p11_p12 {
         print
     }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
+
     python $python_script_process_mutect2_vcfgz ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference --min_vf 8 --lh_thresh 90
     python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
+
+
+
     """
 }
 
 
 process p15_merge_variants_p14 {
     tag "p15: merging variants on $sample_id"
-    publishDir "$params.outdir/p15_merged_variants", mode: 'copy'
+    publishDir "$params.outdir/p15_merged_variants_xlsx", mode: 'copy'
     // publishDir "${params.output}", mode: 'copy'
 
     input:
@@ -557,7 +561,9 @@ process p15_merge_variants_p14 {
     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
 
     """
+    
     python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx
+    
     """
 }
 
@@ -607,7 +613,7 @@ workflow {
     p13_quality_control_p10(p10_filter_numts_trimmed_merged_bam_p08.out, params.python_script_generate_read_depth_plot)
     
     // ────────────────── PROCESS VARIANTS ────────────────────
-    p11_p12_final_inputs = p11_fdstools_ch.join(p12_mutect2_ch, by: 0)
+    p11_p12_final_inputs = p12_mutect2_ch.join(p11_fdstools_ch, by: 0)
     p14_process_variants_p11_p12(p11_p12_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast)
 
     // ─────────────────── MERGE VARIANTS ─────────────────────

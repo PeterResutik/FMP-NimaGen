@@ -31,7 +31,7 @@ def rightmost_repeat_position(reference, pos, segment):
 def shift_insertion_right(reference, pos, segment):
     pos = rightmost_repeat_position(reference, pos, segment)
     for _ in range(len(segment) - 1):
-        next_seq = reference[pos + 1: pos + 1 + len(segment)]
+        next_seq = reference[pos: pos + 1]
         if "".join(next_seq) == segment[0]:
             segment = segment[1:] + segment[0]
             pos += 1
@@ -40,9 +40,10 @@ def shift_insertion_right(reference, pos, segment):
     return pos, segment
 
 def shift_deletion_right(reference, pos, segment):
-    pos = rightmost_repeat_position(reference, pos, segment) - 1
+    pos = rightmost_repeat_position(reference, pos, segment) - len(segment) + 1
+    next_seq = reference[pos+1: pos + 2]
     for _ in range(len(segment) - 1):
-        if reference[pos + len(segment)] == segment[0]:
+        if "".join(next_seq) == segment[0]:
             segment = segment[1:] + segment[0]
             pos += 1
         else:
@@ -54,14 +55,17 @@ def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency):
     for i, (r, v) in enumerate(zip(ref, var)):
         sub_pos = pos + i
         reference[sub_pos - 1] = v
-
         if var_level >= 1 - min_variant_frequency:
             formatted.append(f"{r}{sub_pos}{v}")
-            return " ".join(formatted), "SNP"
         else:
             code = IUPAC_CODES.get(frozenset([r, v]), f"{r}/{v}")
             formatted.append(f"{r}{sub_pos}{code}")
-            return " ".join(formatted), "PHP"
+
+    # Return after the loop finishes
+    if var_level >= 1 - min_variant_frequency:
+        return " ".join(formatted), "SNP"
+    else:
+        return " ".join(formatted), "PHP"
 
 def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
     inserted_segment = var[len(ref):]
@@ -75,6 +79,8 @@ def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_thr
 
 def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
     deleted_segment = ref[len(var):]
+    if pos == 16188 and reference[pos]=="C":
+        deleted_segment = "".join(reference[pos:pos+len(var)])
     pos, segment = shift_deletion_right(reference, pos, deleted_segment)
 
     is_major = var_level >= length_heteroplasmy_threshold

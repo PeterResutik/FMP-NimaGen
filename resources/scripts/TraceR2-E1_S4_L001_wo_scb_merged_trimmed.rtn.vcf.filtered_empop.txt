@@ -1,0 +1,9 @@
+EMPOP_Variant	VariantLevel	Coverage	MeanBaseQuality	ID	Filter	Pos	Ref	Variant	GT	Type
+-309.1C	0.998	1,1153	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	302	A	AC	0|1	INDEL
+-309.1c	0.0	1,1163	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	302	A	ACC	0|1	LHP
+-309.2c	0.0	1,1163	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	302	A	ACC	0|1	LHP
+A523-	0.998	1,1153	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	513	GCA	G	0|1	INDEL
+C524-	0.998	1,1153	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	513	GCA	G	0|1	INDEL
+T16189-	0.998	1,1153	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	16188	CT	C	0|1	INDEL
+C16355T	0.998	1,1163	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	16355	CT	TC	0|1	SNP
+T16356C	0.998	1,1163	39,39	TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	16355	CT	TC	0|1	SNP

@@ -27,6 +27,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str) -> pd.DataFrame
 
         merged["variant_position"] = merged["variant"].apply(extract_position)
         merged = merged.sort_values(by="variant_position").drop(columns=["variant_position"])
+        # merged = merged.sort_values(by="marker")
 
         front = ["variant", "called_by_FDSTOOLS", "called_by_MUTECT2"]
         other = [col for col in merged.columns if col not in front]
