@@ -32,7 +32,8 @@ params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
 
 // params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
-params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt"
+// params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt" 
+params.fdstools_library = "$baseDir/resources/fdstools/mtNG_library_file.txt"
 
 // rtn
 params.mapQ = 30
