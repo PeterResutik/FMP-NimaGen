@@ -25,7 +25,7 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
+params.humans_index_dir = "$baseDir/resources/rtn_files/humans_old"
 params.humans_index_base = "humans_deleted_AS_PH_0430.fa"
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
@@ -205,24 +205,38 @@ process p02_map_raw_fastq_p01 {
 }
 
 
-process p03_filter_softclipped_sam_p02 {
+process p03_filter_softclipped_fastq_p01_p02 {
     tag "p03: removing scb from $sample_id"
     publishDir "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}", mode: 'copy', pattern: '*sorted.bam*'
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
     path python_script_remove_scb
+    path reference
+    path index_files
 
     output:
-    tuple val(sample_id), path("${sample_id}_R1_wo_scb.bam"), path("${sample_id}_R2_wo_scb.bam"), emit: p03_bam_files_wo_scb_ch
+    tuple val(sample_id), path("${sample_id}_R1_wo_scb.bam"), path("${sample_id}_R2_wo_scb.bam")
     tuple val(sample_id), path("${sample_id}_R1_wo_scb_sorted.bam"), path("${sample_id}_R2_wo_scb_sorted.bam"), path("${sample_id}_R1_wo_scb_sorted.bam.bai"), path("${sample_id}_R2_wo_scb_sorted.bam.bai")
+    tuple path("${sample_id}_R1_R2_wo_scb.bam"), path("${sample_id}_R1_R2_wo_scb.bam.bai")
+    tuple val(sample_id), path("${sample_id}_R1_wo_scb.fastq"), path("${sample_id}_R2_wo_scb.fastq"), emit: p03_fastq_files_wo_scb_ch
+
 
     script:
     """ 
     python $python_script_remove_scb ${sam_r1} ${sample_id}_R1_wo_scb.sam
     python $python_script_remove_scb ${sam_r2} ${sample_id}_R2_wo_scb.sam
+
     samtools view -Sb ${sample_id}_R1_wo_scb.sam > ${sample_id}_R1_wo_scb.bam
     samtools view -Sb ${sample_id}_R2_wo_scb.sam > ${sample_id}_R2_wo_scb.bam
+
+    samtools fastq ${sample_id}_R1_wo_scb.bam > ${sample_id}_R1_wo_scb.fastq    
+    samtools fastq ${sample_id}_R2_wo_scb.bam > ${sample_id}_R2_wo_scb.fastq   
+
+    bwa mem ${reference} ${sample_id}_R1_wo_scb.fastq ${sample_id}_R2_wo_scb.fastq  > ${sample_id}_R1_R2_wo_scb.sam  
+    samtools view -bS ${sample_id}_R1_R2_wo_scb.sam | samtools sort -o ${sample_id}_R1_R2_wo_scb.bam
+    samtools index ${sample_id}_R1_R2_wo_scb.bam
+
     samtools sort -o ${sample_id}_R1_wo_scb_sorted.bam ${sample_id}_R1_wo_scb.bam
     samtools sort -o ${sample_id}_R2_wo_scb_sorted.bam ${sample_id}_R2_wo_scb.bam
     samtools index ${sample_id}_R1_wo_scb_sorted.bam
@@ -232,25 +246,25 @@ process p03_filter_softclipped_sam_p02 {
     // cat ${sam_r1} | python $python_script_remove_scb > ${sample_id}_R1_wo_scb.sam
     // cat ${sam_r2} | python $python_script_remove_scb > ${sample_id}_R2_wo_scb.sam
 
-process p04_convert_bam_2_fastq_p03 {
-    tag "p04: convert BAM_wo_scb to FASTQ on $sample_id"
-    // publishDir "$params.outdir/p04_wo_scb_fastq/${sample_id}", mode: 'copy'
+// process p04_convert_bam_2_fastq_p03 {
+//     tag "p04: convert BAM_wo_scb to FASTQ on $sample_id"
+//     // publishDir "$params.outdir/p04_wo_scb_fastq/${sample_id}", mode: 'copy'
 
-    input:
-    tuple val(sample_id), path(bam_r1_wo_scb), path(bam_r2_wo_scb)
+//     input:
+//     tuple val(sample_id), path(bam_r1_wo_scb), path(bam_r2_wo_scb)
     
-    output:
-     tuple val(sample_id), path("${sample_id}_R1_wo_scb.fastq"), path("${sample_id}_R2_wo_scb.fastq")
+//     output:
+//      tuple val(sample_id), path("${sample_id}_R1_wo_scb.fastq"), path("${sample_id}_R2_wo_scb.fastq")
 
-    script:
-    """
-    samtools fastq ${bam_r1_wo_scb} > ${sample_id}_R1_wo_scb.fastq    
-    samtools fastq ${bam_r2_wo_scb} > ${sample_id}_R2_wo_scb.fastq   
-    """
-}
+//     script:
+//     """
+//     samtools fastq ${bam_r1_wo_scb} > ${sample_id}_R1_wo_scb.fastq    
+//     samtools fastq ${bam_r2_wo_scb} > ${sample_id}_R2_wo_scb.fastq   
+//     """
+// }
 
-
-process p05_merge_fastq_p04 {
+        
+process p04_merge_fastq_p03 {
     tag "p05: flash on $sample_id"
     // publishDir "$params.outdir/p05_wo_scb_merged_fastq/${sample_id}", mode: 'copy'
 
@@ -265,8 +279,8 @@ process p05_merge_fastq_p04 {
     flash ${fastq_r1_wo_scb} ${fastq_r2_wo_scb} -m $params.min_overlap -M $params.max_overlap -x $params.max_mismatch_density -O -o ${sample_id}_wo_scb_merged
     """
 }
-
-process p06_trim_merged_fastq_p05 {
+        
+process p05_trim_merged_fastq_p04 {
     tag "p06: cutadapt on $sample_id"
     // publishDir "$params.outdir/p06_wo_scb_merged_trimmed_fastq/${sample_id}", mode: 'copy'
 
@@ -285,8 +299,8 @@ process p06_trim_merged_fastq_p05 {
     cp ${sample_id}_wo_scb_merged_trimmed_left_right.fastq ${sample_id}_wo_scb_merged_trimmed.fastq
     """
 }
-
-process p07_map_merged_fastq_p01_p05 {
+        
+process p06_map_merged_bam_p01_p04 {
     tag "p07: bwa mem on $sample_id"
     // publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
@@ -307,8 +321,8 @@ process p07_map_merged_fastq_p01_p05 {
     samtools index ${sample_id}_wo_scb_merged.bam
     """
 }
-
-process p08_map_merged_trimmed_fastq_p01_p06 {
+        
+process p07_map_merged_trimmed_bam_p01_p05 {
     tag "p08: bwa mem on $sample_id"
     // publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
@@ -333,7 +347,7 @@ process p08_map_merged_trimmed_fastq_p01_p06 {
     """
 }
 
-process p09_filter_numts_merged_bam_p07 {
+process p08_filter_numts_merged_fastq_p06 {
     tag "p09: rtn on $sample_id"
     publishDir "$params.outdir/p09_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy'
 
@@ -356,7 +370,7 @@ process p09_filter_numts_merged_bam_p07 {
     """
 }
 
-process p10_filter_numts_trimmed_merged_bam_p08 {
+process p09_filter_numts_trimmed_merged_bam_p07 {
     tag "p10: rtn on $sample_id"
     publishDir "$params.outdir/p10_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*'
     // publishDir "$params.outdir/p10_read_depth_txt", mode: 'copy', pattern: '*.txt'
@@ -382,7 +396,38 @@ process p10_filter_numts_trimmed_merged_bam_p08 {
     """
 }
 
-process p11_variant_calling_fdstools_sast_p09 {
+process p10_quality_control_p09 {
+    tag "p13: fastqc + read depth on $sample_id"
+    publishDir "${params.outdir}/p13_quality_control/${sample_id}", mode: 'copy'
+    
+    input:
+    tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
+    path python_script_generate_read_depth_plot
+
+    output:
+    path "*.zip", emit: fastqc_ch
+    path(read_depth_txt)
+    path(read_depth_txt_numts)
+    path("*read_depth_plot.png")
+
+    script:
+    def avail_mem = 1024
+    if (task.memory) {
+        avail_mem = (task.memory.mega * 0.8).intValue()
+    }
+
+    """
+    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
+
+    # Remove any pre-existing plot from a rerun (ensures reproducibility)
+    rm -f ${sample_id}_read_depth_plot.png
+
+    # Generate static read depth plot
+    python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
+    """
+}
+
+process p11_variant_calling_fdstools_sast_p08 {
     tag "p11: fdstools on $sample_id"
     publishDir "$params.outdir/p11_fdstools/${sample_id}", mode: 'copy'
     
@@ -392,15 +437,21 @@ process p11_variant_calling_fdstools_sast_p09 {
     output:
     tuple  val(sample_id), path("${sample_id}.tssv.csv"), path("${sample_id}.report.txt"), path("${sample_id}.sc.csv"), path("${sample_id}.sast.csv"), path("${sample_id}.html")
 
+    script:
     """
-    fdstools tssv $params.fdstools_library  ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
-	fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
-	fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
-	fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
+    if [ -s "${rtn_fastq}" ]; then
+        fdstools tssv $params.fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
+        fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
+        fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
+        fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
+    else
+        echo "SKIPPED: ${rtn_fastq} is empty or missing." >&2
+        touch ${sample_id}.tssv.csv ${sample_id}.report.txt ${sample_id}.sc.csv ${sample_id}.sast.csv ${sample_id}.html
+    fi
     """
 }
 
-process p12_variant_calling_mutect2_vcfgz_p01_p10 {
+process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     tag "p12: mutect2 on $sample_id"
     publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy'
     
@@ -468,99 +519,152 @@ process p12_variant_calling_mutect2_vcfgz_p01_p10 {
     """
 }
 
-process p13_quality_control_p10 {
-    tag "p13: fastqc + read depth on $sample_id"
-    publishDir "${params.outdir}/p13_quality_control/${sample_id}", mode: 'copy'
-    
-    input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
-    path python_script_generate_read_depth_plot
 
-    output:
-    path "*.zip", emit: fastqc_ch
-    path(read_depth_txt)
-    path(read_depth_txt_numts)
-    path("*read_depth_plot.png")
-
-    script:
-    def avail_mem = 1024
-    if (task.memory) {
-        avail_mem = (task.memory.mega * 0.8).intValue()
-    }
-
-    """
-    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
-
-    # Remove any pre-existing plot from a rerun (ensures reproducibility)
-    rm -f ${sample_id}_read_depth_plot.png
-
-    # Generate static read depth plot
-    python $python_script_generate_read_depth_plot $read_depth_txt $read_depth_txt_numts ${sample_id}_read_depth_plot.png
-    """
-}
 
     
-process p14_process_variants_p11_p12 {
-    tag "p14: processing variants on $sample_id"
-    publishDir "$params.outdir/p14_processed_variants_txt/${sample_id}", mode: 'copy'
-    // publishDir "${params.output}", mode: 'copy'
+// process p13_process_variants_p10_p11 {
+//     tag "p14: processing variants on $sample_id"
+//     publishDir "$params.outdir/p14_processed_variants_txt/${sample_id}", mode: 'copy'
+//     // publishDir "${params.output}", mode: 'copy'
+
+//     input:
+//     tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
+//     // tuple  val(sample_id), , 
+//     path reference
+//     path python_script_process_mutect2_vcfgz
+//     path python_script_process_fdstools_sast
+//     // path python_script5
+
+//     output:
+//     tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${sample_id}_fdstools_processed.txt")
+
+//     script:
+//     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
+
+//     """
+//     if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
+
+//         echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
+//             > ${vcf_file.baseName}.txt
+
+//         bcftools query -u \
+//             -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
+//             ${vcf_file} | \
+//             awk -F'\t' '(\$2 !~ /bla/)' \
+//             >> ${vcf_file.baseName}.txt
+
+//         ## annotating SNVS and INDELs for reporting
+//         awk 'BEGIN {OFS="\t"} {
+//             if (NR == 1) { print \$0, "Type"; next }
+//             if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
+//             else { \$10="SNP" }
+//             print
+//         }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
+
+//         python $python_script_process_mutect2_vcfgz \
+//             ${vcf_file.baseName}.filtered.txt \
+//             ${vcf_file.baseName}.filtered.empop.txt \
+//             $reference \
+//             --min_vf $params.min_vf --lh_thresh $params.lh_thresh
+
+//         python $python_script_process_fdstools_sast \
+//             ${sast_file} \
+//             ${sample_id}_fdstools_processed.txt \
+//             --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+
+//     else
+//         echo "Skipping ${sample_id}: one or more input files are empty." >&2
+//         touch ${vcf_file.baseName}.filtered.empop.txt
+//         touch ${sample_id}_fdstools_processed.txt
+//     fi
+//     """
+// }
+
+
+// process p14_merge_variants_p13 {
+//     tag "p15: merging variants on $sample_id"
+//     publishDir "$params.outdir/p15_merged_variants_xlsx", mode: 'copy'
+//     // publishDir "${params.output}", mode: 'copy'
+
+//     input:
+//     tuple val(sample_id), path(filtered_mutect2_final), path(filtered_fdstools)
+//     path python_script_merge_fdstools_mutect2
+//     // tuple val(sample_id), path(filtered_fdstools)
+
+//     output:
+//     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
+
+//     script:
+//     """
+//     if [ -s "${filtered_fdstools}" ] && [ -s "${filtered_mutect2_final}" ]; then
+//         python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx
+//     else
+//         echo "Skipping merge for ${sample_id}: one or both input files are empty." >&2
+//         python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_merged_variants.xlsx', index=False, header=False)"
+//     fi
+//     """
+// }
+
+process p13_merge_variants_p10_p11 {
+    tag "p13: processing and merging variants on $sample_id"
+    publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy'
 
     input:
-    tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
-    // tuple  val(sample_id), , 
+    tuple val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
     path reference
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
-    // path python_script5
+    path python_script_merge_fdstools_mutect2
 
     output:
-    tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${sample_id}_fdstools_processed.txt")
+    path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
 
     """
-    echo -e "test"
-    echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
-        > ${vcf_file.baseName}.txt
+    if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
 
-    bcftools query -u \
-        -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
-        ${vcf_file} | \
-        awk -F'\t' '(\$2 !~ /bla/)' \
-        >> ${vcf_file.baseName}.txt
-         
-    ## annotating SNVS and INDELs for reporting
-    awk 'BEGIN {OFS="\t"} {
-        if (NR == 1) { print \$0, "Type"; next }
-        if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
-        else { \$10="SNP" }
-        print
-    }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
+        echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
+            > ${vcf_file.baseName}.txt
 
-    python $python_script_process_mutect2_vcfgz ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference --min_vf $params.min_vf --lh_thresh $params.lh_thresh
-    python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+        bcftools query -u \
+            -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
+            ${vcf_file} | \
+            awk -F'\\t' '(\$2 !~ /bla/)' \
+            >> ${vcf_file.baseName}.txt
+
+        ## Annotate SNVs and INDELs
+        awk 'BEGIN {OFS="\\t"} {
+            if (NR == 1) { print \$0, "Type"; next }
+            if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
+            else { \$10="SNP" }
+            print
+        }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
+
+        python $python_script_process_mutect2_vcfgz \
+            ${vcf_file.baseName}.filtered.txt \
+            ${vcf_file.baseName}.filtered.empop.txt \
+            $reference \
+            --min_vf $params.min_vf --lh_thresh $params.lh_thresh
+
+        python $python_script_process_fdstools_sast \
+            ${sast_file} \
+            ${sample_id}_fdstools_processed.txt \
+            --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+
+        python $python_script_merge_fdstools_mutect2 \
+            ${sample_id}_fdstools_processed.txt \
+            ${vcf_file.baseName}.filtered.empop.txt \
+            ${sample_id}_merged_variants.xlsx
+
+    else
+        echo "Skipping ${sample_id}: one or more input files are empty." >&2
+        python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_merged_variants.xlsx', index=False, header=False)"
+    fi
     """
 }
 
-
-process p15_merge_variants_p14 {
-    tag "p15: merging variants on $sample_id"
-    publishDir "$params.outdir/p15_merged_variants_xlsx", mode: 'copy'
-    // publishDir "${params.output}", mode: 'copy'
-
-    input:
-    tuple val(sample_id), path(filtered_mutect2_final), path(filtered_fdstools)
-    path python_script_merge_fdstools_mutect2
-    // tuple val(sample_id), path(filtered_fdstools)
-
-    output:
-    path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
-
-    """  
-    python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx 
-    """
-}
 
 
 workflow {
@@ -584,34 +688,40 @@ workflow {
 
     // ─────────── RAW READ MAPPING & FILTERING ───────────────
     p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
-    p03_filter_softclipped_sam_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb)
-    p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
+    p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch)
+    // p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
 
     // ──────────────── MERGING & TRIMMING ────────────────────
-    p05_merge_fastq_p04(p04_convert_bam_2_fastq_p03.out)
-    p06_trim_merged_fastq_p05(p05_merge_fastq_p04.out, params.left_primers, params.right_primers_rc)
+    p04_merge_fastq_p03(p03_filter_softclipped_fastq_p01_p02.out.p03_fastq_files_wo_scb_ch)
+    p05_trim_merged_fastq_p04(p04_merge_fastq_p03.out, params.left_primers, params.right_primers_rc)
 
     // ────────────────── FINAL MAPPING ───────────────────────
-    p07_map_merged_fastq_p01_p05(p05_merge_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
-    p08_map_merged_trimmed_fastq_p01_p06(p06_trim_merged_fastq_p05.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
+    p06_map_merged_bam_p01_p04(p04_merge_fastq_p03.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
+    p07_map_merged_trimmed_bam_p01_p05(p05_trim_merged_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
-    p09_filter_numts_merged_bam_p07(p07_map_merged_fastq_p01_p05.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
-    p10_filter_numts_trimmed_merged_bam_p08(p08_map_merged_trimmed_fastq_p01_p06.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
     
-    // ────────────────── VARIANT CALLING ─────────────────────
-    p11_fdstools_ch = p11_variant_calling_fdstools_sast_p09(p09_filter_numts_merged_bam_p07.out)
-    p12_variant_calling_mutect2_vcfgz_p01_p10(p10_filter_numts_trimmed_merged_bam_p08.out, params.reference, p01_index_ch, p01_index_mutect2_ch)
-    p12_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p10.out.mutect2_ch 
-
     // ────────────────── QUALITY CONTROL ─────────────────────
-    p13_quality_control_p10(p10_filter_numts_trimmed_merged_bam_p08.out, params.python_script_generate_read_depth_plot)
+    p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.python_script_generate_read_depth_plot)
     
-    // ────────────────── PROCESS VARIANTS ────────────────────
-    p11_p12_final_inputs = p12_mutect2_ch.join(p11_fdstools_ch, by: 0)
-    p14_process_variants_p11_p12(p11_p12_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast)
+
+    // ────────────────── VARIANT CALLING ─────────────────────
+    p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out)
+    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.reference, p01_index_ch, p01_index_mutect2_ch)
+    p11_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p09.out.mutect2_ch 
+
+
+    // ────────────── PROCESS & MERGE VARIANTS ────────────────
+    p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0)
+    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2)
+
+    
+
+    // p13_process_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast)
 
     // ─────────────────── MERGE VARIANTS ─────────────────────
-    p15_merge_variants_p14(p14_process_variants_p11_p12.out, params.python_script_merge_fdstools_mutect2)
+    // p14_merge_variants_p13(p13_process_variants_p10_p11.out, params.python_script_merge_fdstools_mutect2)
 
 }
