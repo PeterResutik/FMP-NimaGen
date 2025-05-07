@@ -10,7 +10,7 @@ params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results_new"
+params.outdir = "results_new_7"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -537,12 +537,8 @@ process p14_process_variants_p11_p12 {
         print
     }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
-
-    python $python_script_process_mutect2_vcfgz ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference --min_vf 8 --lh_thresh 90
-    python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf 8 --depth 10 --lh_thresh 90 --marker_map $params.fdstools_library
-
-
-
+    python $python_script_process_mutect2_vcfgz ${vcf_file.baseName}.filtered.txt ${vcf_file.baseName}.filtered.empop.txt $reference --min_vf $params.min_vf --lh_thresh $params.lh_thresh
+    python $python_script_process_fdstools_sast ${sast_file} ${sample_id}_fdstools_processed.txt --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
     """
 }
 
@@ -560,10 +556,8 @@ process p15_merge_variants_p14 {
     output:
     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
 
-    """
-    
-    python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx
-    
+    """  
+    python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx 
     """
 }
 

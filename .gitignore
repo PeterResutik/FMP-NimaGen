@@ -13,8 +13,8 @@ later/
 *.bam.bai
 *.vcf
 *.fastq.gz
-!raw_data/test_R1_001.fastq.gz
-!raw_data/test_R2_001.fastq.gz
+!raw_data/Ctr007_L001_R1_001.fastq.gz
+!raw_data/Ctr007_L001_R2_001.fastq.gz
 
 # Output directories (customize based on your pipeline configuration)
 merging/
@@ -23,6 +23,7 @@ data/
 results/
 results_new/
 results.nosync/
+results_new_7/
 output/
 
 #index files
