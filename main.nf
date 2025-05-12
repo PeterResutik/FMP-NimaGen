@@ -61,7 +61,7 @@ params.min_reads_per_strand = 3
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
-params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved.py"
+params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved_better.py"
 params.python_script_process_mutect2_vcfgz = "$baseDir/resources/scripts/process_mutect2_output_improved.py"
 params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_fdstools_mutect2_improved.py"
 
@@ -218,7 +218,7 @@ process p03_filter_softclipped_fastq_p01_p02 {
     output:
     tuple val(sample_id), path("${sample_id}_R1_wo_scb.bam"), path("${sample_id}_R2_wo_scb.bam")
     tuple val(sample_id), path("${sample_id}_R1_wo_scb_sorted.bam"), path("${sample_id}_R2_wo_scb_sorted.bam"), path("${sample_id}_R1_wo_scb_sorted.bam.bai"), path("${sample_id}_R2_wo_scb_sorted.bam.bai")
-    tuple path("${sample_id}_R1_R2_wo_scb.bam"), path("${sample_id}_R1_R2_wo_scb.bam.bai")
+    tuple val(sample_id), path("${sample_id}_R1_R2_wo_scb_sorted.bam"), path("${sample_id}_R1_R2_wo_scb_sorted.bam.bai")
     tuple val(sample_id), path("${sample_id}_R1_wo_scb.fastq"), path("${sample_id}_R2_wo_scb.fastq"), emit: p03_fastq_files_wo_scb_ch
 
 
@@ -234,8 +234,8 @@ process p03_filter_softclipped_fastq_p01_p02 {
     samtools fastq ${sample_id}_R2_wo_scb.bam > ${sample_id}_R2_wo_scb.fastq   
 
     bwa mem ${reference} ${sample_id}_R1_wo_scb.fastq ${sample_id}_R2_wo_scb.fastq  > ${sample_id}_R1_R2_wo_scb.sam  
-    samtools view -bS ${sample_id}_R1_R2_wo_scb.sam | samtools sort -o ${sample_id}_R1_R2_wo_scb.bam
-    samtools index ${sample_id}_R1_R2_wo_scb.bam
+    samtools view -bS ${sample_id}_R1_R2_wo_scb.sam | samtools sort -o ${sample_id}_R1_R2_wo_scb_sorted.bam
+    samtools index ${sample_id}_R1_R2_wo_scb_sorted.bam
 
     samtools sort -o ${sample_id}_R1_wo_scb_sorted.bam ${sample_id}_R1_wo_scb.bam
     samtools sort -o ${sample_id}_R2_wo_scb_sorted.bam ${sample_id}_R2_wo_scb.bam
@@ -265,8 +265,8 @@ process p03_filter_softclipped_fastq_p01_p02 {
 
         
 process p04_merge_fastq_p03 {
-    tag "p05: flash on $sample_id"
-    // publishDir "$params.outdir/p05_wo_scb_merged_fastq/${sample_id}", mode: 'copy'
+    tag "p04: flash on $sample_id"
+    // publishDir "$params.outdir/p04_wo_scb_merged_fastq/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq_r1_wo_scb), path(fastq_r2_wo_scb)
@@ -281,8 +281,8 @@ process p04_merge_fastq_p03 {
 }
         
 process p05_trim_merged_fastq_p04 {
-    tag "p06: cutadapt on $sample_id"
-    // publishDir "$params.outdir/p06_wo_scb_merged_trimmed_fastq/${sample_id}", mode: 'copy'
+    tag "p05: cutadapt on $sample_id"
+    // publishDir "$params.outdir/p05_wo_scb_merged_trimmed_fastq/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)
@@ -301,8 +301,8 @@ process p05_trim_merged_fastq_p04 {
 }
         
 process p06_map_merged_bam_p01_p04 {
-    tag "p07: bwa mem on $sample_id"
-    // publishDir "$params.outdir/p07_mapped_wo_scb_merged_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
+    tag "p06: bwa mem on $sample_id"
+    // publishDir "$params.outdir/p06_mapped_wo_scb_merged_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)
@@ -323,8 +323,8 @@ process p06_map_merged_bam_p01_p04 {
 }
         
 process p07_map_merged_trimmed_bam_p01_p05 {
-    tag "p08: bwa mem on $sample_id"
-    // publishDir "$params.outdir/p08_mapped_wo_scb_merged_trimmed_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
+    tag "p07: bwa mem on $sample_id"
+    // publishDir "$params.outdir/p07_mapped_wo_scb_merged_trimmed_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged_trimmed)
@@ -348,8 +348,8 @@ process p07_map_merged_trimmed_bam_p01_p05 {
 }
 
 process p08_filter_numts_merged_fastq_p06 {
-    tag "p09: rtn on $sample_id"
-    publishDir "$params.outdir/p09_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy'
+    tag "p08: rtn on $sample_id"
+    publishDir "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index)
@@ -371,9 +371,8 @@ process p08_filter_numts_merged_fastq_p06 {
 }
 
 process p09_filter_numts_trimmed_merged_bam_p07 {
-    tag "p10: rtn on $sample_id"
-    publishDir "$params.outdir/p10_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*'
-    // publishDir "$params.outdir/p10_read_depth_txt", mode: 'copy', pattern: '*.txt'
+    tag "p09: rtn on $sample_id"
+    publishDir "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(read_depth_txt)
@@ -397,8 +396,8 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 }
 
 process p10_quality_control_p09 {
-    tag "p13: fastqc + read depth on $sample_id"
-    publishDir "${params.outdir}/p13_quality_control/${sample_id}", mode: 'copy'
+    tag "p10: fastqc + read depth on $sample_id"
+    publishDir "${params.outdir}/p10_quality_control/${sample_id}", mode: 'copy'
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
@@ -440,6 +439,8 @@ process p11_variant_calling_fdstools_sast_p08 {
     script:
     """
     if [ -s "${rtn_fastq}" ]; then
+
+    
         fdstools tssv $params.fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
@@ -657,6 +658,7 @@ process p13_merge_variants_p10_p11 {
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
             ${sample_id}_merged_variants.xlsx
+
 
     else
         echo "Skipping ${sample_id}: one or more input files are empty." >&2
