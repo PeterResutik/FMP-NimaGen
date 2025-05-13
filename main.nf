@@ -52,7 +52,7 @@ params.allele_min_pct_of_sum = 3
 // mutect2
 params.detection_limit = 0.08
 params.baseQ = 30
-params.callable_depth = 6
+params.callable_depth = 1
 params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 4

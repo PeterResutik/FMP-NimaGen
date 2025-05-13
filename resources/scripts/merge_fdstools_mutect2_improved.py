@@ -47,17 +47,42 @@ def apply_excel_styles(excel_path: str):
         fill_blue = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")   # N to X
         fill_red = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")    # False flags
 
+        # Define additional fill colors for column A
+        fill_low = PatternFill(start_color="FEFE01", end_color="FEFE01", fill_type="solid")
+        fill_iupac = PatternFill(start_color="FAC000", end_color="FAC000", fill_type="solid")
+        fill_lowercase = PatternFill(start_color="3CB0F1", end_color="3CB0F1", fill_type="solid")
+        fill_false_flag = PatternFill(start_color="F50003", end_color="F50003", fill_type="solid")
+        fill_dash = PatternFill(start_color="92D14F", end_color="92D14F", fill_type="solid")
+        fill_default = PatternFill(start_color="36B150", end_color="36B150", fill_type="solid")
+
+
         header = [cell.value for cell in ws[1]]
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
             for idx, cell in enumerate(row):
                 col_name = header[idx]
 
+                # Special coloring for first column "variant"
+                if idx == 0:
+                    val = str(cell.value)
+                    if val == "LOW":
+                        cell.fill = fill_low
+                    elif re.search(r"[a-z]", val):
+                        cell.fill = fill_lowercase
+                    elif "-" in val:
+                        cell.fill = fill_dash
+                    elif row[1].value is False or row[2].value is False:
+                        cell.fill = fill_false_flag
+                    elif re.search(r"[MRYWSK]", val):
+                        cell.fill = fill_iupac
+                    else:
+                        cell.fill = fill_default
+
                 # Fill column D to M (index 3 to 12)
-                if 3 <= idx <= 12:
+                if 3 <= idx <= 11:
                     cell.fill = fill_green
 
                 # Fill column N to X (index 13 to 23)
-                elif 13 <= idx <= 23:
+                elif 12 <= idx <= 23:
                     cell.fill = fill_blue
 
                 # Red fill for False flags
