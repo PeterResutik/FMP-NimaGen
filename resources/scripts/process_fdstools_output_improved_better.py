@@ -221,8 +221,32 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     final["position"] = final["position"].apply(adjust_circular_position)
     final = final.sort_values(by="position").drop(columns=["position"])
 
+    # Rename columns
+    final = final.rename(columns={
+        "sequence": "FDSTOOLS",
+        "variant_frequency": "vf_FDS",
+        "total": "rd_FDS"
+    })
+
+    # Reorder columns
+    desired_order = [
+        "FDSTOOLS",
+        "vf_FDS",
+        "rd_FDS",
+        "interpolated_total_coverage",
+        "variant_note",
+        "marker",
+        "marker_range",
+        "num_markers"
+    ]
+    existing_columns = [col for col in desired_order if col in final.columns]
+    final = final[existing_columns + [col for col in final.columns if col not in existing_columns]]
+
+
     final.to_csv(output_file, sep="\t", index=False)
     print(f"Output written to {output_file}")
+
+
 
 # CLI wrapper
 def main():

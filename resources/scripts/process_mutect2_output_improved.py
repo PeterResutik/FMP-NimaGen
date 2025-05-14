@@ -121,8 +121,8 @@ def extract_float_position(variant):
     return float(match.group(1)) if match else float('inf')
 
 def finalize_output_table(df, length_heteroplasmy_threshold):
-    df["EMPOP_Variant"] = df["EMPOP_Variant"].astype(str).str.split()
-    df = df.explode("EMPOP_Variant").reset_index(drop=True)
+    df["MUTECT2"] = df["MUTECT2"].astype(str).str.split()
+    df = df.explode("MUTECT2").reset_index(drop=True)
     df["VariantLevel"] = pd.to_numeric(df["VariantLevel"], errors="coerce")
 
     def add_comma_separated_numbers(series):
@@ -132,7 +132,7 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
         summed = [sum(x) for x in zip(*split_lists)]
         return ",".join(f"{s:.4g}" for s in summed)
 
-    # group_keys = ["EMPOP_Variant"]
+    # group_keys = ["MUTECT2"]
     # numeric_agg = {
     #     "VariantLevel": "sum",
     #     "Coverage": add_comma_separated_numbers,
@@ -146,7 +146,7 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
 
 
     # Add column for numeric variant position
-    df["variant_float_pos"] = df["EMPOP_Variant"].apply(extract_float_position)
+    df["variant_float_pos"] = df["MUTECT2"].apply(extract_float_position)
 
     group_keys = ["variant_float_pos"]  # <-- changed here
     numeric_agg = {
@@ -176,15 +176,15 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
             return pos
         return float('inf')
 
-    grouped["position"] = grouped["EMPOP_Variant"].apply(extract_position)
+    grouped["position"] = grouped["MUTECT2"].apply(extract_position)
     grouped = grouped.sort_values(by="position").drop(columns=["position"])
 
     def correct_length_het_case(row):
-        if "." in row["EMPOP_Variant"] and row["VariantLevel"] >= length_heteroplasmy_threshold:
-            return row["EMPOP_Variant"][:-1] + row["EMPOP_Variant"][-1].upper()
-        return row["EMPOP_Variant"]
+        if "." in row["MUTECT2"] and row["VariantLevel"] >= length_heteroplasmy_threshold:
+            return row["MUTECT2"][:-1] + row["MUTECT2"][-1].upper()
+        return row["MUTECT2"]
 
-    grouped["EMPOP_Variant"] = grouped.apply(correct_length_het_case, axis=1)
+    grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
     return grouped
 
 def main():
@@ -209,10 +209,24 @@ def main():
             results.append(variant)
             types.append(updated_type)
 
-        df["EMPOP_Variant"] = results[::-1]
+        df["MUTECT2"] = results[::-1]
         df["Type"] = types[::-1]
 
         df = finalize_output_table(df, args.lh_thresh/100)
+
+        # Rename selected columns
+        df = df.rename(columns={
+            "VariantLevel": "vf_MT2",
+            "Coverage": "rd_MT2",
+            "MeanBaseQuality": "MBQ"
+        })
+
+        # Move 'MUTECT2' column to the front
+        cols = df.columns.tolist()
+        if "MUTECT2" in cols:
+            cols.insert(0, cols.pop(cols.index("MUTECT2")))
+            df = df[cols]
+            
         df.to_csv(args.output_file, sep="\t", index=False)
         print(f"Processed file saved to {args.output_file}")
 

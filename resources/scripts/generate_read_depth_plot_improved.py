@@ -44,7 +44,7 @@ def main():
         ]
 
         # Plot as a stacked bar plot
-        plt.figure(figsize=(16, 8))
+        plt.figure(figsize=(12, 6))
         plt.bar(merged_data["Position"], merged_data["ReadDepth_file1"], color="blue", label="Read Depth w/ NUMTs", width=50)
         plt.bar(merged_data["Position"], merged_data["ReadDepth_file2"], color="red", label="Read Depth w/o NUMTs", width=50, alpha=0.7)
 
