@@ -66,23 +66,23 @@ def apply_excel_styles(excel_path: str):
                     val = str(cell.value)
                     if val == "LOW":
                         cell.fill = fill_low
+                    elif row[1].value is False or row[2].value is False:
+                        cell.fill = fill_false_flag
                     elif re.search(r"[a-z]", val):
                         cell.fill = fill_lowercase
                     elif "-" in val:
                         cell.fill = fill_dash
-                    elif row[1].value is False or row[2].value is False:
-                        cell.fill = fill_false_flag
                     elif re.search(r"[MRYWSK]", val):
                         cell.fill = fill_iupac
                     else:
                         cell.fill = fill_default
 
                 # Fill column D to M (index 3 to 12)
-                if 3 <= idx <= 11:
+                if 3 <= idx <= 10:
                     cell.fill = fill_green
 
                 # Fill column N to X (index 13 to 23)
-                elif 12 <= idx <= 23:
+                elif 11 <= idx <= 23:
                     cell.fill = fill_blue
 
                 # Red fill for False flags

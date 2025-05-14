@@ -80,7 +80,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         df["marker"].isin(marker_counts[marker_counts == 1].index) & 
         (df["total"] < depth_threshold)
     ].copy()
-    single_low_coverage["sequence"] = "LOW OR NO COVERAGE"
+    single_low_coverage["sequence"] = "LOW"
     single_low_coverage = single_low_coverage.drop(columns=["total_mp_sum", "flags"], errors="ignore")
 
 
@@ -109,6 +109,21 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         # total_wo_noise_or_low_frq=("total_wo_noise_or_low_frq", "first"),
         # variant_frequency_wo_noise_or_low_frq=("variant_frequency_wo_noise_or_low_frq", "sum")
     )
+
+    # Extract "Other" sequence coverage per marker
+    other_per_marker = grouped[grouped["sequence"] == "Other"][["marker", "total"]]
+    other_per_marker = other_per_marker.rename(columns={"total": "other_coverage"})
+
+    # Merge with grouped data
+    grouped = grouped.merge(other_per_marker, on="marker", how="left")
+    grouped["other_coverage"] = grouped["other_coverage"].fillna(0)
+
+    # Subtract "Other" sequence coverage from interpolated_total_coverage
+    grouped["adjusted_coverage"] = grouped["interpolated_total_coverage"] - grouped["other_coverage"]
+
+    # Ensure adjusted coverage is not negative or zero (to avoid division by zero)
+    grouped["interpolated_total_coverage"] = grouped["adjusted_coverage"].clip(lower=1)
+
 
     final = grouped.groupby("sequence", as_index=False).agg(
         marker=("marker", "first"),

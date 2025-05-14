@@ -116,7 +116,11 @@ def extract_numeric_value(empop_variant):
     match = re.search(r'\d+', empop_variant)
     return int(match.group()) if match else float('inf')
 
-def finalize_output_table(df):
+def extract_float_position(variant):
+    match = re.search(r"(-?\d+\.?\d*)", str(variant))
+    return float(match.group(1)) if match else float('inf')
+
+def finalize_output_table(df, length_heteroplasmy_threshold):
     df["EMPOP_Variant"] = df["EMPOP_Variant"].astype(str).str.split()
     df = df.explode("EMPOP_Variant").reset_index(drop=True)
     df["VariantLevel"] = pd.to_numeric(df["VariantLevel"], errors="coerce")
@@ -128,7 +132,23 @@ def finalize_output_table(df):
         summed = [sum(x) for x in zip(*split_lists)]
         return ",".join(f"{s:.4g}" for s in summed)
 
-    group_keys = ["EMPOP_Variant"]
+    # group_keys = ["EMPOP_Variant"]
+    # numeric_agg = {
+    #     "VariantLevel": "sum",
+    #     "Coverage": add_comma_separated_numbers,
+    #     "MeanBaseQuality": "first"
+    # }
+    # other_cols = [col for col in df.columns if col not in numeric_agg and col not in group_keys]
+    # full_agg = {**numeric_agg, **{col: "first" for col in other_cols}}
+
+    # grouped = df.groupby(group_keys, as_index=False).agg(full_agg)
+
+
+
+    # Add column for numeric variant position
+    df["variant_float_pos"] = df["EMPOP_Variant"].apply(extract_float_position)
+
+    group_keys = ["variant_float_pos"]  # <-- changed here
     numeric_agg = {
         "VariantLevel": "sum",
         "Coverage": add_comma_separated_numbers,
@@ -138,6 +158,10 @@ def finalize_output_table(df):
     full_agg = {**numeric_agg, **{col: "first" for col in other_cols}}
 
     grouped = df.groupby(group_keys, as_index=False).agg(full_agg)
+
+    # Optional: sort and drop temp column
+    grouped = grouped.sort_values("variant_float_pos").drop(columns=["variant_float_pos"])
+
 
     # def extract_position(variant):
     #     match = re.search(r"(\d+\.?\d*)", str(variant))
@@ -156,7 +180,7 @@ def finalize_output_table(df):
     grouped = grouped.sort_values(by="position").drop(columns=["position"])
 
     def correct_length_het_case(row):
-        if "." in row["EMPOP_Variant"] and row["VariantLevel"] >= 0.92:
+        if "." in row["EMPOP_Variant"] and row["VariantLevel"] >= length_heteroplasmy_threshold:
             return row["EMPOP_Variant"][:-1] + row["EMPOP_Variant"][-1].upper()
         return row["EMPOP_Variant"]
 
@@ -188,7 +212,7 @@ def main():
         df["EMPOP_Variant"] = results[::-1]
         df["Type"] = types[::-1]
 
-        df = finalize_output_table(df)
+        df = finalize_output_table(df, args.lh_thresh/100)
         df.to_csv(args.output_file, sep="\t", index=False)
         print(f"Processed file saved to {args.output_file}")
 
