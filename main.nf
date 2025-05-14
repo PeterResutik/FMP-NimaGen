@@ -39,13 +39,13 @@ params.fdstools_library = "$baseDir/resources/fdstools/mtNG_library_file.txt"
 params.mapQ = 30
 
 // fdstools
-params.minimum = 5
+params.minimum = 2
 params.num_threads = 6 
 params.min_reads_filt = 2
-params.min_abs = 5 
+params.min_abs = 2 
 params.min_pct_of_max = 0 
 params.min_pct_of_sum = 3 
-params.allele_min_abs = 5 
+params.allele_min_abs = 2 
 params.allele_min_pct_of_max = 0 
 params.allele_min_pct_of_sum = 3
  
@@ -67,7 +67,8 @@ params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_
 
 // merging
 params.depth = 10
-params.min_vf = 5
+params.min_vf_MT2 = 5
+params.min_vf_FDS = 5
 params.lh_thresh = 90
 
     // rm -r "$baseDir/work"
@@ -110,19 +111,15 @@ log_text = """\
          --allele_min_pct_of_sum          : $params.allele_min_pct_of_sum # the minimum percentage of reads w.r.t. the markers total number of reads (default: 1.5)
 
          VARIANT CALLING (with MUTECT2)
-         --detection_limit                : $params.detection_limit #
-         --baseQ                          : $params.baseQ # 
-         --callable_depth                 : $params.callable_depth #
-         --initial_tumor_lod              : $params.initial_tumor_lod #
-         --tumor_lod_to_emit              : $params.tumor_lod_to_emit #
-         --native_pair_hmm_threads        : $params.native_pair_hmm_threads #
-         --max_reads_per_alignment_start  : $params.max_reads_per_alignment_start # 
-         --min_reads_per_strand           : $params.min_reads_per_strand #
+         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling
+         --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
+         --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
 
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth threshold for low coverage
-         --min_vf                         : $params.min_vf # Minor allele frequency threshold
+         --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
+         --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Length heteroplasmy frequency threshold
          --marker_map                     : $params.fdstools_library # Path to marker map file
 
@@ -243,26 +240,6 @@ process p03_filter_softclipped_fastq_p01_p02 {
     samtools index ${sample_id}_R2_wo_scb_sorted.bam
     """
 }
-    // cat ${sam_r1} | python $python_script_remove_scb > ${sample_id}_R1_wo_scb.sam
-    // cat ${sam_r2} | python $python_script_remove_scb > ${sample_id}_R2_wo_scb.sam
-
-// process p04_convert_bam_2_fastq_p03 {
-//     tag "p04: convert BAM_wo_scb to FASTQ on $sample_id"
-//     // publishDir "$params.outdir/p04_wo_scb_fastq/${sample_id}", mode: 'copy'
-
-//     input:
-//     tuple val(sample_id), path(bam_r1_wo_scb), path(bam_r2_wo_scb)
-    
-//     output:
-//      tuple val(sample_id), path("${sample_id}_R1_wo_scb.fastq"), path("${sample_id}_R2_wo_scb.fastq")
-
-//     script:
-//     """
-//     samtools fastq ${bam_r1_wo_scb} > ${sample_id}_R1_wo_scb.fastq    
-//     samtools fastq ${bam_r2_wo_scb} > ${sample_id}_R2_wo_scb.fastq   
-//     """
-// }
-
         
 process p04_merge_fastq_p03 {
     tag "p04: flash on $sample_id"
@@ -445,6 +422,7 @@ process p11_variant_calling_fdstools_sast_p08 {
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
         fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
+    
     else
         echo "SKIPPED: ${rtn_fastq} is empty or missing." >&2
         touch ${sample_id}.tssv.csv ${sample_id}.report.txt ${sample_id}.sc.csv ${sample_id}.sast.csv ${sample_id}.html
@@ -511,100 +489,16 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         -o ${bam_file.baseName}.norm.vcf.gz -Oz \
         ${bam_file.baseName}.vcf.gz 
 
+    detection_limit=\$(echo "${params.min_vf_MT2} / 100" | bc -l)
+
     bcftools view \
-    -i 'FORMAT/AF>=${params.detection_limit}' \
+    -i "FORMAT/AF>=\$detection_limit" \\
     -o ${bam_file.baseName}.vcf.gz -Oz \
     ${bam_file.baseName}.norm.vcf.gz 
     
     tabix -f ${bam_file.baseName}.vcf.gz 
     """
 }
-
-
-
-    
-// process p13_process_variants_p10_p11 {
-//     tag "p14: processing variants on $sample_id"
-//     publishDir "$params.outdir/p14_processed_variants_txt/${sample_id}", mode: 'copy'
-//     // publishDir "${params.output}", mode: 'copy'
-
-//     input:
-//     tuple  val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
-//     // tuple  val(sample_id), , 
-//     path reference
-//     path python_script_process_mutect2_vcfgz
-//     path python_script_process_fdstools_sast
-//     // path python_script5
-
-//     output:
-//     tuple val(sample_id), path("${vcf_file.baseName}.filtered.empop.txt"), path("${sample_id}_fdstools_processed.txt")
-
-//     script:
-//     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
-
-//     """
-//     if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
-
-//         echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
-//             > ${vcf_file.baseName}.txt
-
-//         bcftools query -u \
-//             -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
-//             ${vcf_file} | \
-//             awk -F'\t' '(\$2 !~ /bla/)' \
-//             >> ${vcf_file.baseName}.txt
-
-//         ## annotating SNVS and INDELs for reporting
-//         awk 'BEGIN {OFS="\t"} {
-//             if (NR == 1) { print \$0, "Type"; next }
-//             if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
-//             else { \$10="SNP" }
-//             print
-//         }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
-
-//         python $python_script_process_mutect2_vcfgz \
-//             ${vcf_file.baseName}.filtered.txt \
-//             ${vcf_file.baseName}.filtered.empop.txt \
-//             $reference \
-//             --min_vf $params.min_vf --lh_thresh $params.lh_thresh
-
-//         python $python_script_process_fdstools_sast \
-//             ${sast_file} \
-//             ${sample_id}_fdstools_processed.txt \
-//             --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
-
-//     else
-//         echo "Skipping ${sample_id}: one or more input files are empty." >&2
-//         touch ${vcf_file.baseName}.filtered.empop.txt
-//         touch ${sample_id}_fdstools_processed.txt
-//     fi
-//     """
-// }
-
-
-// process p14_merge_variants_p13 {
-//     tag "p15: merging variants on $sample_id"
-//     publishDir "$params.outdir/p15_merged_variants_xlsx", mode: 'copy'
-//     // publishDir "${params.output}", mode: 'copy'
-
-//     input:
-//     tuple val(sample_id), path(filtered_mutect2_final), path(filtered_fdstools)
-//     path python_script_merge_fdstools_mutect2
-//     // tuple val(sample_id), path(filtered_fdstools)
-
-//     output:
-//     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
-
-//     script:
-//     """
-//     if [ -s "${filtered_fdstools}" ] && [ -s "${filtered_mutect2_final}" ]; then
-//         python $python_script_merge_fdstools_mutect2 ${filtered_fdstools} ${filtered_mutect2_final} ${sample_id}_merged_variants.xlsx
-//     else
-//         echo "Skipping merge for ${sample_id}: one or both input files are empty." >&2
-//         python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_merged_variants.xlsx', index=False, header=False)"
-//     fi
-//     """
-// }
 
 process p13_merge_variants_p10_p11 {
     tag "p13: processing and merging variants on $sample_id"
@@ -647,17 +541,18 @@ process p13_merge_variants_p10_p11 {
             ${vcf_file.baseName}.filtered.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
             $reference \
-            --min_vf $params.min_vf --lh_thresh $params.lh_thresh
+            --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh
 
         python $python_script_process_fdstools_sast \
             ${sast_file} \
             ${sample_id}_fdstools_processed.txt \
-            --min_vf $params.min_vf --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+            --min_vf $params.min_vf_FDS --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
 
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
             ${sample_id}_merged_variants.xlsx
+
 
 
     else
@@ -666,8 +561,6 @@ process p13_merge_variants_p10_p11 {
     fi
     """
 }
-
-
 
 workflow {
     Channel
@@ -718,12 +611,5 @@ workflow {
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
     p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0)
     p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2)
-
-    
-
-    // p13_process_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast)
-
-    // ─────────────────── MERGE VARIANTS ─────────────────────
-    // p14_merge_variants_p13(p13_process_variants_p10_p11.out, params.python_script_merge_fdstools_mutect2)
 
 }
