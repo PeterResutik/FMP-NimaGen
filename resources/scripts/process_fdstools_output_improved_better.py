@@ -138,7 +138,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     # final["variant_frequency_wo_noise_or_low_frq"] = (final["total"] / final["total_wo_noise_or_low_frq"] * 100).round(2)
     final["position"] = final["sequence"].apply(extract_position)
 
-    drop_seqs = ["Other", "sequences", "REF", "N3107DEL"]
+    drop_seqs = ["Other", "sequences", "REF", "N3107DEL", "No", "data"]
     final = final[(~final["sequence"].isin(drop_seqs))]
 
     final["is_noise_or_low_frq"] = (final["sequence"].isin(["Other sequences"])) | (final["variant_frequency"] < min_variant_frequency_pct)

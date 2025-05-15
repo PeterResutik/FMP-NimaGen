@@ -25,8 +25,8 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
-params.humans_index_dir = "$baseDir/resources/rtn_files/humans_old"
-params.humans_index_base = "humans_deleted_AS_PH_0430.fa"
+params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
+params.humans_index_base = "humans.fa"
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
@@ -52,7 +52,7 @@ params.allele_min_pct_of_sum = 3
 // mutect2
 params.detection_limit = 0.08
 params.baseQ = 30
-params.callable_depth = 1
+params.callable_depth = 6
 params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 4
@@ -171,19 +171,32 @@ process p01_index_reference_fasta {
 process p02_map_raw_fastq_p01 {
     tag "p02: bwa mem on $sample_id"
     publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
+    publishDir "resources/rtn_files/humans", mode: 'copy', pattern: 'humans/humans*'
 
     input:
     tuple val(sample_id), path(reads)
     path reference
     path index_files
+    path humans_index
+    val humans_base
 
     output:
     tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: p02_raw_sam_ch
     tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
     tuple path("${sample_id}_R1_R2.bam"), path("${sample_id}_R1_R2.bam.bai")
+    // path("humans*")
 
     script:
     """
+    # Check if BWA index for humans reference exists (one of the .amb/.bwt/.ann/.pac/.sa files)
+    if [[ ! -f "${humans_index}/${humans_base}.amb" ]]; then
+        echo "BWA index for human reference not found. Preparing it now..."
+        bunzip2 "${humans_index}/humans.fa.bz2" 
+        bwa index "${humans_index}/${humans_base}"
+    else
+        echo "BWA index found for human reference."
+    fi
+
     mv ${reads[0]} tmp.fastq.gz
     cutadapt -a ${params.adapter} -o ${reads[0]}  tmp.fastq.gz 
 
@@ -341,6 +354,8 @@ process p08_filter_numts_merged_fastq_p06 {
 
     script:
     """
+
+
     rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged.baseName}.rtn.bam > ${bam_wo_scb_merged.baseName}.rtn_tmp.bam
     samtools fastq ${bam_wo_scb_merged.baseName}.rtn_tmp.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
@@ -365,6 +380,7 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
     script:
     """
+    
     rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
@@ -409,6 +425,7 @@ process p11_variant_calling_fdstools_sast_p08 {
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(rtn_fastq)
+    path fdstools_library
 
     output:
     tuple  val(sample_id), path("${sample_id}.tssv.csv"), path("${sample_id}.report.txt"), path("${sample_id}.sc.csv"), path("${sample_id}.sast.csv"), path("${sample_id}.html")
@@ -418,11 +435,12 @@ process p11_variant_calling_fdstools_sast_p08 {
     if [ -s "${rtn_fastq}" ]; then
 
     
-        fdstools tssv $params.fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
+        fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
         fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
     
+
     else
         echo "SKIPPED: ${rtn_fastq} is empty or missing." >&2
         touch ${sample_id}.tssv.csv ${sample_id}.report.txt ${sample_id}.sc.csv ${sample_id}.sast.csv ${sample_id}.html
@@ -499,6 +517,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     tabix -f ${bam_file.baseName}.vcf.gz 
     """
 }
+        // --base-quality-score-threshold ${params.baseQ} \
 
 process p13_merge_variants_p10_p11 {
     tag "p13: processing and merging variants on $sample_id"
@@ -582,7 +601,7 @@ workflow {
     p01_index_mutect2_ch = p01_index_reference_fasta.out.reference_dict
 
     // ─────────── RAW READ MAPPING & FILTERING ───────────────
-    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
+    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch, humans_index_ch, humans_base_ch)
     p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch)
     // p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
 
@@ -603,7 +622,7 @@ workflow {
     
 
     // ────────────────── VARIANT CALLING ─────────────────────
-    p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out)
+    p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
     p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.reference, p01_index_ch, p01_index_mutect2_ch)
     p11_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p09.out.mutect2_ch 
 

@@ -1,6 +1,0 @@
-ID	Filter	Pos	Ref	Variant	VariantLevel	MeanBaseQuality	Coverage	GT	Type
-TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	302	A	AC	0.998	"39,39"	"1,1153"	0|1	INDEL
-TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	302	A	ACC	0	"39,39"	"1,1163"	0|1	INDEL
-TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	513	GCA	G	0.998	"39,39"	"1,1153"	0|1	INDEL
-TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	haplotype;strict_strand	16188	CT	C	0.998	"39,39"	"1,1153"	0|1	INDEL
-TraceR2-E1_S4_L001_wo_scb_merged_trimmed.rtn.bam	clustered_events;haplotype;strict_strand	16355	CT	TC	0.998	"39,39"	"1,1163"	0|1	SNP

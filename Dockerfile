@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     build-essential \
     cmake \
+    bc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
@@ -42,6 +43,7 @@ RUN mamba create -n bioinfo -c bioconda -c conda-forge -y \
     pandas \
     biopython \
     matplotlib \
+    openpyxl \
     gatk4 \
     bcftools
 
@@ -55,13 +57,16 @@ RUN cp /workspace/RtN/Nix_binary/rtn /usr/local/bin/ && chmod +x /usr/local/bin/
 # Set environment variable for RtN
 ENV RTN_PATH="/workspace/RtN/build"
 
+# Activate the environment and install fdstools via pip
+RUN /opt/conda/envs/bioinfo/bin/pip install fdstools
+
 # Copy scripts into the container
 COPY resources/scripts /workspace/resources/scripts
 COPY resources/primers /workspace/resources/primers
-COPY resources/rtn_files /workspace/resources/rtn_filesg
+COPY resources/rtn_files /workspace/resources/rtn_files
 COPY resources/amplicon_bed /workspace/resources/amplicon_bed
-COPY resources/rCRS /workspace/resources/amplicon_bed
-
+COPY resources/rCRS /workspace/resources/rCRS
+COPY resources/fdstools /workspace/resources/fdstools
 
 # Set default shell
 SHELL ["/bin/bash", "-c"]
@@ -69,3 +74,4 @@ SHELL ["/bin/bash", "-c"]
 # Activate environment when container runs
 ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "bioinfo"]
 CMD ["bash"]
+
