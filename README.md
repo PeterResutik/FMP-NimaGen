@@ -114,7 +114,7 @@ conda env create -f FMP-NimaGen.yml
 3. Activate the environment and run the pipeline:
 
 ```bash
-conda activate mtDNA_env
+conda activate FMP-NimaGen.yml
 nextflow run main.nf -profile local
 ```
 
