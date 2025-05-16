@@ -107,7 +107,6 @@ log_text = """\
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
 
-
          POSTPROCESSING
          --depth                          : $params.depth # Read depth threshold for low coverage
          --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
