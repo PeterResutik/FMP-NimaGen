@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
+
+## [0.1.1] – 2025-05-16
+
+### Fixed
+- Removed `.ipynb_checkpoints` folders from repository
+- Added `.ipynb_checkpoints/` to `.gitignore`
+- Clarified that Jupyter notebooks were only used for development
+
+
 ## [0.1.0] – 2025-05-16
 
 ### Added
