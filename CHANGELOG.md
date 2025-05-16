@@ -6,13 +6,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
-## [0.1.2] – 2025-05-17
-
 ## [0.1.3] – 2025-05-17
 
 ### Fixed
 - Added missing tools `cutadapt=4.6` and `fdstools` to `FMP-NimaGen.yml`
 - Ensured pipeline now runs end-to-end without missing dependencies
+
+## [0.1.2] – 2025-05-17
 
 ### Fixed
 - Corrected the filename of the Conda environment file (`FMP-NimaGen.yml`)
