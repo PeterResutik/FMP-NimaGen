@@ -1,4 +1,4 @@
-name: nimagen
+name: FMP-NimaGen
 channels:
   - bioconda
   - conda-forge

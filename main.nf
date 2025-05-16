@@ -10,7 +10,7 @@ params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
-params.outdir = "results_new_7"
+params.outdir = "results"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -85,7 +85,6 @@ log_text = """\
          --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
          --max_overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
-         allow_outies                     : enabled (hard coded) # If a read pair can be combined in both "innie" and "outie" orientations, the better-fitting one will be chosen.
 
          TRIMMING (with CUTADAPT) 
          --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
@@ -102,13 +101,6 @@ log_text = """\
          --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
          (samplestats)
          --min_reads_filt                 : $params.min_reads_filt # the minimum number of reads (default: 1)
-         (vis)
-         --min_abs                        : $params.min_abs # only show sequences with this minimum number of reads (default: 5)
-         --min_pct_of_max                 : $params.min_pct_of_max # for sample: only show sequences with at least this percentage of the number of reads of the highest allele of a marker
-         --min-pct-of-sum                 : $params.min_pct_of_sum # only show sequences with at least this percentage of the total number of reads of a marker (default: 0.0)
-         --allele_min_abs                 : $params.allele_min_abs # the minimum number of reads (default: 30)
-         --allele_min_pct_of_max          : $params.allele_min_pct_of_max # the minimum percentage of reads w.r.t. the highest allele of the marker (default: 2.0)
-         --allele_min_pct_of_sum          : $params.allele_min_pct_of_sum # the minimum percentage of reads w.r.t. the markers total number of reads (default: 1.5)
 
          VARIANT CALLING (with MUTECT2)
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling

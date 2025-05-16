@@ -108,7 +108,7 @@ If you prefer to run the pipeline with your own local environment:
 2. Create the environment:
 
 ```bash
-conda env create -f mtDNA_env.yml
+conda env create -f FMP-NimaGen.yml
 ```
 
 3. Activate the environment and run the pipeline:

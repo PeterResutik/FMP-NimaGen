@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
+## [0.1.2] – 2025-05-17
+
+### Fixed
+- Corrected the filename of the Conda environment file (`FMP-NimaGen.yml`)
+- Updated usage instructions in `README.md` to match filename
+- Changed output directory path in `main.nf` from `results_new_7/` to `results/`
 
 ## [0.1.1] – 2025-05-16
 
