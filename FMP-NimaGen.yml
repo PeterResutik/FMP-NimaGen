@@ -16,4 +16,6 @@ dependencies:
   - matplotlib
   - gatk4
   - bcftools
-  - fdstools
+  - pip
+  - pip:
+      - fdstools
