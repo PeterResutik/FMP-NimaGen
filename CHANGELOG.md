@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
+## [0.1.4] – 2025-05-19
+
+### Fixed
+- Added `openpyxl` to the Conda environment to enable Excel output.
+- Resolved Apple Silicon compatibility issue with `cutadapt` by falling back to `pip install cutadapt` in environments where the Conda build fails.
+
 ## [0.1.3] – 2025-05-16
 
 ### Fixed
