@@ -125,7 +125,7 @@ assert params.reads, "Missing input reads"
 assert file(params.humans_index_dir).exists(), "Humans index directory does not exist"
 
 process p00_pipeline_parameters{
-    publishDir "$params.outdir", mode: params.publish_dir_mode
+    publishDir "$params.outdir",  mode: 'copy'
 
     input:
     val(logs)
@@ -547,11 +547,17 @@ process p13_merge_variants_p10_p11 {
             print
         }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
 
-        python $python_script_process_mutect2_vcfgz \
-            ${vcf_file.baseName}.filtered.txt \
-            ${vcf_file.baseName}.filtered.empop.txt \
-            $reference \
-            --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh
+        mutect_rows=\$(awk 'NR>1{c++} END{print c+0}' ${vcf_file.baseName}.filtered.txt)
+
+        if [ "\$mutect_rows" -gt 0 ]; then
+            python $python_script_process_mutect2_vcfgz \
+                ${vcf_file.baseName}.filtered.txt \
+                ${vcf_file.baseName}.filtered.empop.txt \
+                $reference \
+                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh
+        else
+            printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${vcf_file.baseName}.filtered.empop.txt
+        fi
 
         python $python_script_process_fdstools_sast \
             ${sast_file} \

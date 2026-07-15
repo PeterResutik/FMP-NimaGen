@@ -6,6 +6,7 @@ import re
 import argparse
 import sys
 import os
+import traceback
 
 # Utility: extract numeric position from sequence
 def extract_position(seq):
@@ -99,7 +100,11 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     df = df.assign(sequence=df["sequence"].str.split())
     df = df.explode("sequence").reset_index(drop=True)
     
-    df["interpolated_total_coverage"] = (np.ceil(df["total"] / (df["total_mp_sum"] / 100))).astype("Int64")
+    # df["interpolated_total_coverage"] = (np.ceil(df["total"] / (df["total_mp_sum"] / 100))).astype("Int64")
+
+    denom = (df["total_mp_sum"] / 100).replace(0, np.nan)  # avoid division by zero
+    interp = np.ceil(df["total"] / denom)  # will be NaN where denom was 0
+    df["interpolated_total_coverage"] = pd.to_numeric(interp, errors="coerce").fillna(0).astype("Int64")
 
     grouped = df.groupby(["marker", "sequence"], as_index=False).agg(
         total=("total", "sum"),
@@ -208,10 +213,26 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     if merged_rows:
         final = pd.concat([final, pd.DataFrame(merged_rows)], ignore_index=True)
 
-    final["sequence"] = final.apply(
+    # If nothing remains after filtering (e.g., H2O / No data), write empty output and stop
+    if final.empty:
+        pd.DataFrame(columns=[
+            "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
+            "variant_note", "marker", "marker_range", "num_markers"
+        ]).to_csv(output_file, sep="\t", index=False)
+        print(f"Output written to {output_file} (no variants)")
+        return
+    resolved = final.apply(
         lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
         axis=1
     )
+
+    # Force to a plain 1D Series of strings
+    final["sequence"] = pd.Series(resolved, index=final.index).astype(str)
+    
+    # final["sequence"] = final.apply(
+    #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
+    #     axis=1
+    # )
 
     final = pd.concat([final, single_low_coverage], ignore_index=False)
 
@@ -242,7 +263,13 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     existing_columns = [col for col in desired_order if col in final.columns]
     final = final[existing_columns + [col for col in final.columns if col not in existing_columns]]
 
-
+    # if final is None or final.empty:
+    #     pd.DataFrame(columns=[
+    #         "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
+    #         "variant_note", "marker", "marker_range", "num_markers"
+    #     ]).to_csv(output_file, sep="\t", index=False)
+    #     print(f"Output written to {output_file} (no variants)")
+    #     return
     final.to_csv(output_file, sep="\t", index=False)
     print(f"Output written to {output_file}")
 
@@ -268,9 +295,12 @@ def main():
             depth_threshold=args.depth,
             length_heteroplasmy_threshold=args.lh_thresh
         )
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except Exception:
+        traceback.print_exc()
         sys.exit(1)
+    # except Exception as e:
+    #     print(f"Error: {e}", file=sys.stderr)
+    #     sys.exit(1)
 
 if __name__ == "__main__":
     main()
