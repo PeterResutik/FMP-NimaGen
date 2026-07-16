@@ -2,6 +2,7 @@ import argparse
 import pandas as pd
 import re
 import sys
+import traceback
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side
 
@@ -21,6 +22,10 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str) -> pd.DataFrame
     except Exception as e:
         print(f"Error reading input files: {e}", file=sys.stderr)
         raise
+
+    if df1.empty and df2.empty:
+        print("Both inputs are empty (negative control / H2O). Writing empty output.", file=sys.stderr)
+        return pd.DataFrame()
 
     try:
         # Rename original variant columns before merge to avoid conflict
@@ -153,6 +158,10 @@ if __name__ == "__main__":
 
     try:
         df_merged = merge_variant_callers(args.caller1, args.caller2)
+        if df_merged.empty:
+            pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
+            print(f"Empty output written to: {args.output_file}")
+            sys.exit(0)
         df_merged.drop(columns=["ID","is_noise_or_low_frq"], errors="ignore", inplace=True)
         df_merged.rename(columns={
             "interpolated_total_coverage": "interp_total",
@@ -164,6 +173,7 @@ if __name__ == "__main__":
         df_merged.to_excel(args.output_file, index=False, engine="openpyxl")
         print(f"Merged Excel file saved to: {args.output_file}")
     except Exception:
+        traceback.print_exc()
         print("Merging failed. Please check your input files and formats.", file=sys.stderr)
         sys.exit(1)
 
@@ -171,5 +181,6 @@ if __name__ == "__main__":
         apply_excel_styles(args.output_file)
         print("Excel styling completed successfully.")
     except Exception:
+        traceback.print_exc()
         print("Styling failed. The Excel file was created, but formatting could not be applied.", file=sys.stderr)
         sys.exit(1)
