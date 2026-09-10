@@ -6,6 +6,29 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Race condition in humans-reference BWA index build**: the check-and-build
+  logic for the humans reference index lived inline in `p02`, which runs once
+  per sample — on a first run, parallel samples could all see the index as
+  missing at once and race to `bunzip2`/`bwa index` the same file
+  concurrently. Moved the logic into a new one-shot process
+  (`p01b_prepare_humans_index`) that `p02`, `p08`, and `p09` now depend on,
+  so it runs exactly once regardless of sample count. Also changed
+  `bunzip2` to keep the source `.bz2` (`-k`) instead of deleting it.
+- **MAPQ filter never reached Mutect2**: `p09` computed a MAPQ≥`params.mapQ`
+  (default 30) filtered BAM (`samtools view -q ...`) but only used it to
+  generate a QC read-depth statistic, then discarded it — the BAM actually
+  propagated to Mutect2 (`p12`) was the *unfiltered* NUMT-filtered output of
+  `rtn`. This let low-confidence/ambiguous reads (e.g. MAPQ 0) reach the
+  variant caller uncontrolled, which can masquerade as low-frequency
+  (heteroplasmic) variant signal. It also meant `p10`'s FastQC ran on a
+  different BAM than the one its read-depth plot was computed from. `p09`
+  now indexes and propagates the mapQ-filtered BAM as its `bam_file` output;
+  the unfiltered RTN output is kept alongside (renamed `*.rtn.unfiltered.bam`)
+  for comparison/debugging.
+
 ## [0.1.4] – 2025-05-19
 
 ### Fixed

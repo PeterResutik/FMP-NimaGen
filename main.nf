@@ -159,35 +159,45 @@ process p01_index_reference_fasta {
     """
 }
 
+process p01b_prepare_humans_index {
+    tag "p01b: prepare BWA index for humans reference (runs once)"
+
+    input:
+    path humans_index_dir
+    val humans_base
+
+    output:
+    path humans_index_dir, emit: humans_index_ready
+
+    script:
+    """
+    # Check if BWA index for humans reference exists (one of the .amb/.bwt/.ann/.pac/.sa files)
+    if [[ ! -f "${humans_index_dir}/${humans_base}.amb" ]]; then
+        echo "BWA index for human reference not found. Preparing it now..."
+        bunzip2 -k "${humans_index_dir}/humans.fa.bz2"
+        bwa index "${humans_index_dir}/${humans_base}"
+    else
+        echo "BWA index found for human reference."
+    fi
+    """
+}
+
 process p02_map_raw_fastq_p01 {
     tag "p02: bwa mem on $sample_id"
     publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
-    publishDir "resources/rtn_files/humans", mode: 'copy', pattern: 'humans/humans*'
 
     input:
     tuple val(sample_id), path(reads)
     path reference
     path index_files
-    path humans_index
-    val humans_base
 
     output:
     tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: p02_raw_sam_ch
     tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
     tuple path("${sample_id}_R1_R2.bam"), path("${sample_id}_R1_R2.bam.bai")
-    // path("humans*")
 
     script:
     """
-    # Check if BWA index for humans reference exists (one of the .amb/.bwt/.ann/.pac/.sa files)
-    if [[ ! -f "${humans_index}/${humans_base}.amb" ]]; then
-        echo "BWA index for human reference not found. Preparing it now..."
-        bunzip2 "${humans_index}/humans.fa.bz2" 
-        bwa index "${humans_index}/${humans_base}"
-    else
-        echo "BWA index found for human reference."
-    fi
-
     mv ${reads[0]} tmp.fastq.gz
     cutadapt -a ${params.adapter} -o ${reads[0]}  tmp.fastq.gz 
 
@@ -367,15 +377,17 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
 
     output:
-    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt")
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt")
 
     script:
     """
-    
     rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
-    samtools view -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
+
+    samtools view -b -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
+    samtools index ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
-    
+
+    mv ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam ${bam_wo_scb_merged_trimmed.baseName}.rtn.unfiltered.bam
     """
 }
 
@@ -597,8 +609,12 @@ workflow {
     p01_index_ch = p01_index_reference_fasta.out.reference
     p01_index_mutect2_ch = p01_index_reference_fasta.out.reference_dict
 
+    // ──────── HUMANS REFERENCE INDEXING (runs once) ─────────
+    p01b_prepare_humans_index(humans_index_ch, humans_base_ch)
+    humans_index_ready_ch = p01b_prepare_humans_index.out.humans_index_ready
+
     // ─────────── RAW READ MAPPING & FILTERING ───────────────
-    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch, humans_index_ch, humans_base_ch)
+    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
     p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch)
     // p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
 
@@ -611,8 +627,8 @@ workflow {
     p07_map_merged_trimmed_bam_p01_p05(p05_trim_merged_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
-    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
-    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ready_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ready_ch, humans_base_ch, numts_index_ch, numts_base_ch)
     
     // ────────────────── QUALITY CONTROL ─────────────────────
     p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.python_script_generate_read_depth_plot)
