@@ -39,10 +39,16 @@ def shift_insertion_right(reference, pos, segment):
             break
     return pos, segment
 
+def lh_bounds(threshold):
+    """Symmetric floor/ceiling around a single length-heteroplasmy threshold,
+    e.g. threshold=0.10 -> (0.10, 0.90). Accepts either side (0.10 or 0.90)
+    and always returns (floor, ceiling) with floor <= ceiling."""
+    return min(threshold, 1 - threshold), max(threshold, 1 - threshold)
+
 def shift_deletion_right(reference, pos, segment):
     pos = rightmost_repeat_position(reference, pos, segment) - len(segment) + 1
-    next_seq = reference[pos+1: pos + 2]
     for _ in range(len(segment) - 1):
+        next_seq = reference[pos + len(segment) - 1: pos + len(segment)]
         if "".join(next_seq) == segment[0]:
             segment = segment[1:] + segment[0]
             pos += 1
@@ -68,22 +74,29 @@ def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency):
         return " ".join(formatted), "PHP"
 
 def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
+    floor, ceiling = lh_bounds(length_heteroplasmy_threshold)
+    if var_level < floor:
+        return None, "BELOW_LH_FLOOR"
     inserted_segment = var[len(ref):]
     pos, segment = shift_insertion_right(reference, pos, inserted_segment)
+    is_major = var_level >= ceiling
     variant_parts = [
-        f"-{pos}.{i+1}{(b if var_level >= length_heteroplasmy_threshold else b.lower())}"
+        f"-{pos}.{i+1}{(b if is_major else b.lower())}"
         for i, b in enumerate(segment)
     ]
-    updated_type = "INS" if var_level >= length_heteroplasmy_threshold else "LHP"
+    updated_type = "INS" if is_major else "LHP"
     return " ".join(variant_parts), updated_type
 
 def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
+    floor, ceiling = lh_bounds(length_heteroplasmy_threshold)
+    if var_level < floor:
+        return None, "BELOW_LH_FLOOR"
     deleted_segment = ref[len(var):]
     if pos == 16188 and reference[pos]=="C":
         deleted_segment = "".join(reference[pos:pos+len(var)])
     pos, segment = shift_deletion_right(reference, pos, deleted_segment)
 
-    is_major = var_level >= length_heteroplasmy_threshold
+    is_major = var_level >= ceiling
     variant_parts = []
     for i, base in enumerate(segment):
         position = pos + i
@@ -179,8 +192,10 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     grouped["position"] = grouped["MUTECT2"].apply(extract_position)
     grouped = grouped.sort_values(by="position").drop(columns=["position"])
 
+    _, lh_ceiling = lh_bounds(length_heteroplasmy_threshold)
+
     def correct_length_het_case(row):
-        if "." in row["MUTECT2"] and row["VariantLevel"] >= length_heteroplasmy_threshold:
+        if "." in row["MUTECT2"] and row["VariantLevel"] >= lh_ceiling:
             return row["MUTECT2"][:-1] + row["MUTECT2"][-1].upper()
         return row["MUTECT2"]
 
@@ -193,7 +208,7 @@ def main():
     parser.add_argument("output_file", help="Output TSV file")
     parser.add_argument("reference_fasta", help="Reference genome in FASTA format")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold")
-    parser.add_argument("--lh_thresh", type=float, default=90.0, help="Length heteroplasmy frequency threshold")
+    parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 1-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
 
     args = parser.parse_args()
 
@@ -211,6 +226,9 @@ def main():
 
         df["MUTECT2"] = results[::-1]
         df["Type"] = types[::-1]
+
+        # Drop length variants below the symmetric length-heteroplasmy floor entirely
+        df = df[df["Type"] != "BELOW_LH_FLOOR"].reset_index(drop=True)
 
         df = finalize_output_table(df, args.lh_thresh/100)
 
