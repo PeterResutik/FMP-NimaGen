@@ -1,10 +1,14 @@
 import argparse
+import os
 import pandas as pd
 import re
 import sys
 import traceback
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from call_repeat_regions import BOUNDARY_RUN_REGIONS
 
 
 white_border = Border(
@@ -82,8 +86,73 @@ def merge_key(variant_str):
     return str(variant_str).upper()
 
 
+def mark_disabled_mutect2_calls(merged, reference_fasta):
+    """When homopolymer_mutect2_reporting is 'disabled' (process_mutect2_
+    output_improved.py has already dropped Mutect2's own indel/length-axis
+    rows in boundary-run regions, e.g. chrM:16180-16193, with no
+    replacement - see disable_homopolymer_length_calls there), mark
+    called_by_MUTECT2 as "DISABLED" for the corresponding merged rows
+    instead of leaving it as the plain False a genuine absence would
+    produce, so a reader can tell "we didn't ask" apart from "Mutect2
+    asked and found nothing" or a real DISAGREEMENT.
+
+    Scoped to BOUNDARY_RUN_REGIONS (just chrM:16180-16193), matching
+    disable_homopolymer_length_calls - both this and that used to be
+    genome-wide across all 9 reference-derived boundary-run regions, but
+    the FDSTOOLS side was narrowed to just 16180-16193 this same session,
+    leaving Mutect2's own genome-wide disabling (and this marking, if it
+    stayed genome-wide too) touching regions FDSTOOLS no longer does
+    anything special for at all (2026-09-22, user, chrM:6419: "I would
+    restrict mutect2 as well same ways we do fdstools"). Within that one
+    region: any row positioned in the leading run, plus any length-axis
+    row positioned in the extension run. Ordinary substitution rows in
+    the extension run (e.g. T16189C) are left alone, since Mutect2 was
+    never disabled for those.
+
+    Deliberately NOT keyed off a "Type" column: this runs on the already-
+    merged table, where Type only ever came from Mutect2's own output (
+    FDSTOOLS' has no such column) - so for exactly the rows this function
+    needs to find, ones FDSTOOLS reported that Mutect2 no longer has after
+    being disabled, Type is NaN, not "LHP"/"DEL"/"INS". Length-axis rows
+    are identified from the FMP label's own format instead: a plain point
+    substitution is always REF+POS+ALT with no decimal and no trailing
+    -/lowercase suffix (e.g. "T16189C", "T16189Y"); everything else in the
+    extension run - report_boundary_run's own decimal-anchored cumulative
+    calls (e.g. "-16193.1c"), and shared_frame's plain-integer shifted
+    deletion calls (e.g. "C16193c") alike - is a length claim.
+    """
+    regions = BOUNDARY_RUN_REGIONS
+    if not regions:
+        return merged
+
+    def extract_position(seq):
+        match = re.search(r"(\d+\.?\d*)", str(seq))
+        return float(match.group(1)) if match else None
+
+    plain_substitution_re = re.compile(r'^[ACGT]\d+[ACGTRYMKSW]$')
+
+    positions = merged["FMP"].apply(extract_position)
+    is_length_type = ~merged["FMP"].astype(str).str.match(plain_substitution_re)
+
+    disabled_mask = pd.Series(False, index=merged.index)
+    for region in regions:
+        leading_start, leading_end = region["leading"]
+        extension_start, extension_end = region["extension"]
+        in_leading = positions.between(leading_start, leading_end)
+        # Not a plain between(extension_start, extension_end): a decimal
+        # insertion label anchored at the extension run's own far end
+        # (e.g. "-16193.1c") extracts to 16193.1, just past extension_end -
+        # between() would miss it entirely.
+        in_extension = (positions >= extension_start) & (positions < extension_end + 1)
+        disabled_mask |= in_leading | (is_length_type & in_extension)
+
+    merged.loc[disabled_mask, "called_by_MUTECT2"] = "DISABLED"
+    return merged
+
+
 def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
-                          min_vf: float = 5.0) -> pd.DataFrame:
+                          min_vf: float = 5.0, homopolymer_mutect2_reporting: str = "true_mutect2",
+                          reference_fasta: str = None) -> pd.DataFrame:
     try:
         df1 = pd.read_csv(file_fdstools, sep="\t")
         df2 = pd.read_csv(file_mutect2, sep="\t")
@@ -227,6 +296,9 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         merged.loc[mt2_override.values, "called_by_MUTECT2"] = reconciled.loc[mt2_override, "mt2_confirms"].apply(
             lambda confirms: True if confirms else "DISAGREEMENT").values
 
+        if homopolymer_mutect2_reporting == "disabled" and reference_fasta:
+            merged = mark_disabled_mutect2_calls(merged, reference_fasta)
+
         def extract_position(seq):
             match = re.search(r"(\d+\.?\d*)", str(seq))
             return float(match.group(1)) if match else float('inf')
@@ -272,6 +344,7 @@ def apply_excel_styles(excel_path: str):
         fill_blue = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")   # N to X
         fill_red = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")    # False flags (caller didn't call it at all)
         fill_disagree = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")  # DISAGREEMENT flags (caller called it, but on the other side of the major/minor threshold)
+        fill_disabled = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # DISABLED (caller deliberately not consulted here - not a problem, so kept distinct from red/yellow)
 
         # Define additional fill colors for column A
         fill_low = PatternFill(start_color="FEFE01", end_color="FEFE01", fill_type="solid")
@@ -322,12 +395,15 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_red
                     elif cell.value == "DISAGREEMENT":
                         cell.fill = fill_disagree
+                    elif cell.value == "DISABLED":
+                        cell.fill = fill_disabled
                     # True/False are booleans and Excel centers those by
-                    # default, but "DISAGREEMENT" is a plain string, which
-                    # Excel left-aligns by default - so without an explicit
-                    # alignment it visually stood out from True/False in
-                    # the same column. Center both axes explicitly so all
-                    # three values in this column line up the same way.
+                    # default, but "DISAGREEMENT"/"DISABLED" are plain
+                    # strings, which Excel left-aligns by default - so
+                    # without an explicit alignment they visually stood
+                    # out from True/False in the same column. Center both
+                    # axes explicitly so every value in this column lines
+                    # up the same way.
                     cell.alignment = Alignment(horizontal="center", vertical="center")
         for col in ws.columns:
             max_length = 0
@@ -353,11 +429,15 @@ if __name__ == "__main__":
     parser.add_argument("output_file", help="Path to save the merged output (XLSX format).")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold, used to reconcile major/minor case disagreements between callers via their averaged variant frequency")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold; its complement (100-min_vf) is the homoplasmy boundary used to reconcile SNP-vs-IUPAC disagreements between callers via their averaged variant frequency")
+    parser.add_argument("--homopolymer_mutect2_reporting", choices=["bam_override", "disabled", "true_mutect2"], default="true_mutect2",
+                         help="Must match the same flag passed to process_mutect2_output_improved.py. When 'disabled', called_by_MUTECT2 is marked DISABLED (rather than the plain False an absence would produce) for rows in boundary-run regions where Mutect2's own calling was turned off - requires --reference.")
+    parser.add_argument("--reference", help="Reference FASTA - required when --homopolymer_mutect2_reporting disabled")
 
     args = parser.parse_args()
 
     try:
-        df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf)
+        df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
+                                           args.homopolymer_mutect2_reporting, args.reference)
         if df_merged.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")

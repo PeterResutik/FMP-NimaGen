@@ -267,7 +267,10 @@ def apply_homopolymer_region_overrides(df, bam, reference, min_vf_pct, lh_thresh
             leading_start, leading_end = boundary["leading"]
             in_leading = pos_numeric.between(leading_start, leading_end) | label_pos.between(leading_start, leading_end)
             is_length_type = df["Type"].astype(str).str.contains(r'\b(?:INS|DEL|LHP)\b', regex=True)
-            in_span = pos_numeric.between(start, end) | label_pos.between(start, end)
+            # Not a plain between(start, end): a decimal insertion label
+            # anchored at the region's own far end (e.g. "-16193.1c")
+            # extracts to 16193.1, just past end - between() would miss it.
+            in_span = ((pos_numeric >= start) & (pos_numeric < end + 1)) | ((label_pos >= start) & (label_pos < end + 1))
             in_region = in_leading | (is_length_type & in_span)
         else:
             in_region = pos_numeric.between(start, end) | label_pos.between(start, end)
@@ -317,6 +320,66 @@ def apply_homopolymer_region_overrides(df, bam, reference, min_vf_pct, lh_thresh
         df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
     return df
 
+
+def disable_homopolymer_length_calls(df, reference):
+    """Drop Mutect2's own indel/length-axis rows inside boundary-run
+    regions, with no replacement - unlike apply_homopolymer_region_
+    overrides above, which substitutes direct BAM read counts. Mutect2's
+    ordinary substitution calls are left untouched, since an ordinary
+    substitution never represents a length claim (see the same principle
+    in report_boundary_run's docstring, process_fdstools_output_
+    improved_better.py).
+
+    Scoped to BOUNDARY_RUN_REGIONS (just chrM:16180-16193), same as
+    apply_homopolymer_region_overrides above - this used to run genome-
+    wide across all 9 regions find_boundary_run_regions finds, on the
+    reasoning that dropping a call needs no per-read reconciliation the
+    way BAM-override does, so validation elsewhere didn't seem to
+    matter. But the FDSTOOLS side was narrowed to just 16180-16193 this
+    same session, and leaving this side genome-wide meant a completely
+    unrelated region (e.g. chrM:6416-6419, "A6419M") would show DISABLED
+    on the Mutect2 side while FDSTOOLS reported it untouched - a real
+    asymmetry, not two sides of one deliberate scope (2026-09-22, user:
+    "I would restrict mutect2 as well same ways we do fdstools").
+
+    Rows dropped here get no replacement row, and downstream (merge_
+    fdstools_mutect2_improved.py, when homopolymer_mutect2_reporting is
+    "disabled") their called_by_MUTECT2 is marked "DISABLED" rather than
+    False, so a reader can't mistake "we didn't ask" for "Mutect2 asked
+    and found nothing".
+    """
+    regions = BOUNDARY_RUN_REGIONS
+    if not regions:
+        return df
+
+    df = df.copy()
+    pos_numeric = pd.to_numeric(df["Pos"], errors="coerce")
+    label_pos = df["MUTECT2"].apply(extract_float_position)
+    is_length_type = df["Type"].astype(str).str.contains(r'\b(?:INS|DEL|LHP)\b', regex=True)
+
+    drop_mask = pd.Series(False, index=df.index)
+    for region in regions:
+        leading_start, leading_end = region["leading"]
+        extension_start, extension_end = region["extension"]
+        in_leading = pos_numeric.between(leading_start, leading_end) | label_pos.between(leading_start, leading_end)
+        # Not a plain between(extension_start, extension_end): a decimal
+        # insertion label anchored at the extension run's own far end
+        # (e.g. "-16193.1c") extracts to 16193.1, just past extension_end -
+        # between() would miss it entirely.
+        in_extension = (
+            pos_numeric.between(extension_start, extension_end)
+            | ((label_pos >= extension_start) & (label_pos < extension_end + 1))
+        )
+        drop_mask |= in_leading | (is_length_type & in_extension)
+
+    for _, dropped in df.loc[drop_mask].iterrows():
+        print(f"NOTE: dropping Mutect2 row {dropped['MUTECT2']!r} (VariantLevel="
+              f"{dropped['VariantLevel']}) - homopolymer_mutect2_reporting=disabled, "
+              f"no replacement", file=sys.stderr)
+
+    return df.loc[~drop_mask]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process mitochondrial variants into EMPOP format.")
     parser.add_argument("input_file", help="Input TSV file with variants")
@@ -324,7 +387,14 @@ def main():
     parser.add_argument("reference_fasta", help="Reference genome in FASTA format")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 1-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
-    parser.add_argument("--bam", help="Indexed BAM (same one Mutect2 itself was run on) - when given, replaces Mutect2's own rows with direct read counts inside reference-derived homopolymer regions, where its VCF bookkeeping is unreliable (see apply_homopolymer_region_overrides)")
+    parser.add_argument("--bam", help="Indexed BAM (same one Mutect2 itself was run on) - required by --homopolymer_mutect2_reporting bam_override, unused otherwise")
+    parser.add_argument("--homopolymer_mutect2_reporting", choices=["bam_override", "disabled", "true_mutect2"], default="true_mutect2",
+                         help="How Mutect2's own calls are handled inside the boundary-run region (leading run + different-base extension run, chrM:16180-16193 - "
+                              "the only one either mode touches; every other boundary-run region genome-wide is left as Mutect2 reported it). "
+                              "bam_override replaces Mutect2's rows there with direct BAM read counts (see apply_homopolymer_region_overrides; needs --bam). "
+                              "disabled drops Mutect2's indel/length-axis rows there with no replacement, keeping ordinary substitution calls like T16189C untouched (see "
+                              "disable_homopolymer_length_calls); merge_fdstools_mutect2_improved.py marks called_by_MUTECT2 as DISABLED for these when this mode is active. "
+                              "true_mutect2 (default) leaves Mutect2's own calls as is.")
 
     args = parser.parse_args()
 
@@ -380,8 +450,12 @@ def main():
 
         df = finalize_output_table(df, args.lh_thresh/100)
 
-        if args.bam:
+        if args.homopolymer_mutect2_reporting == "bam_override":
+            if not args.bam:
+                raise ValueError("--homopolymer_mutect2_reporting bam_override requires --bam")
             df = apply_homopolymer_region_overrides(df, args.bam, reference_unbaked, args.min_vf/100, args.lh_thresh/100)
+        elif args.homopolymer_mutect2_reporting == "disabled":
+            df = disable_homopolymer_length_calls(df, reference_unbaked)
 
         # Rename selected columns
         df = df.rename(columns={
