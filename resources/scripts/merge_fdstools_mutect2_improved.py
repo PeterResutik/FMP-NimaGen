@@ -8,7 +8,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from call_repeat_regions import BOUNDARY_RUN_REGIONS
+from call_repeat_regions import MUTECT2_TARGET_REGIONS
+from heteroplasmy_thresholds import lh_bounds_pct
 
 
 white_border = Border(
@@ -17,13 +18,6 @@ white_border = Border(
     top=Side(border_style="thin", color="FFFFFF"),
     bottom=Side(border_style="thin", color="FFFFFF")
 )
-
-
-def lh_bounds_pct(threshold_pct):
-    """Symmetric floor/ceiling (percentage scale, 0-100) around a single
-    length-heteroplasmy threshold. Accepts either side (e.g. 10 or 90) and
-    always returns (floor, ceiling) with floor <= ceiling."""
-    return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
 
 
 def is_major_format(variant_str):
@@ -89,25 +83,29 @@ def merge_key(variant_str):
 def mark_disabled_mutect2_calls(merged, reference_fasta):
     """When homopolymer_mutect2_reporting is 'disabled' (process_mutect2_
     output_improved.py has already dropped Mutect2's own indel/length-axis
-    rows in boundary-run regions, e.g. chrM:16180-16193, with no
+    rows in MUTECT2_TARGET_REGIONS, e.g. chrM:16180-16193, with no
     replacement - see disable_homopolymer_length_calls there), mark
     called_by_MUTECT2 as "DISABLED" for the corresponding merged rows
     instead of leaving it as the plain False a genuine absence would
     produce, so a reader can tell "we didn't ask" apart from "Mutect2
     asked and found nothing" or a real DISAGREEMENT.
 
-    Scoped to BOUNDARY_RUN_REGIONS (just chrM:16180-16193), matching
-    disable_homopolymer_length_calls - both this and that used to be
-    genome-wide across all 9 reference-derived boundary-run regions, but
-    the FDSTOOLS side was narrowed to just 16180-16193 this same session,
+    Scoped to MUTECT2_TARGET_REGIONS - chrM:16180-16193 and chrM:303-315,
+    matching disable_homopolymer_length_calls and process_fdstools_
+    output_improved_better.py's own target_regions - both this and that
+    used to be genome-wide across all 9 reference-derived boundary-run
+    regions, but the FDSTOOLS side was narrowed this same session,
     leaving Mutect2's own genome-wide disabling (and this marking, if it
     stayed genome-wide too) touching regions FDSTOOLS no longer does
     anything special for at all (2026-09-22, user, chrM:6419: "I would
-    restrict mutect2 as well same ways we do fdstools"). Within that one
-    region: any row positioned in the leading run, plus any length-axis
-    row positioned in the extension run. Ordinary substitution rows in
-    the extension run (e.g. T16189C) are left alone, since Mutect2 was
-    never disabled for those.
+    restrict mutect2 as well same ways we do fdstools"; 2026-09-23,
+    extended to 303-315 the same way). Within a TRUE boundary-run region
+    (one with a "leading" entry, e.g. 16180-16193): any row positioned in
+    the leading run, plus any length-axis row positioned in the extension
+    run. A plain region with no leading run (e.g. 303-315) only has the
+    length-axis-in-extension check - there's no separate leading run to
+    mark. Ordinary substitution rows in the extension run (e.g. T16189C)
+    are left alone either way, since Mutect2 was never disabled for those.
 
     Deliberately NOT keyed off a "Type" column: this runs on the already-
     merged table, where Type only ever came from Mutect2's own output (
@@ -117,11 +115,11 @@ def mark_disabled_mutect2_calls(merged, reference_fasta):
     are identified from the FMP label's own format instead: a plain point
     substitution is always REF+POS+ALT with no decimal and no trailing
     -/lowercase suffix (e.g. "T16189C", "T16189Y"); everything else in the
-    extension run - report_boundary_run's own decimal-anchored cumulative
+    extension run - report_separate_frame's own decimal-anchored cumulative
     calls (e.g. "-16193.1c"), and shared_frame's plain-integer shifted
     deletion calls (e.g. "C16193c") alike - is a length claim.
     """
-    regions = BOUNDARY_RUN_REGIONS
+    regions = MUTECT2_TARGET_REGIONS
     if not regions:
         return merged
 
@@ -136,9 +134,13 @@ def mark_disabled_mutect2_calls(merged, reference_fasta):
 
     disabled_mask = pd.Series(False, index=merged.index)
     for region in regions:
-        leading_start, leading_end = region["leading"]
+        leading = region["leading"]
         extension_start, extension_end = region["extension"]
-        in_leading = positions.between(leading_start, leading_end)
+        if leading:
+            leading_start, leading_end = leading
+            in_leading = positions.between(leading_start, leading_end)
+        else:
+            in_leading = pd.Series(False, index=merged.index)
         # Not a plain between(extension_start, extension_end): a decimal
         # insertion label anchored at the extension run's own far end
         # (e.g. "-16193.1c") extracts to 16193.1, just past extension_end -
@@ -384,9 +386,14 @@ def apply_excel_styles(excel_path: str):
                 elif col_name == "called_by_MUTECT2" and cell.value is False:
                     cell.fill = fill_red
 
-                if col_name.endswith("_MUTECT2") or col_name.endswith("_MT2") or col_name in ["MUTECT2", "Filter", "Pos", "Ref", "Variant", "GT", "Type", "MBQ", "Filter" ]:
+                # variant_note is now Mutect2-only (FDSTOOLS' own note
+                # column was renamed to dominant_molecule_note - see
+                # process_fdstools_output_improved_better.py), so the two
+                # no longer collide and pd.merge no longer suffixes
+                # either one with _FDSTOOLS/_MUTECT2 (2026-09-23).
+                if col_name.endswith("_MUTECT2") or col_name.endswith("_MT2") or col_name in ["MUTECT2", "Filter", "Pos", "Ref", "Variant", "GT", "Type", "MBQ", "Filter", "variant_note"]:
                     cell.fill = fill_blue
-                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "interp_total", "marker", "marker_range", "num_markers", "variant_note"]:
+                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "interp_total", "marker", "marker_range", "num_markers", "dominant_molecule_note"]:
                     cell.fill = fill_green
 
 
@@ -429,7 +436,7 @@ if __name__ == "__main__":
     parser.add_argument("output_file", help="Path to save the merged output (XLSX format).")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold, used to reconcile major/minor case disagreements between callers via their averaged variant frequency")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold; its complement (100-min_vf) is the homoplasmy boundary used to reconcile SNP-vs-IUPAC disagreements between callers via their averaged variant frequency")
-    parser.add_argument("--homopolymer_mutect2_reporting", choices=["bam_override", "disabled", "true_mutect2"], default="true_mutect2",
+    parser.add_argument("--homopolymer_mutect2_reporting", choices=["disabled", "true_mutect2"], default="true_mutect2",
                          help="Must match the same flag passed to process_mutect2_output_improved.py. When 'disabled', called_by_MUTECT2 is marked DISABLED (rather than the plain False an absence would produce) for rows in boundary-run regions where Mutect2's own calling was turned off - requires --reference.")
     parser.add_argument("--reference", help="Reference FASTA - required when --homopolymer_mutect2_reporting disabled")
 

@@ -61,7 +61,8 @@ from collections import Counter, defaultdict
 from Bio import Align
 
 from read_evidence import _iter_reads, CIGAR_RE
-from repeat_regions import load_reference, find_homopolymer_runs, merge_runs
+from reference_utils import load_reference, find_homopolymer_runs, merge_runs
+from heteroplasmy_thresholds import lh_bounds_pct
 
 IUPAC_CODES = {
     frozenset(["A", "G"]): "R",
@@ -93,10 +94,6 @@ _ALIGNER = Align.PairwiseAligner(
     target_end_gap_score=-10,
     query_end_gap_score=-10,
 )
-
-
-def lh_bounds_pct(threshold_pct):
-    return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
 
 
 def local_haplotypes(bam, chrom, start, end):
@@ -235,7 +232,7 @@ def structural_decompose(observed, reference, start, end):
          convention without a separate shifting pass.
 
     Only implemented for the "one leading run, then the remainder of the
-    reference span" shape - which is exactly what repeat_regions.py's
+    reference span" shape - which is exactly what reference_utils.py's
     merge_runs produces (a run merged with whatever follows across
     single-base gaps), i.e. every region this module is ever given.
     Genuinely wider structures (a second independently-ambiguous run
@@ -304,7 +301,20 @@ def structural_decompose(observed, reference, start, end):
 
 
 def shift_insertion_right(reference, anchor, segment):
-    """Move an insertion to its 3'-most equivalent placement."""
+    """Move an insertion to its 3'-most equivalent placement.
+
+    Deliberately NOT the same function as reference_utils.py's own
+    shift_insertion_right/shift_deletion_right (used by process_mutect2_
+    output_improved.py and process_fdstools_output_improved_better.py) -
+    those are VCF-REF/ALT-oriented (a two-phase jump-then-rotate search);
+    this one is a simpler single-pass rotation over an already-observed
+    read/local-haplotype segment, this file's own different context. Kept
+    separate rather than unified since the two algorithms' equivalence
+    across multi-base segments was never verified, and this file's own
+    output (still a real, standalone tool - see call_boundary_run/
+    call_region) wasn't worth that risk for a naming tidy-up alone
+    (2026-09-23, user: "pull shared primitives").
+    """
     seg = segment
     while anchor < len(reference) and reference[anchor] == seg[0]:
         seg = seg[1:] + seg[0]
@@ -321,13 +331,34 @@ def shift_deletion_right(reference, first, segment):
     return first, seg
 
 
-# Boundary-run regions: a leading homopolymer run (e.g. the 16180-16183
-# A-run) immediately followed by an extension run (e.g. the 16184-16193
-# C-run) whose reference identity differs. Twin of the same constant in
-# process_fdstools_output_improved_better.py - see call_boundary_run
-# below for why this needs separate handling from call_region.
-BOUNDARY_RUN_REGIONS = [
+# Regions where process_mutect2_output_improved.py's disable_homopolymer_
+# length_calls / merge_fdstools_mutect2_improved.py's mark_disabled_
+# mutect2_calls drop/flag Mutect2's own indel/length-axis rows, matching
+# the two regions process_fdstools_output_improved_better.py's own
+# target_regions covers (2026-09-23, user: "I think we should extend it
+# to 303-315 for fdstools and mutect2"). Named for what it now IS - a
+# curated, hand-validated allowlist, the Mutect2-side twin of FDSTOOLS'
+# own target_regions - not "BOUNDARY_RUN_REGIONS" (renamed 2026-09-23,
+# user: "easy to mix up when reading cold"): that name collided with,
+# and was easily confused with, find_boundary_run_regions() above - a
+# completely different thing, a DYNAMIC, genome-wide detector of every
+# boundary-run-SHAPED region the reference happens to contain (9 of
+# them), not this file's own curated 2-region validated subset. Each
+# entry's "extension" span is where any length-axis row gets dropped;
+# "leading" is only set for a TRUE boundary-run region - a leading
+# homopolymer run of one base immediately followed by a run of a
+# DIFFERENT base (e.g. 16180-16183's A-run into 16184-16193's C-run) -
+# where that leading run's own per-position reference-presence also
+# needs dropping. chrM 303-315 (the "310" region: 303-309 C's, 310 T
+# interrupt, 311-315 C's) has no such leading run - only 3 A's at
+# 300-302, below the length-4 homopolymer floor - so its "leading" is
+# None; it's still a real homopolymer region Mutect2 struggles with,
+# just not boundary-run-shaped (2026-09-23, user: "it's okay that the
+# homopolymer stretch is different and doesn't have a leading
+# homopolymer stretch").
+MUTECT2_TARGET_REGIONS = [
     {"leading": (16180, 16183), "extension": (16184, 16193)},
+    {"leading": None, "extension": (303, 315)},
 ]
 
 
@@ -338,11 +369,19 @@ def call_boundary_run(bam, chrom, reference, leading_start, leading_end,
     each read's own local haplotype directly against the true reference -
     no frame is ever baked or borrowed from any other read.
 
-    Twin of report_boundary_run in process_fdstools_output_improved_
-    better.py (see its docstring for the full design rationale - this
-    mirrors it exactly, adapted to raw local-haplotype sequences from
+    Named for the region SHAPE it targets (matching find_boundary_run_
+    regions above), not the homopolymer_reporting MODE - unlike its own
+    FDSTOOLS-side twin, report_separate_frame in process_fdstools_output_
+    improved_better.py. This call_boundary_run itself is no longer
+    reachable from the automated pipeline at all, only from this file's
+    own standalone CLI, since bam_override - the mode that used to call
+    it - was removed; kept named after the region shape rather than
+    renamed to match report_separate_frame, since it isn't part of that
+    mode dispatch (2026-09-23, "pull shared primitives" discussion). See
+    report_separate_frame's own docstring for the full design rationale -
+    this mirrors it exactly, adapted to raw local-haplotype sequences from
     local_haplotypes() instead of FDSTOOLS' own pre-parsed haplotype
-    tokens). Both of call_region's documented known limits are structural
+    tokens. Both of call_region's documented known limits are structural
     consequences of needing ONE borrowed alignment frame to spell every
     read; this function never builds one:
 
@@ -399,7 +438,7 @@ def call_boundary_run(bam, chrom, reference, leading_start, leading_end,
     # genuinely present), which is exactly the failure structural_
     # decompose's docstring documents. A read has no explicit tokens
     # telling us where an insertion is anchored the way FDSTOOLS' own
-    # haplotype strings do (see report_boundary_run's twin of this
+    # haplotype strings do (see report_separate_frame's twin of this
     # function) - simply counting how many leading_base characters exist
     # in the read AT ALL, capped at the reference's own count, sidesteps
     # needing to know where. (This assumes nothing else in the extension
