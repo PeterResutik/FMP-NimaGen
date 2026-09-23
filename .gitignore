@@ -27,6 +27,8 @@ results_new_7/
 results_500x/
 output/
 results_21/
+results_boundary_run_new/
+results_shared_frame_new/
 
 #index files
 humans.fa
