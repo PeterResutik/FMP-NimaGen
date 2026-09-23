@@ -9,7 +9,11 @@ import os
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from repeat_regions import find_homopolymer_runs, merge_runs, find_boundary_run_regions
+from reference_utils import (
+    find_homopolymer_runs, merge_runs, find_boundary_run_regions,
+    load_reference_list, rightmost_repeat_position, shift_deletion_right,
+)
+from heteroplasmy_thresholds import lh_bounds_pct
 
 # Utility: extract numeric position from sequence
 def extract_position(seq):
@@ -22,39 +26,7 @@ def adjust_circular_position(pos):
         return pos - 16569
     return pos
 
-def load_reference(fasta_path):
-    with open(fasta_path) as f:
-        seq = "".join(line.strip() for line in f if not line.startswith(">"))
-    return list(seq)
-
-def rightmost_repeat_position(reference, pos, segment):
-    pos -= 1
-    while (
-        pos + len(segment) < len(reference) and
-        "".join(reference[pos + 1: pos + 1 + len(segment)]) == segment
-    ):
-        pos += len(segment)
-    return pos + 1
-
-def shift_deletion_right(reference, pos, segment):
-    pos = rightmost_repeat_position(reference, pos, segment) - len(segment) + 1
-    for _ in range(len(segment) - 1):
-        next_seq = reference[pos + len(segment) - 1: pos + len(segment)]
-        if "".join(next_seq) == segment[0]:
-            segment = segment[1:] + segment[0]
-            pos += 1
-        else:
-            break
-    return pos, segment
-
 LH_DROP_SENTINEL = "__BELOW_LH_FLOOR__"
-
-def lh_bounds_pct(threshold_pct):
-    """Symmetric floor/ceiling (percentage scale, 0-100) around a single
-    length-heteroplasmy threshold, e.g. threshold_pct=10 -> (10, 90).
-    Accepts either side (10 or 90) and always returns (floor, ceiling)
-    with floor <= ceiling."""
-    return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
 
 # IUPAC resolution for heteroplasmies
 def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES):
@@ -85,7 +57,7 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
     # Only a genuinely raw, unprocessed FDSTOOLS insertion token
     # ("16193.1C") gets the leading "-" and case treatment below - a
     # label some other step already fully formatted (e.g.
-    # report_boundary_run's own "-16193.1c") also contains a "." but
+    # report_separate_frame's own "-16193.1c") also contains a "." but
     # must pass through unchanged, or it would get a second "-" prepended.
     if re.match(r'^\d+\.\d+[ACGT]$', seq):
         lh_floor, lh_ceiling = lh_bounds_pct(length_heteroplasmy_threshold)
@@ -109,18 +81,28 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
 # C-run) whose reference identity differs. Computed genome-wide from the
 # reference alone (find_boundary_run_regions) - unlike the Mutect2/BAM
 # side's equivalent fix, which stays deliberately scoped to just
-# 16180-16193 (see BAM_OVERRIDE_REGIONS in process_mutect2_output_
+# 16180-16193 (see MUTECT2_TARGET_REGIONS in process_mutect2_output_
 # improved.py: Mutect2's own VCF rows are individual records, not
 # complete per-read haplotypes, so there's no reliable per-region
 # fallback signal to apply this genome-wide the way FDSTOOLS' complete
 # per-read haplotype strings allow here). 16180-16193 itself is
-# validated against s26-02989 and HG01799 (see report_boundary_run's
+# validated against s26-02989 and HG01799 (see report_separate_frame's
 # docstring); the other 8 reference-derived regions this now covers
 # follow the identical, already-validated shape and logic, but haven't
 # each been checked against a real sample carrying a variant there.
+#
+# report_separate_frame implements the separate_frame homopolymer_
+# reporting mode specifically for boundary-run-shaped regions - the name
+# below tracks the MODE it implements (separate_frame: leading run and
+# extension run reported on two independent axes, as opposed to
+# shared_frame's one borrowed reference frame), not the region shape
+# (that's find_boundary_run_regions/MUTECT2_TARGET_REGIONS's naming
+# instead) (2026-09-23, user: "for someone reviewing the code it would
+# be easier to follow if also the function names were renamed
+# consistently").
 
 
-def report_boundary_run(final, df_haplotypes, marker_total_reads, reference,
+def report_separate_frame(final, df_haplotypes, marker_total_reads, reference,
                          leading_start, leading_end, extension_start, extension_end,
                          lh_floor, lh_ceiling):
     """Report a leading homopolymer run and its immediately-adjacent
@@ -358,9 +340,9 @@ def report_boundary_run(final, df_haplotypes, marker_total_reads, reference,
     return rows
 
 
-def dominant_boundary_molecule(df_haplotypes, marker_total_reads, reference,
-                                leading_start, leading_end, extension_start, extension_end,
-                                lh_floor, lh_ceiling):
+def dominant_separate_frame_molecule(df_haplotypes, marker_total_reads, reference,
+                                      leading_start, leading_end, extension_start, extension_end,
+                                      lh_floor, lh_ceiling):
     """ISFG/EMPOP-style reporting for a boundary-run region: report only the
     single most common molecule and only if it differs from reference, no
     lowercase/minor calls at all. This is what W. Parson's own reading of
@@ -368,7 +350,7 @@ def dominant_boundary_molecule(df_haplotypes, marker_total_reads, reference,
     type convention; his note, 2026-09-21, that the lowercase mixture
     convention was intended for point heteroplasmy and indel mixtures
     outside homopolymer runs, not partial states within one) - an
-    alternative to report_boundary_run's own two-axis scheme above, not a
+    alternative to report_separate_frame's own two-axis scheme above, not a
     replacement for it (see homopolymer_reporting mode in
     process_fdstools_sast).
 
@@ -376,8 +358,8 @@ def dominant_boundary_molecule(df_haplotypes, marker_total_reads, reference,
     position confirm, extension net) combinations, per marker, and
     reports whichever exact combination has the most reads - not each
     axis's own separate marginal majority, which need not correspond to
-    any single real read (see plot_boundary_run.py's collect_patterns,
-    validated against HG01799 and s26-02989 2026-09-21/22: HG01799's
+    any single real read (validated against HG01799 and s26-02989
+    2026-09-21/22: HG01799's
     dominant molecule matches reference exactly, 518/828 reads, 62.6% -
     nothing would be reported for it under this mode; s26-02989's
     dominant molecule loses both leading positions and carries 2 extra
@@ -445,7 +427,7 @@ def dominant_boundary_molecule(df_haplotypes, marker_total_reads, reference,
         while p >= leading_start and subbed.get(p) == extension_base:
             left += 1
             p -= 1
-        # Mirror of `left` - see report_boundary_run's own copy of this
+        # Mirror of `left` - see report_separate_frame's own copy of this
         # logic above for the full rationale (HG02389's real "A16194C
         # 16194.1C").
         right_sub = 0
@@ -462,7 +444,7 @@ def dominant_boundary_molecule(df_haplotypes, marker_total_reads, reference,
         # one base with nothing to correct it.
         internal = sum(1 for d in deleted if extension_start <= d <= extension_end)
         # Mirror of right_edge, not "anywhere in the leading run" - see
-        # report_boundary_run's own copy of this same fix above for the
+        # report_separate_frame's own copy of this same fix above for the
         # full rationale (HG01799's real "16182.1C", sitting between the
         # 3rd and 4th A of a plain AAAA run, wrongly treated as extending
         # the C run when the 4th A is still right there in between).
@@ -619,14 +601,14 @@ def find_baked_positions_by_run(reference, homopolymer_runs):
 
 def dominant_shared_frame_molecule(df_haplotypes, marker_total_reads, reference, reference_baked,
                                     homopolymer_runs, baked_positions_by_run, lh_floor, lh_ceiling):
-    """ISFG/EMPOP-style dominant-molecule reporting (see dominant_boundary_
-    molecule's own docstring for the full rationale and citation), built
-    on the shared_frame model instead of boundary_run's two-axis one -
-    the only option for a plain homopolymer run with no different-base
-    leading run to split off (e.g. chrM 303-315, the "310" region), and a
-    genuine second, independent determination for boundary-run-shaped
-    ones too, worth comparing against dominant_only_boundary_run's own
-    answer rather than assumed to always agree with it. Generic over
+    """ISFG/EMPOP-style dominant-molecule reporting (see dominant_separate_
+    frame_molecule's own docstring for the full rationale and citation),
+    built on the shared_frame model instead of separate_frame's two-axis
+    one - the only option for a plain homopolymer run with no different-
+    base leading run to split off (e.g. chrM 303-315, the "310" region),
+    and a genuine second, independent determination for boundary-run-
+    shaped ones too, worth comparing against dominant_separate_frame_
+    molecule's own answer rather than assumed to always agree with it. Generic over
     whatever `homopolymer_runs` it's handed - process_fdstools_sast
     restricts that list to target_regions (see there), which now
     includes 303-315 alongside chrM 16180's own region.
@@ -643,7 +625,7 @@ def dominant_shared_frame_molecule(df_haplotypes, marker_total_reads, reference,
     Deliberately NOT built from the separately-extracted `events`/
     `ins_events_by_run` structures above: those are pre-aggregated across
     reads for the full-distribution report and would reintroduce exactly
-    the marginal-vs-joint mistake dominant_boundary_molecule's own
+    the marginal-vs-joint mistake dominant_separate_frame_molecule's own
     docstring warns against - a read with both an insertion and a
     deletion needs its own single net computed together, not two
     separately-aggregated axes recombined after the fact.
@@ -712,7 +694,7 @@ def dominant_shared_frame_molecule(df_haplotypes, marker_total_reads, reference,
             # An insertion of the run's own base anchored just short of
             # either edge (still a real reference base of some OTHER
             # identity sitting between it and the run) doesn't extend the
-            # run either - same mirror fix as dominant_boundary_molecule's
+            # run either - same mirror fix as dominant_separate_frame_molecule's
             # own left_edge/stray_insertions above (2026-09-22, user,
             # after HG01799's real "16182.1C": "also for shared_frame").
             # Windowed to 4 positions either side, matching the min_length
@@ -741,7 +723,7 @@ def dominant_shared_frame_molecule(df_haplotypes, marker_total_reads, reference,
             baked = baked_positions_by_run.get((run_start, run_end, run_base), [])
             # "Confirmed" (reported as a plain substitution) on a literal
             # deletion too, not just a literal substitution token - same
-            # fix as dominant_boundary_molecule's own interrupt_state
+            # fix as dominant_separate_frame_molecule's own interrupt_state
             # above, same rationale: a baked position deleted with
             # nothing else different around it is sequence-identical to
             # substituting it to the run's base and losing one base
@@ -828,8 +810,8 @@ def load_marker_ranges(filepath):
     return marker_ranges
 
 # Main processing function
-def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fasta, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0, homopolymer_reporting="boundary_run"):
-    reference = load_reference(reference_fasta)
+def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fasta, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0, homopolymer_reporting="separate_frame"):
+    reference = load_reference_list(reference_fasta)
     IUPAC_CODES = {
         frozenset(["A", "G"]): "R", frozenset(["C", "T"]): "Y",
         frozenset(["A", "C"]): "M", frozenset(["G", "T"]): "K",
@@ -1089,7 +1071,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     used_indices = set()
 
     # Boundary-run regions get their own independent, non-frame-baked
-    # reporting (report_boundary_run above) for the RUN-LENGTH axis only.
+    # reporting (report_separate_frame above) for the RUN-LENGTH axis only.
     # Ordinary point substitutions strictly inside the extension run that
     # don't change length at all (e.g. T16189C, converting a T to a C
     # without adding or removing any bases) are NOT part of that axis -
@@ -1107,14 +1089,14 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     # leading run (see target_regions above), so it's never claimed here
     # and always falls through to the shared_frame-style handling below
     # regardless of mode, exactly like any other plain homopolymer run.
-    boundary_run_regions = (
-        [_target_br] if _target_br and homopolymer_reporting == "boundary_run" else []
+    separate_frame_regions = (
+        [_target_br] if _target_br and homopolymer_reporting == "separate_frame" else []
     )
     # (marker, run_start, run_end) -> (dominant molecule's own label list,
     # pct) for every processed region, boundary-run-shaped or plain alike
     # - built up here and in the shared_frame/general path below, then
     # used in one final pass over `final` to append a "[dominant molecule
-    # (...)]" tag to every row's own variant_note in that region (2026-
+    # (...)]" tag to every row's own dominant_molecule_note in that region (2026-
     # 09-22, user: "we think we can represent the information of the
     # dominant_only_shared frame in shared_frame option and dominant_
     # only_boundary_run in the boundary_run option ... let's include it
@@ -1134,17 +1116,17 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     # this is layered on top, not a replacement for it.
     dominant_summaries = {}
 
-    for br in boundary_run_regions:
+    for br in separate_frame_regions:
         leading_start, leading_end = br["leading"]
         extension_start, extension_end = br["extension"]
         extension_base = reference[extension_start - 1].upper()
 
-        merged_rows.extend(report_boundary_run(
+        merged_rows.extend(report_separate_frame(
             final, df_haplotypes, marker_total_reads, reference,
             leading_start, leading_end, extension_start, extension_end,
             lh_floor, lh_ceiling
         ))
-        dominant_rows = dominant_boundary_molecule(
+        dominant_rows = dominant_separate_frame_molecule(
             df_haplotypes, marker_total_reads, reference,
             leading_start, leading_end, extension_start, extension_end,
             lh_floor, lh_ceiling
@@ -1157,7 +1139,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
         for r in dominant_rows:
             dominant_summaries[(r["marker"], extract_position(r["sequence"]))] = r
 
-        # Drop only what report_boundary_run fully replaces: every raw
+        # Drop only what report_separate_frame fully replaces: every raw
         # row at the leading run's own positions (sub or del alike - the
         # leading-run report above supersedes all of it), and the
         # extension run's own raw insertion tokens anchored at its far
@@ -1172,7 +1154,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
         # cumulative count directly), OR anchored exactly at leading_end
         # (immediately adjacent to the extension run, folded into that
         # same cumulative count above for the common left=0 case - see
-        # report_boundary_run's own left_edge comment for the general,
+        # report_separate_frame's own left_edge comment for the general,
         # per-read-dynamic case this static check simplifies). An
         # insertion anchored any EARLIER in the leading run (e.g.
         # "16182.1C", with a reference A still sitting between it and
@@ -1197,14 +1179,14 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
                     used_indices.add(idx)
 
         # Suppress the general run-length combining loop below for
-        # events report_boundary_run's extension-run count already fully
+        # events report_separate_frame's extension-run count already fully
         # covers: one starting inside the leading run (e.g.
         # A16182DEL+A16183DEL - shift_deletion_right can't move an AA
         # deletion into the C-run, so it would otherwise get its own,
         # now-redundant combining-loop row right there in the leading
         # run), or one whose SHIFTED anchor lands inside the extension
         # run (e.g. T16189DEL, shifted to 16193 - already folded into
-        # report_boundary_run's unified count). These events stay in the
+        # report_separate_frame's unified count). These events stay in the
         # full `events` list itself (used below) for two reasons: so
         # T16189C's own substitution-exclusion still correctly excludes
         # T16189DEL's reads, and so the del_mask step just below still
@@ -1238,7 +1220,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
             base = reference_baked[pos - 1]
             is_major = pct >= lh_ceiling
             # Explanatory variant_note suppressed - not deleted, same as
-            # report_boundary_run's own notes above (2026-09-22, user:
+            # report_separate_frame's own notes above (2026-09-22, user:
             # "too much information ... I don't want to see it").
             # detail = ", ".join(
             #     f"{e['total']} read{'s' if e['total'] != 1 else ''} with a deletion at position"
@@ -1272,22 +1254,22 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     # mixed-base regions above - an insertion's own base has to match the
     # ONE run it's extending, so this needs single-base runs, decomposing
     # a boundary-run-shaped region into its separate leading/extension
-    # pieces the same way report_boundary_run's own two axes do), each
+    # pieces the same way report_separate_frame's own two axes do), each
     # read's net extra-base contribution is: insertions of the run's own
     # base anchored anywhere inside it, plus a walk past the run's own
     # far end for substitutions converting to that base (mirrors report_
-    # boundary_run's right_sub - the same real case, HG02389's "A16194C
+    # separate_frame's right_sub - the same real case, HG02389's "A16194C
     # 16194.1C", applies here too whenever shared_frame is active), plus
     # any insertion anchored at wherever that walk lands.
     #
     # Boundary-run-shaped regions are skipped here when they were already
-    # claimed by report_boundary_run above (i.e. whenever homopolymer_
-    # reporting is boundary_run) - nothing to reconcile twice. For
-    # shared_frame, boundary_run_regions is empty, so nothing is excluded,
+    # claimed by report_separate_frame above (i.e. whenever homopolymer_
+    # reporting is separate_frame) - nothing to reconcile twice. For
+    # shared_frame, separate_frame_regions is empty, so nothing is excluded,
     # and these get exactly the same treatment as any other homopolymer
     # run.
     ins_re_general = re.compile(r'^(\d+)\.(\d+)([ACGT])$')
-    claimed_spans = [span for br in boundary_run_regions for span in (br["leading"], br["extension"])]
+    claimed_spans = [span for br in separate_frame_regions for span in (br["leading"], br["extension"])]
 
     def is_claimed(start, end):
         # Overlap, not containment: baking can extend a run's own boundary
@@ -1295,12 +1277,12 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
         # what find_homopolymer_runs sees into one 16183-16193 run) so
         # that it straddles both the leading and extension spans without
         # being fully contained in either - still needs excluding, since
-        # report_boundary_run already covers that whole stretch correctly
+        # report_separate_frame already covers that whole stretch correctly
         # on its own, per-read terms.
         return any(start <= c_end and end >= c_start for c_start, c_end in claimed_spans)
 
     # Restricted to target_regions (16180 and 303-315) same as
-    # boundary_run_regions/homopolymer_regions above - every other plain
+    # separate_frame_regions/homopolymer_regions above - every other plain
     # 4+ homopolymer run genome-wide is left untouched, passed through
     # exactly as FDSTOOLS reported it.
     homopolymer_runs = [
@@ -1332,7 +1314,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
             # this one read: a substitution immediately adjacent to the
             # run's own start/end, converting to the run's base, plus any
             # insertion anchored at wherever that walk lands. Symmetric
-            # with report_boundary_run's leading-run "left" term and this
+            # with report_separate_frame's leading-run "left" term and this
             # module's own right_sub above - a per-read, non-baked
             # substitution at either edge (e.g. a minority A16182C next
             # to a baked-in A16183C) is otherwise invisible here, since
@@ -1444,15 +1426,15 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     # (insertion and deletion together per read) exactly as before -
     # folded into dominant_summaries for the tagging pass below instead
     # of replacing any of the full-distribution rows above. Harmless
-    # no-op under boundary_run mode: homopolymer_runs is empty there
-    # (this region is_claimed by boundary_run_regions instead).
+    # no-op under separate_frame mode: homopolymer_runs is empty there
+    # (this region is_claimed by separate_frame_regions instead).
     baked_positions_by_run = find_baked_positions_by_run(reference, homopolymer_runs)
     dominant_rows = dominant_shared_frame_molecule(
         df_haplotypes, marker_total_reads, reference, reference_baked,
         homopolymer_runs, baked_positions_by_run, lh_floor, lh_ceiling
     )
     # Keyed by the position extracted from the row's own sequence label,
-    # same reasoning as the boundary_run-shaped dispatch above.
+    # same reasoning as the boundary-run-shaped dispatch above.
     for r in dominant_rows:
         dominant_summaries[(r["marker"], extract_position(r["sequence"]))] = r
 
@@ -1545,12 +1527,20 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
 
         if deletion_reportable:
             reported_total = sub_total + del_total
-            sub_note = (f"includes {del_total} of {coverage} reads ({del_freq}%) with {del_seq_name} "
-                        f"- also reported as its own row below")
         else:
             reported_total = sub_total
-            sub_note = (f"excludes {del_total} of {coverage} reads ({del_freq}%) with {del_seq_name} "
-                        f"- below the {lh_floor:g}% reporting threshold, so not counted here or shown separately")
+        # Numbers only, no explanatory variant_note text - suppressed,
+        # not deleted, same as the homopolymer-region combining loop
+        # above (2026-09-23, user: "I think it's better for the end user
+        # to not see all the variant notes ... I would not delete them
+        # only comment them out in case we ever need them for
+        # debugging"). Kept below so it can be turned back on.
+        # if deletion_reportable:
+        #     sub_note = (f"includes {del_total} of {coverage} reads ({del_freq}%) with {del_seq_name} "
+        #                 f"- also reported as its own row below")
+        # else:
+        #     sub_note = (f"excludes {del_total} of {coverage} reads ({del_freq}%) with {del_seq_name} "
+        #                 f"- below the {lh_floor:g}% reporting threshold, so not counted here or shown separately")
         reported_freq = round(reported_total / coverage * 100, 1) if coverage else 0
 
         num_markers = sub_row['num_markers'].iloc[0]
@@ -1563,7 +1553,6 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
             "is_noise_or_low_frq": False,
             "num_markers": num_markers,
             "variant_frequency": reported_freq,
-            "variant_note": sub_note,
             "marker": marker,
             "position": float(pos)
         })
@@ -1574,6 +1563,8 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
         if deletion_reportable:
             is_major = del_freq >= lh_ceiling
             del_seq = f"{del_segment}{del_pos}" + ("-" if is_major else del_segment.lower())
+            # del_note = (f"{del_total}/{coverage} ({del_freq}%) of {ref}{pos_str}{alt} reads - "
+            #             f"deletion shifted from naive position {pos_str}")
             merged_rows.append({
                 "sequence": del_seq,
                 "total": del_total,
@@ -1581,8 +1572,6 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
                 "is_noise_or_low_frq": False,
                 "num_markers": num_markers,
                 "variant_frequency": del_freq,
-                "variant_note": (f"{del_total}/{coverage} ({del_freq}%) of {ref}{pos_str}{alt} reads - "
-                                 f"deletion shifted from naive position {pos_str}"),
                 "marker": marker,
                 "position": float(del_pos)
             })
@@ -1625,7 +1614,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
                 final.at[idx, "variant_note"] = f"{existing} {tag}"
 
         # A dominant-molecule fact with no existing row to attach to
-        # (e.g. HG01799's "C16193-": report_boundary_run's own full-
+        # (e.g. HG01799's "C16193-": report_separate_frame's own full-
         # distribution model has no notation at all for a run coming out
         # net SHORTER than reference, only "at least k extra") would
         # otherwise be silently computed and then lost - add it as its
@@ -1665,7 +1654,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     if final.empty:
         pd.DataFrame(columns=[
             "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
-            "variant_note", "marker", "marker_range", "num_markers"
+            "dominant_molecule_note", "marker", "marker_range", "num_markers"
         ]).to_csv(output_file, sep="\t", index=False)
         print(f"Output written to {output_file} (no variants)")
         return
@@ -1692,11 +1681,22 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     final["position"] = final["position"].apply(adjust_circular_position)
     final = final.sort_values(by="position").drop(columns=["position"])
 
-    # Rename columns
+    # Rename columns. variant_note -> dominant_molecule_note: every
+    # explanatory note this file used to write has been suppressed above,
+    # so by the time a row reaches here the only content this column can
+    # still carry is the dominant-molecule tag from the 303-315/16180-
+    # 16193 tagging pass - "variant_note" no longer describes what's
+    # actually in it (2026-09-23, user: "it now only reports the variants
+    # observed on the dominant amplicon within 303-315 (+ insertions) and
+    # 16180-16193 (+ insertions). I think it needs a more intuitive
+    # naming"). This also un-collides it from Mutect2's own, unrelated
+    # "variant_note" column (bam_override's per-call note) - the merge
+    # step no longer needs to suffix either one to tell them apart.
     final = final.rename(columns={
         "sequence": "FDSTOOLS",
         "variant_frequency": "vf_FDS",
-        "total": "rd_FDS"
+        "total": "rd_FDS",
+        "variant_note": "dominant_molecule_note"
     })
 
     # Reorder columns
@@ -1705,7 +1705,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
         "vf_FDS",
         "rd_FDS",
         "interpolated_total_coverage",
-        "variant_note",
+        "dominant_molecule_note",
         "marker",
         "marker_range",
         "num_markers"
@@ -1716,7 +1716,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, reference_fas
     # if final is None or final.empty:
     #     pd.DataFrame(columns=[
     #         "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
-    #         "variant_note", "marker", "marker_range", "num_markers"
+    #         "dominant_molecule_note", "marker", "marker_range", "num_markers"
     #     ]).to_csv(output_file, sep="\t", index=False)
     #     print(f"Output written to {output_file} (no variants)")
     #     return
@@ -1736,19 +1736,20 @@ def main():
     parser.add_argument("--depth", type=int, default=10, help="Read depth threshold for low coverage")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 100-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
     parser.add_argument("--homopolymer_reporting",
-                         choices=["shared_frame", "boundary_run"],
-                         default="boundary_run",
-                         help="Which underlying model reports homopolymer run lengths, restricted to just chrM 16180 through "
-                              "the end of its poly-C tract (16189 T>C's own consequence) - the only region any of this has "
-                              "been validated against. Every other homopolymer run genome-wide (310, the other 8 boundary-run "
-                              "regions, any other plain 4+ run) is passed through exactly as FDSTOOLS reported it. "
-                              "shared_frame bakes everything into one borrowed reference frame. boundary_run (default) splits "
-                              "the region's leading run and different-base extension run, 16180-16183 / 16184-16193, into two "
-                              "independent axes instead. Either way, every row in the region also gets the single most common "
-                              "molecule's own genotype appended to its variant_note as a bracketed tag (e.g. \"[dominant "
-                              "molecule (30.56%%): A16182C, A16183C, T16189C, -16193.1C, -16193.2C]\"), per W. Parson's "
-                              "reading of the ISFG convention - the full distribution stays exactly as it always was, this is "
-                              "layered on top, not a replacement for it.")
+                         choices=["shared_frame", "separate_frame"],
+                         default="separate_frame",
+                         help="Which underlying model reports homopolymer run lengths within chrM 16180-16193 and 303-315 "
+                              "(the \"310\" region) - the only two regions this has been validated against. Every other "
+                              "homopolymer run genome-wide (the other 8 boundary-run regions, any other plain 4+ run) is "
+                              "passed through exactly as FDSTOOLS reported it. shared_frame bakes everything into one "
+                              "borrowed reference frame. separate_frame (default) splits 16180-16193's leading run and "
+                              "different-base extension run, 16180-16183 / 16184-16193, into two independent axes instead - "
+                              "303-315 has no such leading run, so it always uses the shared_frame model regardless of this "
+                              "setting. Either way, every row in either region also gets the single most common molecule's "
+                              "own genotype appended to its dominant_molecule_note column as a \"{label} ({pct}%%)\" tag, "
+                              "matched to that row's own position, per W. Parson's reading of the ISFG convention - the full "
+                              "distribution stays exactly as it always was, this is layered on top, not a replacement "
+                              "for it.")
     args = parser.parse_args()
 
     try:
