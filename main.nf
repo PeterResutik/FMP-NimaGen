@@ -9,7 +9,6 @@ params.max_overlap = 140 // default in FLASH is 65
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 
 // params.multiqc = "$baseDir/multiqc"
-params.publish_dir_mode = "symlink"
 params.outdir = "results_fixed"
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
@@ -50,7 +49,6 @@ params.allele_min_pct_of_max = 0
 params.allele_min_pct_of_sum = 3
 
 // mutect2
-params.detection_limit = 0.08
 params.baseQ = 30
 params.callable_depth = 10 // stats-only (GATK: "Does not affect genotyping") — aligned with params.depth, the same coverage-adequacy threshold FDSTOOLS' LOW flag uses, and with GATK's own default (previously left at 6 for no documented reason)
 params.initial_tumor_lod = 0
@@ -70,7 +68,14 @@ params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_
 // Imported (not directly invoked) by process_fdstools_output_improved_better.py
 // and process_mutect2_output_improved.py at runtime - must be staged alongside
 // them in every process that runs either script, or the import fails.
-params.python_script_repeat_regions = "$baseDir/resources/scripts/repeat_regions.py"
+// reference_utils.py + heteroplasmy_thresholds.py were split out of a single
+// repeat_regions.py 2026-09-23 (user: "repeat_regions.py contains a lot of
+// functions that are not related to repeat regions") - reference_utils.py
+// keeps the reference-sequence math (repeat-region detection + repeat-shift
+// primitives), heteroplasmy_thresholds.py the unrelated lh_bounds floor/
+// ceiling convention.
+params.python_script_reference_utils = "$baseDir/resources/scripts/reference_utils.py"
+params.python_script_heteroplasmy_thresholds = "$baseDir/resources/scripts/heteroplasmy_thresholds.py"
 params.python_script_call_repeat_regions = "$baseDir/resources/scripts/call_repeat_regions.py"
 params.python_script_read_evidence = "$baseDir/resources/scripts/read_evidence.py"
 
@@ -79,8 +84,8 @@ params.depth = 10
 params.min_vf_MT2 = 5
 params.min_vf_FDS = 5
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
-params.homopolymer_mutect2_reporting = "true_mutect2" // p13: how Mutect2's own calls inside the boundary-run region (leading run + different-base extension run, chrM:16180-16193 - the only one either mode touches, same restriction as the FDSTOOLS-side homopolymer_reporting above; every other reference-derived boundary-run region genome-wide is left as Mutect2 reported it) are handled. "bam_override" replaces Mutect2's rows there with direct BAM read counts (apply_homopolymer_region_overrides). "disabled" drops Mutect2's indel/length-axis rows there with no replacement, keeping ordinary substitution calls like T16189C untouched (disable_homopolymer_length_calls); merge_fdstools_mutect2_improved.py marks called_by_MUTECT2 as DISABLED for these. "true_mutect2" (default) leaves Mutect2's own calls as is. See process_mutect2_output_improved.py.
-params.homopolymer_reporting = "boundary_run" // p13, FDSTOOLS side only, and restricted to just chrM 16180 through the end of its poly-C tract (16189 T>C's own consequence) - the only region any of this has been validated against; every other homopolymer run genome-wide (310, the other 8 boundary-run regions find_boundary_run_regions detects, any other plain 4+ run) is passed through exactly as FDSTOOLS reported it, for both values below. Chooses which underlying model reports homopolymer run lengths within that region: "shared_frame" bakes everything into one borrowed reference frame - not used by default, known to mis-report samples with real subpopulations at the run boundary (see report_boundary_run's docstring). "boundary_run" (default) splits the region's leading run and different-base extension run (chrM:16180-16183 / 16184-16193) into two independent axes. Either way, every row in the region also gets the single most common molecule's own genotype appended to its variant_note as a bracketed tag (e.g. "[dominant molecule (30.56%): A16182C, A16183C, T16189C, -16193.1C, -16193.2C]"), per W. Parson's reading of the ISFG/EMPOP convention (pers. comm. 2026-09-21) - the full distribution stays exactly as it always was, this is layered on top, not a replacement (see process_fdstools_output_improved_better.py).
+params.homopolymer_mutect2_reporting = "true_mutect2" // p13: how Mutect2's own calls inside the boundary-run region (leading run + different-base extension run, chrM:16180-16193 - the only one either mode touches, same restriction as the FDSTOOLS-side homopolymer_reporting above; every other reference-derived boundary-run region genome-wide is left as Mutect2 reported it) are handled. "disabled" drops Mutect2's indel/length-axis rows there with no replacement, keeping ordinary substitution calls like T16189C untouched (disable_homopolymer_length_calls); merge_fdstools_mutect2_improved.py marks called_by_MUTECT2 as DISABLED for these. "true_mutect2" (default) leaves Mutect2's own calls as is. See process_mutect2_output_improved.py. (A third mode, "bam_override", substituted direct BAM read-counts for Mutect2's own rows there - removed 2026-09-23, not clean to overwrite Mutect2's own results just to fit FDSTOOLS' output shape; use "disabled" and rely on FDSTOOLS for this region instead.)
+params.homopolymer_reporting = "separate_frame" // p13, FDSTOOLS side only, restricted to two validated regions: chrM 16180 through the end of its poly-C tract (16189 T>C's own consequence), and chrM 303-315 (the "310" T-interrupted C-run). Every other homopolymer run genome-wide (the other 8 boundary-run regions find_boundary_run_regions detects, any other plain 4+ run) is passed through exactly as FDSTOOLS reported it, for both values below. Chooses which underlying model reports homopolymer run lengths within 16180-16193 specifically (303-315 has no different-base leading run to split off, so it always uses the shared_frame-style model regardless of this setting): "shared_frame" bakes everything into one borrowed reference frame - not used by default, known to mis-report samples with real subpopulations at the run boundary (see report_separate_frame's docstring). "separate_frame" (default) splits the region's leading run and different-base extension run (chrM:16180-16183 / 16184-16193) into two independent axes - named for the reporting mechanism (two separate frames vs. shared_frame's one), not the region shape (renamed from "boundary_run" 2026-09-23, which collided with find_boundary_run_regions/report_separate_frame's own internal, region-shape naming: "easy to mix up when reading cold"). Either way, every row in either region also gets the single most common molecule's own genotype appended to its dominant_molecule_note column as a "{label} ({pct}%)" tag, matched to that row's own position, per W. Parson's reading of the ISFG/EMPOP convention (pers. comm. 2026-09-21) - the full distribution stays exactly as it always was, this is layered on top, not a replacement (see process_fdstools_output_improved_better.py).
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -124,8 +129,8 @@ log_text = """\
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
          --marker_map                     : $params.fdstools_library # Path to marker map file
-         --homopolymer_reporting          : $params.homopolymer_reporting # How homopolymer run lengths are reported (FDSTOOLS side): shared_frame / boundary_run (default); dominant-molecule tag always included in variant_note
-         --homopolymer_mutect2_reporting  : $params.homopolymer_mutect2_reporting # How Mutect2 calls in boundary-run regions are handled: bam_override / disabled / true_mutect2 (default)
+         --homopolymer_reporting          : $params.homopolymer_reporting # How homopolymer run lengths are reported (FDSTOOLS side): shared_frame / separate_frame (default); dominant-molecule tag always included in dominant_molecule_note
+         --homopolymer_mutect2_reporting  : $params.homopolymer_mutect2_reporting # How Mutect2 calls in the 16180-16193 boundary-run region are handled: disabled / true_mutect2 (default)
 
          OUTPUT DIRECTORY
          outdir                           : ${params.outdir}
@@ -613,12 +618,18 @@ process p13_merge_variants_p11_p12 {
     publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy'
 
     input:
+    // mutect2_bam/mutect2_bam_idx are staged but no longer passed to
+    // process_mutect2_output_improved.py below - only bam_override
+    // (removed 2026-09-23, see params.homopolymer_mutect2_reporting
+    // above) ever needed the BAM directly. Left declared here rather
+    // than restructuring the upstream channel join for an unused input.
     tuple val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file), path(mutect2_bam), path(mutect2_bam_idx)
     path reference
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
-    path python_script_repeat_regions
+    path python_script_reference_utils
+    path python_script_heteroplasmy_thresholds
     path python_script_call_repeat_regions
     path python_script_read_evidence
 
@@ -627,7 +638,7 @@ process p13_merge_variants_p11_p12 {
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
-    def bam_arg = "--bam ${mutect2_bam} --homopolymer_mutect2_reporting ${params.homopolymer_mutect2_reporting}"
+    def homopolymer_mt2_arg = "--homopolymer_mutect2_reporting ${params.homopolymer_mutect2_reporting}"
 
     """
     if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
@@ -657,7 +668,7 @@ process p13_merge_variants_p11_p12 {
                 ${vcf_file.baseName}.filtered.empop.txt \
                 $reference \
                 --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh \
-                $bam_arg
+                $homopolymer_mt2_arg
         else
             printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${vcf_file.baseName}.filtered.empop.txt
         fi
@@ -768,6 +779,6 @@ workflow {
     // there (see process_mutect2_output_improved.py).
     p08_bam_for_p13 = p08_filter_numts_trimmed_merged_bam_p06.out.main_ch.map { sid, bam, bai, rd1, rd2 -> tuple(sid, bam, bai) }
     p11_p12_final_inputs = p11_mutect2_ch.join(p12_fdstools_ch, by: 0).join(p08_bam_for_p13, by: 0)
-    p13_merge_variants_p11_p12(p11_p12_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2, params.python_script_repeat_regions, params.python_script_call_repeat_regions, params.python_script_read_evidence)
+    p13_merge_variants_p11_p12(p11_p12_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2, params.python_script_reference_utils, params.python_script_heteroplasmy_thresholds, params.python_script_call_repeat_regions, params.python_script_read_evidence)
 
 }
