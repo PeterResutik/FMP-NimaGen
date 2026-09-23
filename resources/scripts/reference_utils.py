@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
-"""Reference-derived repeat regions.
+"""Reference-sequence math - everything computed purely from the
+reference FASTA itself, deterministic and sample-independent.
 
-Identifies stretches of the reference where indel placement is
-inherently ambiguous - homopolymer runs, and groups of runs close enough
-that a single base change can merge them (e.g. rCRS 16184-16193,
-CCCCC-T-CCCC, which becomes one 10bp C-run the moment T16189C is
-present, as it is in many samples).
+Two related groups of primitives:
+  - Repeat-region detection: homopolymer runs, merged regions, and
+    boundary-run regions (a leading run immediately followed by a run of
+    a DIFFERENT base). These matter because indel placement is inherently
+    ambiguous inside them - the failure mode this replaces was
+    hardcoding coordinates inferred from one sample's evidence.
+  - Repeat-shift: right-anchoring an indel to its rightmost equivalent
+    placement within a repeat/homopolymer run, the forensic 3'-shift
+    convention.
 
-These regions are a property of the REFERENCE alone - deterministic,
-sample-independent, computed once. That matters: the failure mode this
-replaces was hardcoding coordinates inferred from one sample's evidence.
+Split out of the former repeat_regions.py (2026-09-23, user: "repeat_
+regions.py contains a lot of functions that are not related to repeat
+regions") - lh_bounds_pct/lh_bounds moved to their own heteroplasmy_
+thresholds.py, a genuinely different concern (a reporting threshold, not
+reference structure).
 """
 
 import argparse
@@ -64,7 +71,7 @@ def find_boundary_run_regions(seq, min_length=4, max_gap=1):
     determinism as find_homopolymer_runs/merge_runs above.
 
     Restricted to the exact shape validated against real data (see
-    report_boundary_run in process_fdstools_output_improved_better.py):
+    report_separate_frame in process_fdstools_output_improved_better.py):
     the LEADING run itself must be one single gapless homopolymer run (no
     internal base-identity change), immediately adjacent to an extension
     run that is entirely ONE other base (a bridging single-base gap
@@ -96,6 +103,71 @@ def find_boundary_run_regions(seq, min_length=4, max_gap=1):
 def load_reference(fasta_path):
     with open(fasta_path) as f:
         return "".join(line.strip() for line in f if not line.startswith(">"))
+
+
+def load_reference_list(fasta_path):
+    """Same sequence as load_reference above, as a mutable list of
+    single-character bases instead of a string - needed wherever a
+    caller bakes a substitution in place (e.g. process_mutect2_output_
+    improved.py's major-SNP baking pre-pass does `reference[i] = v`,
+    which a plain string can't support). Previously duplicated,
+    byte-for-byte, as each of process_mutect2_output_improved.py's and
+    process_fdstools_output_improved_better.py's own `load_reference`
+    (one via Bio.SeqIO, one via manual line-parsing - verified to
+    produce an identical sequence for the real reference file before
+    consolidating here) (2026-09-23, user: "pull shared primitives").
+    """
+    return list(load_reference(fasta_path))
+
+
+# --- Repeat-shift primitives -------------------------------------------
+# Shared by process_mutect2_output_improved.py and process_fdstools_
+# output_improved_better.py to right-anchor an indel to its rightmost
+# equivalent placement within a repeat/homopolymer run - both VCF-row-
+# oriented callers agree on the exact same algorithm (verified identical
+# before consolidating), so one copy lives here instead of two.
+#
+# call_repeat_regions.py has its OWN, deliberately separate shift_
+# insertion_right/shift_deletion_right - a simpler single-pass rotation
+# used for direct BAM read/local-haplotype composition, a different
+# context with different inputs (an observed read sequence, not a VCF
+# REF/ALT pair) where the two-phase algorithm below doesn't apply the
+# same way. Not unified with these: keeping a correctness-critical,
+# unverified-equivalent algorithm change out of the (still real,
+# standalone) BAM-direct tool was judged safer than a blind merge.
+
+def rightmost_repeat_position(reference, pos, segment):
+    pos -= 1
+    while (
+        pos + len(segment) < len(reference) and
+        "".join(reference[pos + 1: pos + 1 + len(segment)]) == segment
+    ):
+        pos += len(segment)
+    return pos + 1
+
+
+def shift_insertion_right(reference, pos, segment):
+    pos = rightmost_repeat_position(reference, pos, segment)
+    for _ in range(len(segment) - 1):
+        next_seq = reference[pos: pos + 1]
+        if "".join(next_seq) == segment[0]:
+            segment = segment[1:] + segment[0]
+            pos += 1
+        else:
+            break
+    return pos, segment
+
+
+def shift_deletion_right(reference, pos, segment):
+    pos = rightmost_repeat_position(reference, pos, segment) - len(segment) + 1
+    for _ in range(len(segment) - 1):
+        next_seq = reference[pos + len(segment) - 1: pos + len(segment)]
+        if "".join(next_seq) == segment[0]:
+            segment = segment[1:] + segment[0]
+            pos += 1
+        else:
+            break
+    return pos, segment
 
 
 def main():
