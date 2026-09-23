@@ -79,7 +79,8 @@ params.depth = 10
 params.min_vf_MT2 = 5
 params.min_vf_FDS = 5
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
-params.homopolymer_bam_override = true // p13: replace Mutect2's own VCF-based calls with direct BAM read counting inside BAM_OVERRIDE_REGIONS (currently just chrM:16180-16193) - Mutect2's local-reassembly bookkeeping isn't reliable in that homopolymer run (see apply_homopolymer_region_overrides in process_mutect2_output_improved.py). false reverts to Mutect2's own raw calls there.
+params.homopolymer_mutect2_reporting = "true_mutect2" // p13: how Mutect2's own calls inside the boundary-run region (leading run + different-base extension run, chrM:16180-16193 - the only one either mode touches, same restriction as the FDSTOOLS-side homopolymer_reporting above; every other reference-derived boundary-run region genome-wide is left as Mutect2 reported it) are handled. "bam_override" replaces Mutect2's rows there with direct BAM read counts (apply_homopolymer_region_overrides). "disabled" drops Mutect2's indel/length-axis rows there with no replacement, keeping ordinary substitution calls like T16189C untouched (disable_homopolymer_length_calls); merge_fdstools_mutect2_improved.py marks called_by_MUTECT2 as DISABLED for these. "true_mutect2" (default) leaves Mutect2's own calls as is. See process_mutect2_output_improved.py.
+params.homopolymer_reporting = "boundary_run" // p13, FDSTOOLS side only, and restricted to just chrM 16180 through the end of its poly-C tract (16189 T>C's own consequence) - the only region any of this has been validated against; every other homopolymer run genome-wide (310, the other 8 boundary-run regions find_boundary_run_regions detects, any other plain 4+ run) is passed through exactly as FDSTOOLS reported it, for both values below. Chooses which underlying model reports homopolymer run lengths within that region: "shared_frame" bakes everything into one borrowed reference frame - not used by default, known to mis-report samples with real subpopulations at the run boundary (see report_boundary_run's docstring). "boundary_run" (default) splits the region's leading run and different-base extension run (chrM:16180-16183 / 16184-16193) into two independent axes. Either way, every row in the region also gets the single most common molecule's own genotype appended to its variant_note as a bracketed tag (e.g. "[dominant molecule (30.56%): A16182C, A16183C, T16189C, -16193.1C, -16193.2C]"), per W. Parson's reading of the ISFG/EMPOP convention (pers. comm. 2026-09-21) - the full distribution stays exactly as it always was, this is layered on top, not a replacement (see process_fdstools_output_improved_better.py).
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -123,6 +124,8 @@ log_text = """\
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
          --marker_map                     : $params.fdstools_library # Path to marker map file
+         --homopolymer_reporting          : $params.homopolymer_reporting # How homopolymer run lengths are reported (FDSTOOLS side): shared_frame / boundary_run (default); dominant-molecule tag always included in variant_note
+         --homopolymer_mutect2_reporting  : $params.homopolymer_mutect2_reporting # How Mutect2 calls in boundary-run regions are handled: bam_override / disabled / true_mutect2 (default)
 
          OUTPUT DIRECTORY
          outdir                           : ${params.outdir}
@@ -624,7 +627,7 @@ process p13_merge_variants_p11_p12 {
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
-    def bam_arg = params.homopolymer_bam_override ? "--bam ${mutect2_bam}" : ""
+    def bam_arg = "--bam ${mutect2_bam} --homopolymer_mutect2_reporting ${params.homopolymer_mutect2_reporting}"
 
     """
     if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
@@ -663,13 +666,15 @@ process p13_merge_variants_p11_p12 {
             ${sast_file} \
             ${sample_id}_fdstools_processed.txt \
             --reference $reference \
-            --min_vf $params.min_vf_FDS --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+            --min_vf $params.min_vf_FDS --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library \
+            --homopolymer_reporting $params.homopolymer_reporting
 
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
             ${sample_id}_merged_variants.xlsx \
-            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS
+            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
+            --homopolymer_mutect2_reporting $params.homopolymer_mutect2_reporting --reference $reference
 
 
 
@@ -681,6 +686,28 @@ process p13_merge_variants_p11_p12 {
 }
 
 workflow {
+    // p13's own output gets deleted and freshly republished on every run,
+    // regardless of -resume - reusing the same --outdir across two runs
+    // that differ only in homopolymer_reporting/homopolymer_mutect2_
+    // reporting (or any other param p13 depends on) can otherwise leave a
+    // STALE file in place: publishDir doesn't reliably re-copy a cached
+    // task's output when something already sits at that exact
+    // destination path from an earlier run with different params, so the
+    // merged xlsx can keep showing an old configuration's results even
+    // though the console reports the (differently-configured) task as
+    // correctly "Cached" (2026-09-23, user, after --outdir results_
+    // boundary_run_new kept showing "disabled" output after switching
+    // back to true_mutect2 with the same --outdir: "couldn't we do
+    // something like delete the p13 folder in the pipeline for every
+    // rerun?"). Only p13's own directory is cleared - every earlier
+    // stage's output is untouched, and -resume still skips genuinely
+    // unchanged upstream work exactly as before; this only forces a
+    // fresh *publish* of whatever p13 already has cached or computes.
+    def p13_outdir = file("${params.outdir}/p13_merged_variants_xlsx")
+    if (p13_outdir.exists()) {
+        p13_outdir.deleteDir()
+    }
+
     Channel
         .fromFilePairs(params.reads, checkIfExists: true)
         .set { read_pairs_ch }
