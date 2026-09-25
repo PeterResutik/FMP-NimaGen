@@ -579,7 +579,8 @@ process p13_merge_variants_p10_p11 {
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
-            ${sample_id}_merged_variants.xlsx
+            ${sample_id}_merged_variants.xlsx \
+            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS
 
 
 
