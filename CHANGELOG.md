@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Race condition in humans-reference BWA index build**: the check-and-build
+  logic for the humans reference index lived inline in `p02`, which runs once
+  per sample — on a first run, parallel samples could all see the index as
+  missing at once and race to `bunzip2`/`bwa index` the same file
+  concurrently. Moved the logic into a new one-shot process
+  (`p01b_prepare_humans_index`) that `p02`, `p08`, and `p09` now depend on,
+  so it runs exactly once regardless of sample count. Also changed
+  `bunzip2` to keep the source `.bz2` (`-k`) instead of deleting it.
+
 ## [0.1.4] – 2025-05-19
 
 ### Fixed
