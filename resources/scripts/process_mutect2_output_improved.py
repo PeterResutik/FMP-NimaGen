@@ -41,8 +41,8 @@ def shift_insertion_right(reference, pos, segment):
 
 def shift_deletion_right(reference, pos, segment):
     pos = rightmost_repeat_position(reference, pos, segment) - len(segment) + 1
-    next_seq = reference[pos+1: pos + 2]
     for _ in range(len(segment) - 1):
+        next_seq = reference[pos + len(segment) - 1: pos + len(segment)]
         if "".join(next_seq) == segment[0]:
             segment = segment[1:] + segment[0]
             pos += 1
