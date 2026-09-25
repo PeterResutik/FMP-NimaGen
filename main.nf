@@ -57,7 +57,7 @@ params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 4
 params.max_reads_per_alignment_start = 0
-params.min_reads_per_strand = 3
+params.min_reads_per_strand = 0 // disables StrictStrandBiasFilter — this pipeline's RC-PCR + FLASH-merged reads are always single-orientation, so any nonzero value guarantees FILTER=strict_strand on every call regardless of true variant quality
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
