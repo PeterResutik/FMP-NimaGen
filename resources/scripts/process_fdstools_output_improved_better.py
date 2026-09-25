@@ -19,6 +19,15 @@ def adjust_circular_position(pos):
         return pos - 16569
     return pos
 
+LH_DROP_SENTINEL = "__BELOW_LH_FLOOR__"
+
+def lh_bounds_pct(threshold_pct):
+    """Symmetric floor/ceiling (percentage scale, 0-100) around a single
+    length-heteroplasmy threshold, e.g. threshold_pct=10 -> (10, 90).
+    Accepts either side (10 or 90) and always returns (floor, ceiling)
+    with floor <= ceiling."""
+    return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
+
 # IUPAC resolution for heteroplasmies
 def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES):
     seq = row['sequence']
@@ -26,7 +35,10 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
     if 'DEL' in seq:
         return seq.replace('DEL', '-')
     if '.' in seq:
-        if row['variant_frequency'] < length_heteroplasmy_threshold:
+        lh_floor, lh_ceiling = lh_bounds_pct(length_heteroplasmy_threshold)
+        if row['variant_frequency'] < lh_floor:
+            return LH_DROP_SENTINEL
+        if row['variant_frequency'] < lh_ceiling:
             return '-' + seq[:-1] + seq[-1].lower()
         else:
             return '-' + seq
@@ -184,7 +196,8 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         print(f"del_freq: {del_freq}")
 
         # Use lowercase ALT for low-frequency deletions
-        if not np.isnan(del_freq) and del_freq < length_heteroplasmy_threshold:
+        _, lh_ceiling_merge = lh_bounds_pct(length_heteroplasmy_threshold)
+        if not np.isnan(del_freq) and del_freq < lh_ceiling_merge:
             merged_seq = f"{ref}{pos_str}{alt.lower()}"
         else:
             merged_seq = f"{ref}{pos_str}{alt}"
@@ -228,6 +241,9 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     # Force to a plain 1D Series of strings
     final["sequence"] = pd.Series(resolved, index=final.index).astype(str)
+
+    # Drop length variants below the symmetric length-heteroplasmy floor entirely
+    final = final[final["sequence"] != LH_DROP_SENTINEL]
     
     # final["sequence"] = final.apply(
     #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
@@ -283,7 +299,7 @@ def main():
     parser.add_argument("--marker_map", help="Path to marker map file")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minimum variant frequency threshold")
     parser.add_argument("--depth", type=int, default=10, help="Read depth threshold for low coverage")
-    parser.add_argument("--lh_thresh", type=float, default=90.0, help="Length heteroplasmy frequency threshold")
+    parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 100-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
     args = parser.parse_args()
 
     try:
