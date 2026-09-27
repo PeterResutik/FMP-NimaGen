@@ -35,6 +35,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - The merge step puts a variant spelled differently by the two callers on one
   row instead of two (`-309.1C`/`-309.1c`, `T16189C`/`T16189Y`,
   `A523-`/`A523a`).
+- `LOW` (FDSTOOLS) now flags an amplicon when its reads, summed over all its
+  rows except "Other sequences" (the reads frequencies are computed on), are
+  below `--depth`, checked for every amplicon in the library. Previously only
+  amplicons reported as a single row were checked, so one with a sequence
+  plus "Other sequences" was never flagged.
 
 ### Changed
 - Length heteroplasmy uses one symmetric threshold (`--lh_thresh`, default

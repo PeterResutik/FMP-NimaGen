@@ -86,14 +86,17 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     df["total_mp_sum"] = pd.to_numeric(df["total_mp_sum"], errors="coerce").fillna(0)
     df["total"] = pd.to_numeric(df["total"], errors="coerce").fillna(0)
 
-    marker_counts = df["marker"].value_counts()
-    
-    single_low_coverage = df[
-        df["marker"].isin(marker_counts[marker_counts == 1].index) & 
-        (df["total"] < depth_threshold)
-    ].copy()
-    single_low_coverage["sequence"] = "LOW"
-    single_low_coverage = single_low_coverage.drop(columns=["total_mp_sum", "flags"], errors="ignore")
+    # LOW: amplicon whose reads, summed over all its rows except "Other sequences"
+    # (the same reads the frequencies are computed on), are below depth_threshold.
+    # Checked for every amplicon in the library, so a complete dropout is flagged
+    # even if it has no row in the file.
+    marker_map = load_marker_ranges(marker_map_path)
+    marker_total_reads = df[df["sequence"] != "Other sequences"].groupby("marker")["total"].sum()
+    single_low_coverage = pd.DataFrame([
+        {"marker": marker, "total": marker_total_reads.get(marker, 0), "sequence": "LOW"}
+        for marker in marker_map
+        if marker_total_reads.get(marker, 0) < depth_threshold
+    ], columns=["marker", "total", "sequence"])
 
 
     df["total"] = df["total"].fillna(0)
@@ -251,7 +254,6 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     final = pd.concat([final, single_low_coverage], ignore_index=False)
 
-    marker_map = load_marker_ranges(marker_map_path)
     final["marker_range"] = final["marker"].map(marker_map)
     final["position"] = final["marker"].apply(extract_position)
     final["position"] = final["position"].apply(adjust_circular_position)
