@@ -40,6 +40,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   below `--depth`, checked for every amplicon in the library. Previously only
   amplicons reported as a single row were checked, so one with a sequence
   plus "Other sequences" was never flagged.
+- Different Mutect2 alleles at one position are reported as separate rows.
+  They were merged into one row with frequencies and read counts added and
+  only the first label kept (C>A 29.3% and C>T 5.1% became `C756M` at 34.4%).
+  Identical claims, such as two alleles of one insertion, are still combined.
 - FDSTOOLS frequencies are divided by the amplicon's counted reads (without
   "Other sequences"). The depth was reconstructed from each row's rounded
   percentage, which slightly overestimated it and lowered frequencies; at low

@@ -14,6 +14,22 @@ IUPAC_CODES = {
     frozenset(["G", "C"]): "S",
     frozenset(["A", "T"]): "W"
 }
+IUPAC_BASES = {code: set(bases) for bases, code in IUPAC_CODES.items()}
+
+def claim_key(label):
+    """Same claim regardless of major/minor spelling (T16189C/T16189Y,
+    -309.1C/-309.1c, A523-/A523a); different alleles at one position
+    (C756M vs C756Y) get different keys."""
+    label = str(label)
+    m = re.match(r"^([ACGT])(\d+)([A-Za-z-])$", label)
+    if m:
+        ref, pos, code = m.groups()
+        if code == "-" or code == ref.lower():
+            return f"{ref}{pos}-"
+        others = IUPAC_BASES.get(code, set()) - {ref}
+        if len(others) == 1:
+            return f"{ref}{pos}{others.pop()}"
+    return label.upper()
 
 # rCRS_NimaGen.fasta = 16569bp rCRS + an appended copy of chrM:1-53, so the
 # origin-spanning amplicon maps linearly. A POS past 16569 is the same base
@@ -194,8 +210,11 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
 
     # Add column for numeric variant position
     df["variant_float_pos"] = df["MUTECT2"].apply(extract_float_position)
+    df["_claim"] = df["MUTECT2"].apply(claim_key)
 
-    group_keys = ["variant_float_pos"]  # <-- changed here
+    # One row per claim: identical claims (e.g. two alleles of one insertion landing
+    # on the same shifted label) are summed; different alleles at one position are not
+    group_keys = ["_claim"]
     numeric_agg = {
         "VariantLevel": "sum",
         "Coverage": add_comma_separated_numbers,
@@ -207,7 +226,7 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     grouped = df.groupby(group_keys, as_index=False).agg(full_agg)
 
     # Optional: sort and drop temp column
-    grouped = grouped.sort_values("variant_float_pos").drop(columns=["variant_float_pos"])
+    grouped = grouped.sort_values("variant_float_pos").drop(columns=["variant_float_pos", "_claim"])
 
 
     # def extract_position(variant):
