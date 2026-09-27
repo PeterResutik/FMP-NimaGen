@@ -15,6 +15,38 @@ IUPAC_CODES = {
     frozenset(["A", "T"]): "W"
 }
 
+# rCRS_NimaGen.fasta = 16569bp rCRS + an appended copy of chrM:1-53, so the
+# origin-spanning amplicon maps linearly. A POS past 16569 is the same base
+# as POS-16569.
+TRUE_MT_LENGTH = 16569
+
+def wrap_circular_position(pos, true_length=TRUE_MT_LENGTH):
+    return pos - true_length if pos > true_length else pos
+
+def pool_origin_overlap(df):
+    """Merge a variant seen through both the appended copy and its true
+    coordinate (two amplicons, independent reads) into one record, as a
+    single pileup would: AD summed, AF recalculated as alt / total reads."""
+    if df.empty:
+        return df
+    df = df.copy()
+    df["_wrapped_pos"] = df["Pos"].astype(int).apply(wrap_circular_position)
+    df["_depth"] = df["Coverage"].astype(str).apply(lambda ad: sum(float(x) for x in ad.split(",")))
+    pooled = []
+    for _, group in df.groupby(["_wrapped_pos", "Ref", "Variant"], sort=False):
+        if len(group) == 1:
+            pooled.append(group.iloc[0])
+            continue
+        row = group.loc[group["_depth"].idxmax()].copy()
+        ad_sums = [sum(x) for x in zip(*group["Coverage"].astype(str).apply(lambda ad: [float(v) for v in ad.split(",")]))]
+        total_depth = sum(ad_sums)
+        row["Coverage"] = ",".join(f"{v:.4g}" for v in ad_sums)
+        if total_depth:
+            row["VariantLevel"] = round(ad_sums[1] / total_depth, 4)
+        row["Pos"] = row["_wrapped_pos"]
+        pooled.append(row)
+    return pd.DataFrame(pooled).drop(columns=["_wrapped_pos", "_depth"]).infer_objects().reset_index(drop=True)
+
 def load_reference(fasta_path):
     record = SeqIO.read(fasta_path, "fasta")
     return list(str(record.seq))
@@ -61,11 +93,12 @@ def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency):
     for i, (r, v) in enumerate(zip(ref, var)):
         sub_pos = pos + i
         reference[sub_pos - 1] = v
+        label_pos = wrap_circular_position(sub_pos)
         if var_level >= 1 - min_variant_frequency:
-            formatted.append(f"{r}{sub_pos}{v}")
+            formatted.append(f"{r}{label_pos}{v}")
         else:
             code = IUPAC_CODES.get(frozenset([r, v]), f"{r}/{v}")
-            formatted.append(f"{r}{sub_pos}{code}")
+            formatted.append(f"{r}{label_pos}{code}")
 
     # Return after the loop finishes
     if var_level >= 1 - min_variant_frequency:
@@ -79,6 +112,7 @@ def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_thr
         return None, "BELOW_LH_FLOOR"
     inserted_segment = var[len(ref):]
     pos, segment = shift_insertion_right(reference, pos, inserted_segment)
+    pos = wrap_circular_position(pos)
     is_major = var_level >= ceiling
     variant_parts = [
         f"-{pos}.{i+1}{(b if is_major else b.lower())}"
@@ -99,7 +133,7 @@ def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_thre
     is_major = var_level >= ceiling
     variant_parts = []
     for i, base in enumerate(segment):
-        position = pos + i
+        position = wrap_circular_position(pos + i)
         if is_major:
             variant_parts.append(f"{base}{position}-")
         else:
@@ -183,10 +217,7 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     def extract_position(variant):
         match = re.search(r"(\d+\.?\d*)", str(variant))
         if match:
-            pos = int(float(match.group(1)))
-            if 16570 <= pos <= 16587:
-                return pos - 16569  # map 16570–16587 → 1–18
-            return pos
+            return int(float(match.group(1)))
         return float('inf')
 
     grouped["position"] = grouped["MUTECT2"].apply(extract_position)
@@ -214,6 +245,7 @@ def main():
 
     try:
         df = pd.read_csv(args.input_file, sep="\t")
+        df = pool_origin_overlap(df)
         reference = load_reference(args.reference_fasta)
 
         results = []
