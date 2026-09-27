@@ -523,7 +523,7 @@ process p13_merge_variants_p10_p11 {
     publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy'
 
     input:
-    tuple val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
+    tuple val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file), path(mutect2_depth_txt)
     path reference
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
@@ -576,7 +576,8 @@ process p13_merge_variants_p10_p11 {
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
             ${sample_id}_merged_variants.xlsx \
-            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS
+            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
+            --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth
 
 
 
@@ -638,7 +639,9 @@ workflow {
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
-    p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0)
+    // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
+    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, bam, bai, rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
+    p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
     p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2)
 
 }

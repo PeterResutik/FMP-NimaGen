@@ -87,8 +87,67 @@ def merge_key(variant_str):
     return str(variant_str).upper()
 
 
+def load_amplicon_ranges(library_path):
+    """{amplicon: (start, end)} from the FDSTOOLS library's [genome_position] block."""
+    ranges, in_block = {}, False
+    for line in open(library_path):
+        line = line.strip()
+        if line.startswith("[genome_position]"):
+            in_block = True
+            continue
+        if in_block and line.startswith("["):
+            break
+        if in_block and "=" in line:
+            name, values = line.split("=", 1)
+            parts = [v.strip() for v in values.split(",")]
+            if len(parts) >= 3:
+                ranges[name.strip()] = (int(parts[1]), int(parts[2]))
+    return ranges
+
+
+def mutect2_amplicon_depths(depth_file, ranges):
+    """Mutect2-side depth per amplicon: reads at the amplicon's middle position
+    in the BAM Mutect2 runs on (p09's samtools depth output)."""
+    depths = {}
+    for line in open(depth_file):
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        pos, depth = int(parts[1]), int(float(parts[2]))
+        for amplicon, (start, end) in ranges.items():
+            if start <= pos <= end:
+                depths[amplicon] = depth
+    return depths
+
+
+def build_low_rows(fds_low, mt2_depths, ranges, depth_threshold):
+    """One LOW row per amplicon where either caller's depth is below
+    depth_threshold. FDSTOOLS/MUTECT2 name the amplicon for the caller(s) that
+    are low; called_by_* say which."""
+    fds_depths = dict(zip(fds_low["marker"], fds_low["rd_FDS"]))
+    rows = []
+    for amplicon, (start, end) in ranges.items():
+        fds_is_low = amplicon in fds_depths
+        mt2_is_low = amplicon in mt2_depths and mt2_depths[amplicon] < depth_threshold
+        if not (fds_is_low or mt2_is_low):
+            continue
+        rows.append({
+            "FMP": "LOW",
+            "FDSTOOLS": amplicon if fds_is_low else None,
+            "rd_FDS": fds_depths.get(amplicon),
+            "MUTECT2": amplicon if mt2_is_low else None,
+            "rd_MT2": mt2_depths.get(amplicon),
+            "called_by_FDSTOOLS": fds_is_low,
+            "called_by_MUTECT2": mt2_is_low,
+            "marker": amplicon,
+            "marker_range": f"{start}-{end}",
+        })
+    return pd.DataFrame(rows)
+
+
 def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
-                          min_vf: float = 5.0) -> pd.DataFrame:
+                          min_vf: float = 5.0, mutect2_depth_file: str = None,
+                          marker_map: str = None, depth_threshold: int = 10) -> pd.DataFrame:
     try:
         df1 = pd.read_csv(file_fdstools, sep="\t")
         df2 = pd.read_csv(file_mutect2, sep="\t")
@@ -101,6 +160,15 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         return pd.DataFrame()
 
     try:
+        # LOW rows are rebuilt per amplicon for both callers after the merge
+        fds_low = df1[df1["FDSTOOLS"] == "LOW"]
+        df1 = df1[df1["FDSTOOLS"] != "LOW"].copy()
+        if marker_map:
+            ranges = load_amplicon_ranges(marker_map)
+        else:
+            ranges = {m: tuple(map(int, str(r).split("-"))) for m, r in zip(fds_low["marker"], fds_low["marker_range"])}
+        mt2_depths = mutect2_amplicon_depths(mutect2_depth_file, ranges) if mutect2_depth_file else {}
+
         # Rename original variant columns before merge to avoid conflict
         df1["FMP"] = df1["FDSTOOLS"]
         df2["FMP"] = df2["MUTECT2"]
@@ -260,6 +328,10 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         remaining_columns = [col for col in merged.columns if col not in front and col not in existing_priority]
         merged = merged[front + existing_priority + remaining_columns]
 
+        low_rows = build_low_rows(fds_low, mt2_depths, ranges, depth_threshold)
+        if not low_rows.empty:
+            merged = pd.concat([merged, low_rows], ignore_index=True)
+
         return merged
 
 
@@ -323,7 +395,10 @@ def apply_excel_styles(excel_path: str):
 
 
                 if col_name in ("called_by_FDSTOOLS", "called_by_MUTECT2"):
-                    if cell.value is False:
+                    # In a LOW row, False means that caller's depth was fine, not a missed call
+                    if row[0].value == "LOW":
+                        pass
+                    elif cell.value is False:
                         cell.fill = fill_red
                     elif cell.value == "DISAGREEMENT":
                         cell.fill = fill_disagree
@@ -358,11 +433,15 @@ if __name__ == "__main__":
     parser.add_argument("output_file", help="Path to save the merged output (XLSX format).")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold, used to reconcile major/minor case disagreements between callers via their averaged variant frequency")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold; its complement (100-min_vf) is the homoplasmy boundary used to reconcile SNP-vs-IUPAC disagreements between callers via their averaged variant frequency")
+    parser.add_argument("--mutect2_depth", help="samtools depth at each amplicon's middle position in the BAM Mutect2 runs on (p09); amplicons below --depth are reported as LOW for Mutect2")
+    parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
+    parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
 
     args = parser.parse_args()
 
     try:
-        df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf)
+        df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
+                                          args.mutect2_depth, args.marker_map, args.depth)
         if df_merged.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")
