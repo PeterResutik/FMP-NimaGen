@@ -145,9 +145,26 @@ def build_low_rows(fds_low, mt2_depths, ranges, depth_threshold):
     return pd.DataFrame(rows)
 
 
+def caller_average_pct(row, vf_fds, vf_mt2, weighted=False):
+    """Average of the two callers' frequencies (percent). With weighted=True each
+    caller is weighted by its depth for the call (FDSTOOLS: amplicon reads,
+    Mutect2: ref+alt reads), falling back to the plain average if a depth is missing."""
+    if not weighted:
+        return (vf_fds + vf_mt2 * 100) / 2
+    d_fds = pd.to_numeric(row.get("interpolated_total_coverage"), errors="coerce")
+    try:
+        d_mt2 = sum(float(x) for x in str(row.get("rd_MT2")).split(","))
+    except ValueError:
+        d_mt2 = float("nan")
+    if pd.notna(d_fds) and pd.notna(d_mt2) and d_fds + d_mt2 > 0:
+        return (vf_fds * d_fds + vf_mt2 * 100 * d_mt2) / (d_fds + d_mt2)
+    return (vf_fds + vf_mt2 * 100) / 2
+
+
 def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
                           min_vf: float = 5.0, mutect2_depth_file: str = None,
-                          marker_map: str = None, depth_threshold: int = 10) -> pd.DataFrame:
+                          marker_map: str = None, depth_threshold: int = 10,
+                          weighted_average: bool = False) -> pd.DataFrame:
     try:
         df1 = pd.read_csv(file_fdstools, sep="\t")
         df2 = pd.read_csv(file_mutect2, sep="\t")
@@ -221,7 +238,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
                         and fds_parts[3] != mt2_parts[3]
                         and pd.notna(vf_fds) and pd.notna(vf_mt2)):
                     ref, pos, alt, _ = fds_parts
-                    avg_pct = (vf_fds + vf_mt2 * 100) / 2
+                    avg_pct = caller_average_pct(row, vf_fds, vf_mt2, weighted_average)
                     desired_major = avg_pct >= (100 - min_vf)
                     if desired_major:
                         fmp = f"{ref}{pos}{alt}"
@@ -247,7 +264,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
                 return pd.Series({"FMP": fmp, "Type": current_type,
                                    "fds_confirms": None, "mt2_confirms": None})
 
-            avg_pct = (vf_fds + vf_mt2 * 100) / 2
+            avg_pct = caller_average_pct(row, vf_fds, vf_mt2, weighted_average)
             desired_major = avg_pct >= lh_ceiling
 
             fds_confirms = is_major_format(fmp_fds) == desired_major
@@ -436,12 +453,14 @@ if __name__ == "__main__":
     parser.add_argument("--mutect2_depth", help="samtools depth at each amplicon's middle position in the BAM Mutect2 runs on (p09); amplicons below --depth are reported as LOW for Mutect2")
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
     parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
+    parser.add_argument("--disagreement_average", choices=["plain", "depth_weighted"], default="plain", help="How the two callers' frequencies are averaged when they disagree on major vs minor: plain average, or weighted by each caller's read depth")
 
     args = parser.parse_args()
 
     try:
         df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
-                                          args.mutect2_depth, args.marker_map, args.depth)
+                                          args.mutect2_depth, args.marker_map, args.depth,
+                                          args.disagreement_average == "depth_weighted")
         if df_merged.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")

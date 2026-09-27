@@ -68,6 +68,7 @@ params.depth = 10
 params.min_vf_MT2 = 5
 params.min_vf_FDS = 5
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
+params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -108,6 +109,7 @@ log_text = """\
          --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
+         --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
          --marker_map                     : $params.fdstools_library # Path to marker map file
 
          OUTPUT DIRECTORY   
@@ -577,7 +579,8 @@ process p13_merge_variants_p10_p11 {
             ${vcf_file.baseName}.filtered.empop.txt \
             ${sample_id}_merged_variants.xlsx \
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
-            --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth
+            --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
+            --disagreement_average $params.disagreement_average
 
 
 

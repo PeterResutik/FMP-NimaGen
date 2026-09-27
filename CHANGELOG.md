@@ -64,6 +64,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   so any non-zero value tagged every Mutect2 call `strict_strand`. The FILTER
   column is informational; no calls were dropped by it.
 
+### Added
+- `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
+  two callers' frequencies are averaged when they disagree on major vs minor.
+  `depth_weighted` weights each caller by its read depth for the call, so a
+  call on a few Mutect2 reads no longer outweighs one on many FDSTOOLS reads.
+
 ### Removed
 - `--detection_limit`: unused since the mutserve-based setup was replaced; the
   Mutect2 frequency floor is `--min_vf_MT2`.
