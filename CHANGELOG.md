@@ -9,25 +9,46 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
-- **Race condition in humans-reference BWA index build**: the check-and-build
-  logic for the humans reference index lived inline in `p02`, which runs once
-  per sample — on a first run, parallel samples could all see the index as
-  missing at once and race to `bunzip2`/`bwa index` the same file
-  concurrently. Moved the logic into a new one-shot process
-  (`p01b_prepare_humans_index`) that `p02`, `p08`, and `p09` now depend on,
-  so it runs exactly once regardless of sample count. Also changed
-  `bunzip2` to keep the source `.bz2` (`-k`) instead of deleting it.
-- **MAPQ filter never reached Mutect2**: `p09` computed a MAPQ≥`params.mapQ`
-  (default 30) filtered BAM (`samtools view -q ...`) but only used it to
-  generate a QC read-depth statistic, then discarded it — the BAM actually
-  propagated to Mutect2 (`p12`) was the *unfiltered* NUMT-filtered output of
-  `rtn`. This let low-confidence/ambiguous reads (e.g. MAPQ 0) reach the
-  variant caller uncontrolled, which can masquerade as low-frequency
-  (heteroplasmic) variant signal. It also meant `p10`'s FastQC ran on a
-  different BAM than the one its read-depth plot was computed from. `p09`
-  now indexes and propagates the mapQ-filtered BAM as its `bam_file` output;
-  the unfiltered RTN output is kept alongside (renamed `*.rtn.unfiltered.bam`)
-  for comparison/debugging.
+- `rCRS_NimaGen.fasta` trimmed from 16623 to 16622 bp, so the appended copy of
+  chrM:1-53 ends where the origin-spanning amplicon's primer does.
+- The humans-reference BWA index is built once, in a new
+  `p01b_prepare_humans_index` process, instead of inside `p02` for every
+  sample, where parallel samples could race to build it on a first run.
+  `bunzip2 -k` now keeps the source archive.
+- `params.mapQ` now applies to the BAM Mutect2 runs on: `p09` built the
+  MAPQ-filtered BAM but passed the unfiltered one on. Mutect2 already ignores
+  reads below MAPQ 20 by default, so calls are largely unaffected; QC and the
+  published BAM now match what Mutect2 sees. The unfiltered BAM is kept as
+  `*.rtn.unfiltered.bam`.
+- Left primers for amplicon 045 include its longer primer variant, so reads
+  amplified with it are no longer discarded as untrimmed.
+- Mutect2 deletions in repeats were shifted one base short of their rightmost
+  position (`shift_deletion_right`) and could disagree with FDSTOOLS by one
+  position (e.g. chrM:8281-8289 reported as 8280-8288).
+- Mutect2 variants seen through the appended chrM:1-53 copy are labelled with
+  true rCRS positions (`T10C`, not `T16579C`). Previously only 16570-16587 was
+  mapped back, and only for sorting. Where both amplicons cover the same bases
+  (chrM:21-33), the two Mutect2 records are merged by summing their reads.
+- Minor deletions are labelled the same way by both callers (lowercase ref
+  base, e.g. `A523a`). FDSTOOLS wrote every deletion as `A523-` regardless of
+  frequency, so one deletion could appear on two rows.
+- The merge step puts a variant spelled differently by the two callers on one
+  row instead of two (`-309.1C`/`-309.1c`, `T16189C`/`T16189Y`,
+  `A523-`/`A523a`).
+
+### Changed
+- Length heteroplasmy uses one symmetric threshold (`--lh_thresh`, default
+  10): below 10% not reported, 10-90% reported as minor (lowercase), 90% and
+  above as major. Previously there was no lower floor and the default of 90
+  only set the major cut-off; 10 and 90 now give the same result. Applies to
+  insertions and deletions in both callers.
+- When both callers report a variant but disagree on major vs minor, the
+  reported call follows their averaged frequency, and the caller on the other
+  side is flagged `DISAGREEMENT` (own colour in the Excel output). `False` now
+  only means the caller did not report the variant.
+- `--min_reads_per_strand` default 3 → 0. Merged reads are single-orientation,
+  so any non-zero value tagged every Mutect2 call `strict_strand`. The FILTER
+  column is informational; no calls were dropped by it.
 
 ## [0.1.4] – 2025-05-19
 
