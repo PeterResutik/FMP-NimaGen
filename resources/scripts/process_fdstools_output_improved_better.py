@@ -32,16 +32,15 @@ def lh_bounds_pct(threshold_pct):
 def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES):
     seq = row['sequence']
 
-    if 'DEL' in seq:
-        return seq.replace('DEL', '-')
-    if '.' in seq:
+    if 'DEL' in seq or '.' in seq:
         lh_floor, lh_ceiling = lh_bounds_pct(length_heteroplasmy_threshold)
         if row['variant_frequency'] < lh_floor:
             return LH_DROP_SENTINEL
-        if row['variant_frequency'] < lh_ceiling:
-            return '-' + seq[:-1] + seq[-1].lower()
-        else:
-            return '-' + seq
+        is_major = row['variant_frequency'] >= lh_ceiling
+        # Minor deletion as ref base in lowercase (A523a), matching the Mutect2 side
+        if 'DEL' in seq:
+            return seq.replace('DEL', '-' if is_major else seq[0].lower())
+        return '-' + seq if is_major else '-' + seq[:-1] + seq[-1].lower()
     if row['variant_frequency'] < 100 - min_variant_frequency_pct:
         match = re.match(r'([ACGT])(\d+)([ACGT])', seq)
         if match:

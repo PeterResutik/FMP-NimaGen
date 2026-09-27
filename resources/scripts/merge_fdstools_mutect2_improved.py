@@ -41,6 +41,7 @@ IUPAC_PAIRS = {
     "K": {"G", "T"}, "S": {"G", "C"}, "W": {"A", "T"},
 }
 _SUBSTITUTION = re.compile(r'^([ACGT])(\d+)([ACGTRYMKSW])$')
+_DELETION = re.compile(r'^([ACGT])(\d+)(-|[acgt])$')
 
 
 def substitution_parts(variant_str):
@@ -73,12 +74,16 @@ def merge_key(variant_str):
     code ("T16189Y") and the homoplasmic one with the alt base
     ("T16189C"), which never match. Both are collapsed to the alt-base
     form here so the two callers meet on one row and get reconciled,
-    instead of the same variant being reported twice.
+    instead of the same variant being reported twice. Deletions likewise:
+    major "A523-" and minor "A523a" both key as "A523-".
     """
     parts = substitution_parts(variant_str)
     if parts:
         ref, pos, alt, _is_major = parts
         return f"{ref}{pos}{alt}"
+    deletion = _DELETION.match(str(variant_str).strip())
+    if deletion and deletion.group(3) in ("-", deletion.group(1).lower()):
+        return f"{deletion.group(1)}{deletion.group(2)}-"
     return str(variant_str).upper()
 
 
