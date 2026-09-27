@@ -41,7 +41,6 @@ params.mapQ = 30
 // fdstools
 params.minimum = 2
 params.num_threads = 6 
-params.min_reads_filt = 2
 params.min_abs = 2 
 params.min_pct_of_max = 0 
 params.min_pct_of_sum = 3 
@@ -50,7 +49,6 @@ params.allele_min_pct_of_max = 0
 params.allele_min_pct_of_sum = 3
  
 // mutect2
-params.detection_limit = 0.08
 params.baseQ = 30
 params.callable_depth = 6
 params.initial_tumor_lod = 0
@@ -99,8 +97,6 @@ log_text = """\
          (tssv)
          --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
          --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
-         (samplestats)
-         --min_reads_filt                 : $params.min_reads_filt # the minimum number of reads (default: 1)
 
          VARIANT CALLING (with MUTECT2)
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling
@@ -440,7 +436,7 @@ process p11_variant_calling_fdstools_sast_p08 {
     
         fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
-        fdstools samplestats --min-reads-filt $params.min_reads_filt ${sample_id}.sc.csv ${sample_id}.sast.csv
+        fdstools samplestats ${sample_id}.sc.csv ${sample_id}.sast.csv
         fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
     
 

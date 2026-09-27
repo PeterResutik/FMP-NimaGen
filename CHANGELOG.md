@@ -50,6 +50,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   so any non-zero value tagged every Mutect2 call `strict_strand`. The FILTER
   column is informational; no calls were dropped by it.
 
+### Removed
+- `--detection_limit`: unused since the mutserve-based setup was replaced; the
+  Mutect2 frequency floor is `--min_vf_MT2`.
+- `--min_reads_filt`: only passed to `fdstools samplestats`, where it has no
+  effect because samplestats filtering is off.
+
 ## [0.1.4] – 2025-05-19
 
 ### Fixed
