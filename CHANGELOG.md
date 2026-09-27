@@ -40,6 +40,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   below `--depth`, checked for every amplicon in the library. Previously only
   amplicons reported as a single row were checked, so one with a sequence
   plus "Other sequences" was never flagged.
+- FDSTOOLS frequencies are divided by the amplicon's counted reads (without
+  "Other sequences"). The depth was reconstructed from each row's rounded
+  percentage, which slightly overestimated it and lowered frequencies; at low
+  depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
 - Length heteroplasmy uses one symmetric threshold (`--lh_thresh`, default

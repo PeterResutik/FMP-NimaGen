@@ -113,35 +113,15 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     # Step 5: Split multiple variants
     df = df.assign(sequence=df["sequence"].str.split())
     df = df.explode("sequence").reset_index(drop=True)
-    
-    # df["interpolated_total_coverage"] = (np.ceil(df["total"] / (df["total_mp_sum"] / 100))).astype("Int64")
-
-    denom = (df["total_mp_sum"] / 100).replace(0, np.nan)  # avoid division by zero
-    interp = np.ceil(df["total"] / denom)  # will be NaN where denom was 0
-    df["interpolated_total_coverage"] = pd.to_numeric(interp, errors="coerce").fillna(0).astype("Int64")
 
     grouped = df.groupby(["marker", "sequence"], as_index=False).agg(
         total=("total", "sum"),
         total_mp_sum=("total_mp_sum", "sum"),
-        interpolated_total_coverage=("interpolated_total_coverage", "max"),
-        # is_noise_or_low_frq=("is_noise_or_low_frq", "first"),
-        # total_wo_noise_or_low_frq=("total_wo_noise_or_low_frq", "first"),
-        # variant_frequency_wo_noise_or_low_frq=("variant_frequency_wo_noise_or_low_frq", "sum")
     )
 
-    # Extract "Other" sequence coverage per marker
-    other_per_marker = grouped[grouped["sequence"] == "Other"][["marker", "total"]]
-    other_per_marker = other_per_marker.rename(columns={"total": "other_coverage"})
-
-    # Merge with grouped data
-    grouped = grouped.merge(other_per_marker, on="marker", how="left")
-    grouped["other_coverage"] = grouped["other_coverage"].fillna(0)
-
-    # Subtract "Other" sequence coverage from interpolated_total_coverage
-    grouped["adjusted_coverage"] = grouped["interpolated_total_coverage"] - grouped["other_coverage"]
-
-    # Ensure adjusted coverage is not negative or zero (to avoid division by zero)
-    grouped["interpolated_total_coverage"] = grouped["adjusted_coverage"].clip(lower=1)
+    # Coverage: reads counted per amplicon, excluding "Other sequences" (the same
+    # count LOW uses); clipped to 1 to avoid division by zero
+    grouped["interpolated_total_coverage"] = grouped["marker"].map(marker_total_reads).fillna(0).clip(lower=1)
 
 
     final = grouped.groupby("sequence", as_index=False).agg(
