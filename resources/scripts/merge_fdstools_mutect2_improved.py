@@ -123,7 +123,7 @@ def mutect2_amplicon_depths(depth_file, ranges):
 def build_low_rows(fds_low, mt2_depths, ranges, depth_threshold):
     """One LOW row per amplicon where either caller's depth is below
     depth_threshold. FDSTOOLS/MUTECT2 name the amplicon for the caller(s) that
-    are low; called_by_* say which."""
+    are low; called_by_* read "low" or "ok" per caller."""
     fds_depths = dict(zip(fds_low["marker"], fds_low["rd_FDS"]))
     rows = []
     for amplicon, (start, end) in ranges.items():
@@ -137,8 +137,8 @@ def build_low_rows(fds_low, mt2_depths, ranges, depth_threshold):
             "rd_FDS": fds_depths.get(amplicon),
             "MUTECT2": amplicon if mt2_is_low else None,
             "rd_MT2": mt2_depths.get(amplicon),
-            "called_by_FDSTOOLS": fds_is_low,
-            "called_by_MUTECT2": mt2_is_low,
+            "called_by_FDSTOOLS": "low" if fds_is_low else "ok",
+            "called_by_MUTECT2": "low" if mt2_is_low else "ok",
             "marker": amplicon,
             "marker_range": f"{start}-{end}",
         })
@@ -412,9 +412,10 @@ def apply_excel_styles(excel_path: str):
 
 
                 if col_name in ("called_by_FDSTOOLS", "called_by_MUTECT2"):
-                    # In a LOW row, False means that caller's depth was fine, not a missed call
+                    # In a LOW row these say "low" or "ok" for each caller's depth
                     if row[0].value == "LOW":
-                        pass
+                        if cell.value == "low":
+                            cell.fill = fill_low
                     elif cell.value is False:
                         cell.fill = fill_red
                     elif cell.value == "DISAGREEMENT":

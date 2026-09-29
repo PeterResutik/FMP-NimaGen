@@ -89,9 +89,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   only means the caller did not report the variant.
 - `LOW` rows cover both callers: one row per amplicon, at the bottom of the
   merged table. The FDSTOOLS and MUTECT2 columns name the amplicon when that
-  caller's depth is below `--depth`, and `called_by_*` say which caller is
-  low. Mutect2's depth is the read count at the amplicon's middle position in
-  the BAM it runs on (from `p09`).
+  caller's depth is below `--depth`, and `called_by_*` read `low` (yellow) or
+  `ok` for each caller, instead of True/False, which in variant rows mean
+  called or missed. Mutect2's depth is the read count at the amplicon's middle
+  position in the BAM it runs on (from `p09`).
 - `--min_reads_per_strand` default 3 → 0. Merged reads are single-orientation,
   so any non-zero value tagged every Mutect2 call `strict_strand`. The FILTER
   column is informational; no calls were dropped by it.

@@ -120,8 +120,8 @@ def test_low_rows_per_amplicon_for_both_callers(tmp_path):
                  depths={"mtNG_003": 3})
     low = report[report["FMP"] == "LOW"].set_index("marker")
     assert sorted(low.index) == ["mtNG_002", "mtNG_003"]
-    assert (low.loc["mtNG_002", "called_by_FDSTOOLS"], low.loc["mtNG_002", "called_by_MUTECT2"]) == (True, False)
-    assert (low.loc["mtNG_003", "called_by_FDSTOOLS"], low.loc["mtNG_003", "called_by_MUTECT2"]) == (False, True)
+    assert (low.loc["mtNG_002", "called_by_FDSTOOLS"], low.loc["mtNG_002", "called_by_MUTECT2"]) == ("low", "ok")
+    assert (low.loc["mtNG_003", "called_by_FDSTOOLS"], low.loc["mtNG_003", "called_by_MUTECT2"]) == ("ok", "low")
     assert low.loc["mtNG_003", "rd_MT2"] == 3
 
 
@@ -141,4 +141,7 @@ def test_script_writes_excel_with_flags_coloured(tmp_path):
     assert [r[col["FMP"]].value for r in ws.iter_rows(min_row=2)][-1] == "LOW"
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"          # missed call: red
     assert fill(rows["-309.1c"][col["called_by_FDSTOOLS"]]) == "FFD966"       # disagreement: its own colour
-    assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # False in a LOW row is not a miss
+    assert rows["LOW"][col["called_by_FDSTOOLS"]].value == "low"
+    assert fill(rows["LOW"][col["called_by_FDSTOOLS"]]) == "FEFE01"          # low coverage: LOW yellow
+    assert rows["LOW"][col["called_by_MUTECT2"]].value == "ok"
+    assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # ok is not a miss
