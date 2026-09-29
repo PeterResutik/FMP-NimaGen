@@ -102,6 +102,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   covers `process_mutect2_output_improved.py`: origin coordinates and pooling,
   the length-heteroplasmy floor and ceiling, minor labels, deletions in
   repeats, and different alleles at one position kept apart.
+- Tests for `process_fdstools_output_improved_better.py`: frequencies counted
+  on an amplicon's reads without "Other sequences", LOW for low or missing
+  amplicons with their calls kept, the length-heteroplasmy floor and ceiling,
+  and minor deletions and substitutions.
 - `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a
