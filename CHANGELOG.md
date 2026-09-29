@@ -50,6 +50,14 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Major calls outside 57-60, 300-315 and 16180-16193 are written by the
+  general rule (`resources/scripts/notation.py`) in both callers' tables:
+  calls within 10 bases of each other are applied to rCRS and described anew.
+  One molecule could otherwise be spelled two ways and land on two rows
+  (`T15940- T15941C` from one caller, `-15939.1C T15943- T15944-` from the
+  other, both `T15940C T15944-`). A base at the rCRS N is now `-3109.1T`
+  instead of `N3107T`. Minor calls stay as each caller writes them; rewritten
+  FDSTOOLS rows name the original labels in `variant_note`.
 - In 57-60, 300-315 and 16180-16193, FDSTOOLS' rows come from the frames:
   every sequence of the amplicon is placed into the region and written in the
   frame chosen with `--frame` (`separate` by default, or `shared`; 57-60 is

@@ -11,6 +11,7 @@ import traceback
 from Bio import SeqIO
 
 import frames
+import notation
 
 # Utility: extract numeric position from sequence
 def extract_position(seq):
@@ -108,6 +109,19 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
     return pd.DataFrame(rows)
 
 
+def respell_rows(table, reference):
+    """Groups of major labels outside the frame regions written again by the general
+    rule (notation.respell_majors), so both callers spell a molecule alike. A changed
+    group becomes its new labels at the group's lowest frequency, noted in variant_note."""
+    protected = [(r.first, r.last) for r in frames.REGIONS.values()]
+    for old, new in notation.respell_majors(table["sequence"], reference, protected):
+        group = table[table["sequence"].isin(old)]
+        kept = group.loc[group["variant_frequency"].idxmin()].to_dict()
+        rows = [{**kept, "sequence": label, "variant_note": f"written from {' '.join(old)}"} for label in new]
+        table = pd.concat([table[~table["sequence"].isin(old)], pd.DataFrame(rows)], ignore_index=True)
+    return table
+
+
 # Main processing function
 def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0,
                           tssv_path=None, reference_path=None, frame="separate"):
@@ -179,8 +193,8 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     # In the frame regions the rows come from the frames instead of FDSTOOLS' labels
     rows_from_frames = pd.DataFrame()
+    reference = str(SeqIO.read(reference_path, "fasta").seq) if reference_path else None
     if tssv_path:
-        reference = str(SeqIO.read(reference_path, "fasta").seq)
         rows_from_frames = frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame,
                                       min_variant_frequency_pct, length_heteroplasmy_threshold)
         in_a_window = final["sequence"].map(
@@ -277,6 +291,9 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
         # Drop length variants below the symmetric length-heteroplasmy floor entirely
         final = final[final["sequence"] != LH_DROP_SENTINEL]
+
+        if reference is not None:
+            final = respell_rows(final, reference)
     
     # final["sequence"] = final.apply(
     #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
@@ -333,7 +350,7 @@ def main():
     parser.add_argument("--depth", type=int, default=10, help="Read depth threshold for low coverage")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 100-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
     parser.add_argument("--tssv", help="FDSTOOLS tssv.csv (sequences per amplicon); with it, 57-60, 300-315 and 16180-16193 are written in the frames")
-    parser.add_argument("--reference", help="rCRS_NimaGen.fasta, needed with --tssv")
+    parser.add_argument("--reference", help="rCRS_NimaGen.fasta; with it, major calls outside the frame regions are spelled by the general rule (needed with --tssv)")
     parser.add_argument("--frame", choices=["separate", "shared"], default="separate", help="Frame for 16180-16193 and 300-315")
     args = parser.parse_args()
 

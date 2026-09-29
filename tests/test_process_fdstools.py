@@ -11,6 +11,7 @@ mtNG_003 = chrM, 259, 367
 mtNG_004 = chrM, 360, 480
 mtNG_005 = chrM, 470, 610
 mtNG_006 = chrM, 600, 800
+mtNG_096 = chrM, 15900, 16101
 mtNG_097 = chrM, 16094, 16276
 [flanks]
 """
@@ -159,3 +160,9 @@ def test_a_change_next_to_a_region_is_counted_once(tmp_path, reference, referenc
     assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"A297G": 100.0, "-315.1C": 100.0, "G316A": 100.0}
     notes = report.set_index("FDSTOOLS")["variant_note"]
     assert notes["-315.1C"] == "shared frame" and pd.isna(notes["G316A"])
+
+def test_major_calls_written_by_the_general_rule(tmp_path, reference_fasta):
+    # L3f3 as FDSTOOLS names it; the general rule writes the same molecule T15940C T15944-
+    report = run(tmp_path, [("mtNG_096", "T15940DEL T15941C", 400)], reference_fasta=reference_fasta)
+    assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"T15940C": 100.0, "T15944-": 100.0}
+    assert report.set_index("FDSTOOLS").loc["T15944-", "variant_note"] == "written from T15940- T15941C"

@@ -98,3 +98,21 @@ def test_script_end_to_end(tmp_path, reference_fasta):
     assert dict(zip(result["MUTECT2"], result["vf_MT2"])) == pytest.approx(
         {"A21R": 0.85, "C756M": 0.293, "C756Y": 0.051})
     assert result.set_index("MUTECT2").loc["A21R", "rd_MT2"] == "30,170"
+
+
+def test_script_writes_major_calls_by_the_general_rule(tmp_path, reference_fasta):
+    """L3f3: Mutect2 records one T deleted and T15941C; the same molecule is
+    T15940C T15944- by the general rule, as FDSTOOLS' spelling becomes too."""
+    columns = ["ID", "Filter", "Pos", "Ref", "Variant", "VariantLevel", "MeanBaseQuality", "Coverage", "GT", "Type"]
+    rows = [
+        ["s.bam", "PASS", 15939, "CT", "C", 1.0, "35,35", "0,300", "1/1", "INDEL"],
+        ["s.bam", "PASS", 15941, "T", "C", 1.0, "35,35", "0,300", "1/1", "SNP"],
+    ]
+    table = tmp_path / "mutect2.txt"
+    pd.DataFrame(rows, columns=columns).to_csv(table, sep="\t", index=False)
+    out = tmp_path / "mutect2.empop.txt"
+    subprocess.run([sys.executable, mt2.__file__, str(table), str(out), str(reference_fasta),
+                    "--min_vf", "5", "--lh_thresh", "10"], check=True)
+    result = pd.read_csv(out, sep="\t").set_index("MUTECT2")
+    assert sorted(result.index) == ["T15940C", "T15944-"]
+    assert (result.loc["T15940C", "Type"], result.loc["T15944-", "Type"]) == ("SNP", "DEL")

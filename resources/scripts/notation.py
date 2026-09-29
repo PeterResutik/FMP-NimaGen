@@ -17,6 +17,7 @@ frames) and for rebuilding a caller's major calls into one spelling:
 A window must lie within 1-16569; nothing is shifted across the origin.
 """
 import re
+from collections import defaultdict
 
 SUB, SLIP, GAP, OPEN = 100, 101, 102, 5  # every change costs ~100, so fewest changes wins first
 INF = float("inf")
@@ -202,3 +203,61 @@ def describe(molecule, reference, start, end):
             labels = reading
             break
     return sorted(labels, key=label_position)
+
+
+MAJOR = re.compile(r"^([ACGTN]\d+[ACGT-]|-\d+\.\d+[ACGT])$")
+
+
+def is_major(label):
+    """A major label in the report's notation: A73G, C8281-, -315.1C, N3107T
+    (minor ones carry an IUPAC code or end in lowercase)."""
+    return bool(MAJOR.match(str(label)))
+
+
+def apply_labels(labels, reference, start, end):
+    """The molecule rCRS start..end becomes with these major labels applied (a base at
+    the N of 3107, N3107T, is placed where the N is)."""
+    changed, deleted, inserted = {}, set(), defaultdict(dict)
+    for label in labels:
+        m = re.match(r"^-(\d+)\.(\d+)([ACGT])$", label)
+        if m:
+            inserted[int(m.group(1))][int(m.group(2))] = m.group(3)
+            continue
+        m = re.match(r"^[ACGTN](\d+)([ACGT-])$", label)
+        if m.group(2) == "-":
+            deleted.add(int(m.group(1)))
+        else:
+            changed[int(m.group(1))] = m.group(2)
+    out = []
+    for p in range(start, end + 1):
+        if p in changed:
+            out.append(changed[p])
+        elif p not in deleted and reference[p - 1] != "N":
+            out.append(reference[p - 1])
+        out.extend(inserted[p][k] for k in sorted(inserted.get(p, {})))
+    return "".join(out)
+
+
+def respell_majors(labels, reference, protected=()):
+    """Major labels written again by the general rule, so both callers spell one
+    molecule alike. Labels within 10 bases of each other form a group, which is applied
+    to rCRS and described anew; a group reaching (with 12 bases on each side) into a
+    protected region (first, last) is left alone. Returns [(old labels, new labels)]
+    for the groups whose spelling changes."""
+    majors = sorted({l for l in labels if is_major(l)}, key=label_position)
+    groups = []
+    for label in majors:
+        if groups and label_position(label)[0] - label_position(groups[-1][-1])[0] <= 10:
+            groups[-1].append(label)
+        else:
+            groups.append([label])
+    changes = []
+    for group in groups:
+        start = max(1, label_position(group[0])[0] - 12)
+        end = min(16569, label_position(group[-1])[0] + 12)
+        if any(start <= last and first <= end for first, last in protected):
+            continue
+        new = describe(apply_labels(group, reference, start, end), reference, start, end)
+        if set(new) != set(group):
+            changes.append((group, new))
+    return changes

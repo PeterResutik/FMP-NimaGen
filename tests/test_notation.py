@@ -70,3 +70,20 @@ def test_mitoleaf_windows(rcrs, case):
     300-315 and 57-60. The expected labels equal mitoLEAF's except in 10 windows,
     where mitoLEAF follows the order of changes in the tree (G247A A249- for G247-)."""
     assert notation.describe(case["molecule"], rcrs, case["start"], case["end"]) == case["expected"]
+
+
+PROTECTED = [(57, 60), (300, 315), (16180, 16193)]
+
+
+@pytest.mark.parametrize("labels, expected", [
+    (["T15940-", "T15941C"], [(["T15940-", "T15941C"], ["T15940C", "T15944-"])]),          # L3f3, one caller ...
+    (["-15939.1C", "T15943-", "T15944-"],
+     [(["-15939.1C", "T15943-", "T15944-"], ["T15940C", "T15944-"])]),                    # ... and the other
+    (["N3107T"], [(["N3107T"], ["-3109.1T"])]),                                            # a base at the rCRS N
+    (["A523-", "C525-"], [(["A523-", "C525-"], ["A523-", "C524-"])]),                     # AC unit kept whole
+    (["T15940C", "T15944-", "A73G", "A263G"], []),                                         # already the rule's spelling
+    (["T16176C", "T16189C"], []),                                                          # next to a frame region
+    (["A523a", "T152Y", "-315.1c"], []),                                                   # minor calls stay
+])
+def test_respell_majors(rcrs, labels, expected):
+    assert notation.respell_majors(labels, rcrs, PROTECTED) == expected

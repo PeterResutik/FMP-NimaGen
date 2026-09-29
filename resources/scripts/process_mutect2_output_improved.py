@@ -6,6 +6,9 @@ import re
 import argparse
 import sys
 
+import frames
+import notation
+
 IUPAC_CODES = {
     frozenset(["A", "G"]): "R",
     frozenset(["C", "T"]): "Y",
@@ -252,6 +255,20 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
     return grouped
 
+def respell_rows(df, reference):
+    """Groups of major labels outside the frame regions written again by the general
+    rule (notation.respell_majors), so both callers spell a molecule alike. A changed
+    group becomes its new labels at the group's lowest frequency; Type follows the label."""
+    protected = [(r.first, r.last) for r in frames.REGIONS.values()]
+    for old, new in notation.respell_majors(df["MUTECT2"], reference, protected):
+        group = df[df["MUTECT2"].isin(old)]
+        kept = group.loc[group["VariantLevel"].idxmin()].to_dict()
+        rows = [{**kept, "MUTECT2": label,
+                 "Type": "INS" if label.startswith("-") else "DEL" if label.endswith("-") else "SNP"} for label in new]
+        df = pd.concat([df[~df["MUTECT2"].isin(old)], pd.DataFrame(rows)], ignore_index=True)
+    return df
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process mitochondrial variants into EMPOP format.")
     parser.add_argument("input_file", help="Input TSV file with variants")
@@ -282,6 +299,7 @@ def main():
         df = df[df["Type"] != "BELOW_LH_FLOOR"].reset_index(drop=True)
 
         df = finalize_output_table(df, args.lh_thresh/100)
+        df = respell_rows(df, load_reference(args.reference_fasta))
 
         # Rename selected columns
         df = df.rename(columns={
