@@ -50,6 +50,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- `p07` maps the primer-trimmed merged reads with `bwa mem -L 100,100`
+  (`--clipping_penalty`; bwa default 5,5). After primer trimming, a variant a
+  few bases from an amplicon end sits at the end of every read covering it,
+  and the default clipping cut it off, so Mutect2 missed it. `p02` keeps the
+  default: there clipping removes adapter and off-target read ends for `p03`.
 - Length heteroplasmy uses one symmetric threshold (`--lh_thresh`, default
   10): below 10% not reported, 10-90% reported as minor (lowercase), 90% and
   above as major. Previously there was no lower floor and the default of 90

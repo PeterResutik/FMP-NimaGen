@@ -25,6 +25,9 @@ params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 300
 
+// bwa mem in p07 (primer-trimmed merged reads, used by Mutect2)
+params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5
+
 params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
 params.humans_index_base = "humans.fa"
 
@@ -90,6 +93,9 @@ log_text = """\
          --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
          --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
          --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
+
+         MAPPING (with BWA MEM, p07)
+         --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
 
          NUMTs REMOVAL (with RTN)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
@@ -327,7 +333,8 @@ process p07_map_merged_trimmed_bam_p01_p05 {
 
     script:
     """
-    bwa mem ${reference} ${fastq_wo_scb_merged_trimmed} | samtools view -Sb - | samtools sort -o ${fastq_wo_scb_merged_trimmed.baseName}_sorted.bam
+    # read ends are amplicon ends after primer trimming: clip only clearly wrong ends
+    bwa mem -L ${params.clipping_penalty} ${reference} ${fastq_wo_scb_merged_trimmed} | samtools view -Sb - | samtools sort -o ${fastq_wo_scb_merged_trimmed.baseName}_sorted.bam
 
     samtools addreplacerg -r '@RG\tID:${sample_id}\tSM:${sample_id}' ${fastq_wo_scb_merged_trimmed.baseName}_sorted.bam  -o ${fastq_wo_scb_merged_trimmed.baseName}.bam
     samtools index ${fastq_wo_scb_merged_trimmed.baseName}.bam
