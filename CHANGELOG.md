@@ -56,7 +56,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   laid from the left in both). This replaces FDSTOOLS' own labels there, which
   could merge a substitution and a deletion into one label (`T16189c`) and
   wrote T57C with one T more as `-56.1C`. The rows carry the frame in
-  `variant_note`. Mutect2's rows in these regions are unchanged for now.
+  `variant_note`. Within 12 bases of each region the labels come from the same
+  alignment, so a change next to the region is not counted on both sides of
+  its edge. Mutect2's rows in these regions are unchanged for now.
 - Mutect2 always evaluates the alleles in `--force_alleles`
   (`resources/mutect2/force_alleles.vcf`, only A3105G for now). A3105G sits
   two bases before the rCRS N at 3107, where bwa places the missing base as a

@@ -148,3 +148,14 @@ def test_57_60_laid_from_the_left(tmp_path, reference, reference_fasta):
     report = run(tmp_path, [("mtNG_001", "56.1C", 300)],
                  tssv=[("mtNG_001", amplicon(reference, 19, 155, {57: "CT"}), 300)], reference_fasta=reference_fasta)
     assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"T57C": 100.0, "-60.1T": 100.0}
+
+
+def test_a_change_next_to_a_region_is_counted_once(tmp_path, reference, reference_fasta):
+    # FDSTOOLS names the molecule A297G G316C 316.1A; the frame puts the extra C in the
+    # C-stretch, so the labels next to it must come from the same alignment: G316A
+    report = run(tmp_path, [("mtNG_003", "A297G G316C 316.1A", 200)],
+                 tssv=[("mtNG_003", amplicon(reference, 259, 367, {297: "G", 315: "CC", 316: "A"}), 200)],
+                 reference_fasta=reference_fasta, frame="shared")
+    assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"A297G": 100.0, "-315.1C": 100.0, "G316A": 100.0}
+    notes = report.set_index("FDSTOOLS")["variant_note"]
+    assert notes["-315.1C"] == "shared frame" and pd.isna(notes["G316A"])

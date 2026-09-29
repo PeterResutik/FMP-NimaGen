@@ -149,25 +149,41 @@ def covering(region, amplicons):
     return [name for name, (start, end) in amplicons.items() if start <= region.first and region.last <= end]
 
 
-def region_bases(sequence, start, end, region, reference):
-    """The bases a molecule has in the region. `sequence` is an amplicon's sequence
-    between its flanks (as FDSTOOLS reports it), covering rCRS start..end. The whole
-    sequence is aligned to rCRS by the general rule, so a variant next to the region
-    cannot shift the cut; then the bases on the region's positions are taken, with
-    insertions inside or right after it. An insertion right before the region belongs
-    to it unless it lengthens the run in front."""
+FLANK = 12  # bases on each side of a region whose labels come from the same alignment
+
+
+def region_and_flank(sequence, start, end, region, reference):
+    """A molecule's bases in the region and its changes within FLANK bases on either
+    side, both from one alignment. `sequence` is an amplicon's sequence between its
+    flanks (as FDSTOOLS reports it), covering rCRS start..end. The whole sequence is
+    aligned to rCRS by the general rule, so a variant next to the region cannot shift
+    the cut. The region takes the bases on its positions and insertions inside or right
+    after it; an insertion right before it belongs to it unless it lengthens the run in
+    front. The flank changes are labels by the general rule (G316A, -16194.1C)."""
     columns = notation.align(sequence, notation.reference_window(reference, start, end))
-    out, prev = [], None
-    for pos, _, base in columns:
+    in_flank = lambda p: region.first - FLANK <= p < region.first or region.last < p <= region.last + FLANK
+    bases, labels, prev, k = [], [], None, 0
+    for pos, ref, base in columns:
         if pos is not None:
-            prev = pos
-            if region.first <= pos <= region.last and base != "-":
-                out.append(base)
+            prev, k = pos, 0
+            if region.first <= pos <= region.last:
+                if base != "-":
+                    bases.append(base)
+            elif in_flank(pos) and base != ref:
+                labels.append(f"{ref}{pos}{base}")
         elif prev is not None and region.first <= prev <= region.last:
-            out.append(base)
+            bases.append(base)
         elif prev == region.first - 1 and base != reference[region.first - 2]:
-            out.append(base)
-    return "".join(out)
+            bases.append(base)
+        elif prev is not None and in_flank(prev):
+            k += 1
+            labels.append(f"-{prev}.{k}{base}")
+    return "".join(bases), labels
+
+
+def region_bases(sequence, start, end, region, reference):
+    """The bases a molecule has in the region (see region_and_flank)."""
+    return region_and_flank(sequence, start, end, region, reference)[0]
 
 
 def region_molecules(sequences, start, end, region, reference):
@@ -179,6 +195,36 @@ def region_molecules(sequences, start, end, region, reference):
         if sequence and set(sequence) <= set("ACGT"):
             reads[region_bases(sequence, start, end, region, reference)] += n
     return sorted(reads.items(), key=lambda x: -x[1])
+
+
+def flank_rows(sequences, start, end, region, reference, coverage, min_vf=5.0, lh_thresh=10.0):
+    """Report rows [(label, percent)] for the changes within FLANK bases of the region,
+    summed by reads over an amplicon's sequences [(sequence, reads)]: substitutions from
+    min_vf (minor as IUPAC), insertions and deletions from lh_thresh (minor in lowercase)."""
+    lh_floor, lh_ceiling = min(lh_thresh, 100 - lh_thresh), max(lh_thresh, 100 - lh_thresh)
+    reads = Counter()
+    for sequence, n in sequences:
+        if sequence and set(sequence) <= set("ACGT"):
+            for label in region_and_flank(sequence, start, end, region, reference)[1]:
+                reads[label] += n
+    out = []
+    for label, n in reads.items():
+        share = 100 * n / coverage
+        if label.startswith("-"):
+            if share >= lh_ceiling:
+                out.append((label, share))
+            elif share >= lh_floor:
+                out.append((label[:-1] + label[-1].lower(), share))
+        elif label.endswith("-"):
+            if share >= lh_ceiling:
+                out.append((label, share))
+            elif share >= lh_floor:
+                out.append((label[:-1] + label[0].lower(), share))
+        elif share >= 100 - min_vf:
+            out.append((label, share))
+        elif share >= min_vf:
+            out.append((label[:-1] + IUPAC[frozenset((label[0], label[-1]))], share))
+    return sorted(out, key=lambda r: notation.label_position(r[0]))
 
 
 def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10.0):

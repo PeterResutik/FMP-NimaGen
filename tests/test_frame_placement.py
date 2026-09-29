@@ -68,3 +68,23 @@ def test_mitoleaf_amplicons(rcrs, case):
     molecule in the three regions; placement must give that molecule."""
     region = frames.REGIONS[case["region"]]
     assert frames.region_bases(case["sequence"], case["start"], case["end"], region, rcrs) == case["molecule"]
+
+
+@pytest.mark.parametrize("region, start, end, edits, expected", [
+    # one C more in the C-stretch and G316A next to it: the change split differently by
+    # another aligner (G316C -316.1A) could otherwise be counted on both sides of the edge
+    (R310, 259, 367, {297: "G", 315: "CC", 316: "A"}, ("AAACCCCCCCTCCCCCC", ["A297G", "G316A"])),
+    (R16189, 16094, 16276, {16179: "CC"}, ("AAAACCCCCTCCCC", ["-16179.1C"])),     # lengthens the run in front
+    (R16189, 16094, 16276, {16176: "T", 16217: "C"}, ("AAAACCCCCTCCCC", ["C16176T"])),  # 16217 is past the flank
+])
+def test_region_and_flank_from_one_alignment(rcrs, region, start, end, edits, expected):
+    assert frames.region_and_flank(amplicon(rcrs, start, end, edits), start, end, region, rcrs) == expected
+
+
+def test_flank_rows(rcrs):
+    sequences = [(amplicon(rcrs, 16094, 16276, {16176: "T", 16179: "CC"}), 60),
+                 (amplicon(rcrs, 16094, 16276, {16176: "T"}), 37),
+                 (amplicon(rcrs, 16094, 16276, {16176: "G"}), 3)]
+    rows = frames.flank_rows(sequences, 16094, 16276, R16189, rcrs, coverage=100)
+    # 97% T is major; 3% G stays under min_vf; the insertion in 60% is minor
+    assert [(label, round(share)) for label, share in rows] == [("C16176T", 97), ("-16179.1c", 60)]
