@@ -481,6 +481,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     """  
     mkdir tmp_${sample_id}
 
+    # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
     gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
@@ -493,6 +494,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         --tumor-lod-to-emit "${params.tumor_lod_to_emit}"  \
         --native-pair-hmm-threads "${params.native_pair_hmm_threads}"  \
         --max-reads-per-alignment-start "${params.max_reads_per_alignment_start}" \
+        --max-mnp-distance 0 \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \

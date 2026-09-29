@@ -50,6 +50,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Mutect2 reports each substituted position as its own record
+  (`--max-mnp-distance 0`). By default it merged substitutions on neighbouring
+  positions carried by the same reads into one multi-base record, which split
+  each position's frequency between records and reached the report as one row
+  with one frequency for several positions.
 - `p07` maps the primer-trimmed merged reads with `bwa mem -L 100,100`
   (`--clipping_penalty`; bwa default 5,5). After primer trimming, a variant a
   few bases from an amplicon end sits at the end of every read covering it,
