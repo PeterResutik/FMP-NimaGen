@@ -50,6 +50,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- In 57-60, 300-315 and 16180-16193, FDSTOOLS' rows come from the frames:
+  every sequence of the amplicon is placed into the region and written in the
+  frame chosen with `--frame` (`separate` by default, or `shared`; 57-60 is
+  laid from the left in both). This replaces FDSTOOLS' own labels there, which
+  could merge a substitution and a deletion into one label (`T16189c`) and
+  wrote T57C with one T more as `-56.1C`. The rows carry the frame in
+  `variant_note`. Mutect2's rows in these regions are unchanged for now.
 - Mutect2 always evaluates the alleles in `--force_alleles`
   (`resources/mutect2/force_alleles.vcf`, only A3105G for now). A3105G sits
   two bases before the rCRS N at 3107, where bwa places the missing base as a

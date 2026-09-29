@@ -73,6 +73,7 @@ params.min_vf_MT2 = 5
 params.min_vf_FDS = 5
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
 params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
+params.frame = "separate" // separate | shared: how 16180-16193 and 300-315 are written (resources/scripts/frames.py)
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -118,6 +119,7 @@ log_text = """\
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
          --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
+         --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
          --marker_map                     : $params.fdstools_library # Path to marker map file
 
          OUTPUT DIRECTORY   
@@ -555,6 +557,7 @@ process p13_merge_variants_p10_p11 {
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
+    path python_modules // notation.py, frames.py: imported by the FDSTOOLS script, inputs so -resume sees changes
 
     output:
     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
@@ -597,7 +600,8 @@ process p13_merge_variants_p10_p11 {
         python $python_script_process_fdstools_sast \
             ${sast_file} \
             ${sample_id}_fdstools_processed.txt \
-            --min_vf $params.min_vf_FDS --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library
+            --min_vf $params.min_vf_FDS --depth $params.depth --lh_thresh $params.lh_thresh --marker_map $params.fdstools_library \
+            --tssv ${tssv_file} --reference $reference --frame $params.frame
 
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
@@ -670,6 +674,7 @@ workflow {
     // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
     p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, bam, bai, rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
     p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
-    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2)
+    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
+                               files("$baseDir/resources/scripts/{notation,frames}.py"))
 
 }

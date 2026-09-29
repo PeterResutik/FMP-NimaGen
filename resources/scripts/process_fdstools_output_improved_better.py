@@ -8,6 +8,10 @@ import sys
 import os
 import traceback
 
+from Bio import SeqIO
+
+import frames
+
 # Utility: extract numeric position from sequence
 def extract_position(seq):
     match = re.search(r"(\d+\.?\d*)", seq)
@@ -69,8 +73,45 @@ def load_marker_ranges(filepath):
                     marker_ranges[marker.strip()] = f"{start}-{end}"
     return marker_ranges
 
+def in_region(label, region, reference):
+    """Whether an FDSTOOLS label (A16183C, T16189DEL, 16193.1C) lies in a frame region;
+    an insertion right before it belongs to it unless it lengthens the run in front."""
+    m = re.match(r"^[ACGTN]?(\d+)(?:\.\d+)?([ACGT]|DEL)?$", label)
+    if not m:
+        return False
+    pos, is_insertion = int(m.group(1)), "." in label
+    if region.first <= pos <= region.last:
+        return True
+    return is_insertion and pos == region.first - 1 and label[-1] != reference[region.first - 2]
+
+
+def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_vf, lh_thresh):
+    """Rows for 57-60, 300-315 and 16180-16193 from the frames: every sequence of the
+    amplicon holding a region (tssv.csv) is placed and written in the chosen frame, out
+    of the same reads as every other row of that amplicon."""
+    tssv = pd.read_csv(tssv_path, sep="\t", dtype=str)
+    ranges = {m: tuple(int(x) for x in r.split("-")) for m, r in marker_map.items()}
+    rows = []
+    for region in frames.REGIONS.values():
+        for marker in frames.covering(region, ranges):
+            coverage = marker_total_reads.get(marker, 0)
+            if not coverage:
+                continue
+            start, end = ranges[marker]
+            amplicon = tssv[tssv["marker"] == marker]
+            molecules = frames.region_molecules(zip(amplicon["sequence"], pd.to_numeric(amplicon["total"])),
+                                                start, end, region, reference)
+            for label, share in frames.rows(region, molecules, coverage, frame, reference, min_vf, lh_thresh):
+                rows.append({"sequence": label, "total": round(share * coverage / 100),
+                             "interpolated_total_coverage": coverage, "variant_frequency": round(share, 2),
+                             "marker": marker, "num_markers": 1, "is_noise_or_low_frq": False,
+                             "variant_note": f"{frame} frame"})
+    return pd.DataFrame(rows)
+
+
 # Main processing function
-def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0):
+def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0,
+                          tssv_path=None, reference_path=None, frame="separate"):
     IUPAC_CODES = {
         frozenset(["A", "G"]): "R", frozenset(["C", "T"]): "Y",
         frozenset(["A", "C"]): "M", frozenset(["G", "T"]): "K",
@@ -136,6 +177,16 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     final["variant_frequency"] = (final["total"] / final["interpolated_total_coverage"] * 100).round(2)
     # final["variant_frequency_wo_noise_or_low_frq"] = (final["total"] / final["total_wo_noise_or_low_frq"] * 100).round(2)
     final["position"] = final["sequence"].apply(extract_position)
+
+    # In the frame regions the rows come from the frames instead of FDSTOOLS' labels
+    rows_from_frames = pd.DataFrame()
+    if tssv_path:
+        reference = str(SeqIO.read(reference_path, "fasta").seq)
+        rows_from_frames = frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame,
+                                      min_variant_frequency_pct, length_heteroplasmy_threshold)
+        in_a_region = final["sequence"].map(
+            lambda label: any(in_region(label, region, reference) for region in frames.REGIONS.values())).astype(bool)
+        final = final[~in_a_region]
 
     drop_seqs = ["Other", "sequences", "REF", "N3107DEL", "No", "data"]
     final = final[(~final["sequence"].isin(drop_seqs))]
@@ -209,30 +260,31 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         final = pd.concat([final, pd.DataFrame(merged_rows)], ignore_index=True)
 
     # If nothing remains after filtering (e.g., H2O / No data), write empty output and stop
-    if final.empty:
+    if final.empty and rows_from_frames.empty:
         pd.DataFrame(columns=[
             "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
             "variant_note", "marker", "marker_range", "num_markers"
         ]).to_csv(output_file, sep="\t", index=False)
         print(f"Output written to {output_file} (no variants)")
         return
-    resolved = final.apply(
-        lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
-        axis=1
-    )
+    if not final.empty:
+        resolved = final.apply(
+            lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
+            axis=1
+        )
 
-    # Force to a plain 1D Series of strings
-    final["sequence"] = pd.Series(resolved, index=final.index).astype(str)
+        # Force to a plain 1D Series of strings
+        final["sequence"] = pd.Series(resolved, index=final.index).astype(str)
 
-    # Drop length variants below the symmetric length-heteroplasmy floor entirely
-    final = final[final["sequence"] != LH_DROP_SENTINEL]
+        # Drop length variants below the symmetric length-heteroplasmy floor entirely
+        final = final[final["sequence"] != LH_DROP_SENTINEL]
     
     # final["sequence"] = final.apply(
     #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
     #     axis=1
     # )
 
-    final = pd.concat([final, single_low_coverage], ignore_index=False)
+    final = pd.concat([final, rows_from_frames, single_low_coverage], ignore_index=True)
 
     final["marker_range"] = final["marker"].map(marker_map)
     final["position"] = final["marker"].apply(extract_position)
@@ -281,6 +333,9 @@ def main():
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minimum variant frequency threshold")
     parser.add_argument("--depth", type=int, default=10, help="Read depth threshold for low coverage")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 100-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
+    parser.add_argument("--tssv", help="FDSTOOLS tssv.csv (sequences per amplicon); with it, 57-60, 300-315 and 16180-16193 are written in the frames")
+    parser.add_argument("--reference", help="rCRS_NimaGen.fasta, needed with --tssv")
+    parser.add_argument("--frame", choices=["separate", "shared"], default="separate", help="Frame for 16180-16193 and 300-315")
     args = parser.parse_args()
 
     try:
@@ -290,7 +345,10 @@ def main():
             output_file=args.output,
             min_variant_frequency_pct=args.min_vf,
             depth_threshold=args.depth,
-            length_heteroplasmy_threshold=args.lh_thresh
+            length_heteroplasmy_threshold=args.lh_thresh,
+            tssv_path=args.tssv,
+            reference_path=args.reference,
+            frame=args.frame
         )
     except Exception:
         traceback.print_exc()
