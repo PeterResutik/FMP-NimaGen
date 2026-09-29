@@ -56,8 +56,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   One molecule could otherwise be spelled two ways and land on two rows
   (`T15940- T15941C` from one caller, `-15939.1C T15943- T15944-` from the
   other, both `T15940C T15944-`). A base at the rCRS N is now `-3109.1T`
-  instead of `N3107T`. Minor calls stay as each caller writes them; rewritten
-  FDSTOOLS rows name the original labels in `variant_note`.
+  instead of `N3107T`. Minor calls stay as each caller writes them; a label the
+  rewrite keeps keeps its frequency, new labels take the lowest frequency of
+  the rows they replace, and rewritten FDSTOOLS rows name the original labels
+  in `variant_note`.
 - In 57-60, 300-315 and 16180-16193, FDSTOOLS' rows come from the frames:
   every sequence of the amplicon is placed into the region and written in the
   frame chosen with `--frame` (`separate` by default, or `shared`; 57-60 is

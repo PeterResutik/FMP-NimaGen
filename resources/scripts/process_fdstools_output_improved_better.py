@@ -109,16 +109,27 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
     return pd.DataFrame(rows)
 
 
+def replace_labels(table, old, new, note):
+    """Rows old {index: label} rewritten as the labels new: a row whose label is among the
+    new ones keeps its frequency, the other rows go, and each new label left over gets
+    the lowest frequency of the rows that went, with `note` in variant_note."""
+    staying = {i: label for i, label in old.items() if label in new}
+    going = [i for i in old if i not in staying]
+    added = [label for label in new if label not in staying.values()]
+    rows = []
+    if added:
+        lowest = table.loc[going or list(old)].sort_values("variant_frequency").iloc[0].to_dict()
+        rows = [{**lowest, "sequence": label, "variant_note": note} for label in added]
+    return pd.concat([table.drop(index=going), pd.DataFrame(rows)], ignore_index=True)
+
+
 def respell_rows(table, reference):
     """Groups of major labels outside the frame regions written again by the general
-    rule (notation.respell_majors), so both callers spell a molecule alike. A changed
-    group becomes its new labels at the group's lowest frequency, noted in variant_note."""
+    rule (notation.respell_majors), so both callers spell a molecule alike."""
     protected = [(r.first, r.last) for r in frames.REGIONS.values()]
     for old, new in notation.respell_majors(table["sequence"], reference, protected):
-        group = table[table["sequence"].isin(old)]
-        kept = group.loc[group["variant_frequency"].idxmin()].to_dict()
-        rows = [{**kept, "sequence": label, "variant_note": f"written from {' '.join(old)}"} for label in new]
-        table = pd.concat([table[~table["sequence"].isin(old)], pd.DataFrame(rows)], ignore_index=True)
+        rows = {i: label for i, label in table["sequence"].items() if label in old}
+        table = replace_labels(table, rows, new, f"written from {' '.join(old)}")
     return table
 
 

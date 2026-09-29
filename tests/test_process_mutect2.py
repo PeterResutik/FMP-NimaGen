@@ -116,3 +116,11 @@ def test_script_writes_major_calls_by_the_general_rule(tmp_path, reference_fasta
     result = pd.read_csv(out, sep="\t").set_index("MUTECT2")
     assert sorted(result.index) == ["T15940C", "T15944-"]
     assert (result.loc["T15940C", "Type"], result.loc["T15944-", "Type"]) == ("SNP", "DEL")
+
+
+def test_a_label_the_rewrite_keeps_keeps_its_frequency(reference):
+    # G15933A stays as it is; only T15940- T15941C become T15940C T15944-
+    df = pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": "0,100", "Type": "?"}
+                       for l, v in (("G15933A", 1.0), ("T15940-", 0.96), ("T15941C", 0.97))])
+    out = mt2.respell_rows(df, reference).set_index("MUTECT2")["VariantLevel"].to_dict()
+    assert out == {"G15933A": 1.0, "T15940C": 0.96, "T15944-": 0.96}

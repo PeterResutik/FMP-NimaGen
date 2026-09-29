@@ -166,3 +166,10 @@ def test_major_calls_written_by_the_general_rule(tmp_path, reference_fasta):
     report = run(tmp_path, [("mtNG_096", "T15940DEL T15941C", 400)], reference_fasta=reference_fasta)
     assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"T15940C": 100.0, "T15944-": 100.0}
     assert report.set_index("FDSTOOLS").loc["T15944-", "variant_note"] == "written from T15940- T15941C"
+
+
+def test_a_label_the_rewrite_keeps_keeps_its_frequency(tmp_path, reference_fasta):
+    # G15933A is on every molecule and stays; T15940DEL T15941C (96%) become T15940C T15944-
+    report = run(tmp_path, [("mtNG_096", "G15933A T15940DEL T15941C", 96), ("mtNG_096", "G15933A", 4)],
+                 reference_fasta=reference_fasta)
+    assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"G15933A": 100.0, "T15940C": 96.0, "T15944-": 96.0}

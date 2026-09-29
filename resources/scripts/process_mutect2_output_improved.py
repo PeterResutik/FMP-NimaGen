@@ -255,17 +255,33 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
     return grouped
 
+def label_type(label):
+    return "INS" if label.startswith("-") else "DEL" if label.endswith("-") else "SNP"
+
+
+def replace_labels(df, old, new):
+    """Rows old {index: label} rewritten as the labels new: a row whose label is among the
+    new ones keeps its frequency (and takes that label), the other rows go, and each new
+    label left over gets the lowest frequency of the rows that went. Type follows the label."""
+    staying = {i: label for i, label in old.items() if label in new}
+    going = [i for i in old if i not in staying]
+    added = [label for label in new if label not in staying.values()]
+    df = df.copy()
+    for i, label in staying.items():
+        df.loc[i, "MUTECT2"], df.loc[i, "Type"] = label, label_type(label)
+    rows = []
+    if added:
+        lowest = df.loc[going or list(old)].sort_values("VariantLevel").iloc[0].to_dict()
+        rows = [{**lowest, "MUTECT2": label, "Type": label_type(label)} for label in added]
+    return pd.concat([df.drop(index=going), pd.DataFrame(rows)], ignore_index=True)
+
+
 def respell_rows(df, reference):
     """Groups of major labels outside the frame regions written again by the general
-    rule (notation.respell_majors), so both callers spell a molecule alike. A changed
-    group becomes its new labels at the group's lowest frequency; Type follows the label."""
+    rule (notation.respell_majors), so both callers spell a molecule alike."""
     protected = [(r.first, r.last) for r in frames.REGIONS.values()]
     for old, new in notation.respell_majors(df["MUTECT2"], reference, protected):
-        group = df[df["MUTECT2"].isin(old)]
-        kept = group.loc[group["VariantLevel"].idxmin()].to_dict()
-        rows = [{**kept, "MUTECT2": label,
-                 "Type": "INS" if label.startswith("-") else "DEL" if label.endswith("-") else "SNP"} for label in new]
-        df = pd.concat([df[~df["MUTECT2"].isin(old)], pd.DataFrame(rows)], ignore_index=True)
+        df = replace_labels(df, {i: label for i, label in df["MUTECT2"].items() if label in old}, new)
     return df
 
 
