@@ -14,6 +14,7 @@ dependencies:
   - biopython
   - matplotlib
   - openpyxl
+  - pytest
   - gatk4
   - bcftools
   - pip

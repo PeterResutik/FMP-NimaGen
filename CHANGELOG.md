@@ -97,6 +97,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   column is informational; no calls were dropped by it.
 
 ### Added
+- Unit tests for the Python report scripts in `tests/`, run with `pytest` from
+  the repository root (`pytest` added to `FMP-NimaGen.yml`). The first file
+  covers `process_mutect2_output_improved.py`: origin coordinates and pooling,
+  the length-heteroplasmy floor and ceiling, minor labels, deletions in
+  repeats, and different alleles at one position kept apart.
 - `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a

@@ -13,6 +13,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
   - [Running with Docker (Recommended)](#running-with-docker-recommended)  
   - [Running Locally with Conda](#running-locally-with-conda)  
 - [Configuration](#configuration)  
+- [Tests](#tests)  
 - [Cleaning Up](#cleaning-up)  
 - [Citation](#citation)  
 - [Contributing](#contributing)  
@@ -124,6 +125,16 @@ nextflow run main.nf -profile local
 
 * `-profile docker`: Runs the pipeline using Docker with all dependencies pre-installed.
 * `-profile local`: Runs the pipeline using locally installed tools (requires Conda environment).
+
+## Tests
+
+The Python scripts in `resources/scripts` have unit tests in `tests/`. Run them
+from the repository root in the Conda environment:
+
+```bash
+conda activate FMP-NimaGen
+pytest
+```
 
 ## Cleaning Up
 
