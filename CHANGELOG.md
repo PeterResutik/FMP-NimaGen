@@ -100,8 +100,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ### Added
 - `resources/scripts/frames.py`: the shared and the separate frame for
   16180-16193 and 300-315 (57-60 is laid from the left, with no separate
-  variant), and the report rows they give per sample. Not used by the report
-  yet.
+  variant), and the report rows they give per sample. FDSTOOLS' molecules are
+  placed into a region by aligning the amplicon's whole sequence to rCRS, so a
+  variant in the flanks cannot break the cut. Not used by the report yet.
 - `resources/scripts/notation.py`: how a molecule differs from rCRS, by the
   general rule (fewest changes, substitutions before gaps, gaps placed 3',
   whole repeat copies at the 3'-most copy, the rCRS N at 3107 left out). Not

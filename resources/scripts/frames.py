@@ -144,6 +144,43 @@ def labels(region, bases, frame, reference):
     return sorted(out, key=notation.label_position)
 
 
+def covering(region, amplicons):
+    """Names of the amplicons {name: (start, end)} whose range holds the whole region."""
+    return [name for name, (start, end) in amplicons.items() if start <= region.first and region.last <= end]
+
+
+def region_bases(sequence, start, end, region, reference):
+    """The bases a molecule has in the region. `sequence` is an amplicon's sequence
+    between its flanks (as FDSTOOLS reports it), covering rCRS start..end. The whole
+    sequence is aligned to rCRS by the general rule, so a variant next to the region
+    cannot shift the cut; then the bases on the region's positions are taken, with
+    insertions inside or right after it. An insertion right before the region belongs
+    to it unless it lengthens the run in front."""
+    columns = notation.align(sequence, notation.reference_window(reference, start, end))
+    out, prev = [], None
+    for pos, _, base in columns:
+        if pos is not None:
+            prev = pos
+            if region.first <= pos <= region.last and base != "-":
+                out.append(base)
+        elif prev is not None and region.first <= prev <= region.last:
+            out.append(base)
+        elif prev == region.first - 1 and base != reference[region.first - 2]:
+            out.append(base)
+    return "".join(out)
+
+
+def region_molecules(sequences, start, end, region, reference):
+    """[(region bases, reads)] of an amplicon's sequences [(sequence, reads)], summed
+    per distinct region sequence. Rows that are not a sequence ("Other sequences")
+    are left out."""
+    reads = Counter()
+    for sequence, n in sequences:
+        if sequence and set(sequence) <= set("ACGT"):
+            reads[region_bases(sequence, start, end, region, reference)] += n
+    return sorted(reads.items(), key=lambda x: -x[1])
+
+
 def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10.0):
     """Report rows [(label, percent)] for the molecules [(region bases, reads)] of one
     sample, out of `coverage` reads. Substitutions use min_vf, the caller's floor
