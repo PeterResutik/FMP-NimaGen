@@ -106,7 +106,7 @@ log_text = """\
          --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
 
          VARIANT CALLING (with MUTECT2)
-         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling
+         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
 
@@ -482,6 +482,8 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     mkdir tmp_${sample_id}
 
     # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
+    # pileup detection: candidates also from the aligned reads, not only from assembly;
+    # proper-pair check off (merged reads are unpaired), same base quality as calling
     gatk --java-options "-Xmx16G" \
         Mutect2 \
         -R ${reference} \
@@ -495,6 +497,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         --native-pair-hmm-threads "${params.native_pair_hmm_threads}"  \
         --max-reads-per-alignment-start "${params.max_reads_per_alignment_start}" \
         --max-mnp-distance 0 \
+        --pileup-detection true \
+        --pileup-detection-enable-indel-pileup-calling true \
+        --pileup-detection-proper-pair-read-badness false \
+        --pileup-detection-snp-basequality-filter ${params.baseQ} \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \

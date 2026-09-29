@@ -50,6 +50,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Mutect2 also takes candidate changes straight from the aligned reads
+  (pileup detection, substitutions and indels seen in at least 10% of the
+  reads), not only from its local assembly, which missed variants in dense
+  clusters, next to C-stretches and close to amplicon ends. Only bases of at
+  least `--baseQ` count (Mutect2's default is 12), and the proper-pair check is
+  off because merged reads are unpaired and would all be rejected.
 - Mutect2 records resting on fewer than `--depth` reads (FORMAT/DP) are
   dropped. In the merge, a Mutect2 frequency from one or two reads counted as
   much as an FDSTOOLS call from many (a 1-read 67% turned a 22-read 100%
