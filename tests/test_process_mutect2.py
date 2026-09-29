@@ -1,5 +1,6 @@
 """process_mutect2_output_improved.py: Mutect2 records -> report labels."""
 import subprocess
+from pathlib import Path
 import sys
 
 import pandas as pd
@@ -124,3 +125,31 @@ def test_a_label_the_rewrite_keeps_keeps_its_frequency(reference):
                        for l, v in (("G15933A", 1.0), ("T15940-", 0.96), ("T15941C", 0.97))])
     out = mt2.respell_rows(df, reference).set_index("MUTECT2")["VariantLevel"].to_dict()
     assert out == {"G15933A": 1.0, "T15940C": 0.96, "T15944-": 0.96}
+
+
+def frame(labels, which):
+    df = pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": "0,100", "Type": "?"} for l, v in labels])
+    return mt2.frame_rows(df, mt2.load_reference(REFERENCE), which, 0.10).set_index("MUTECT2")["VariantLevel"].to_dict()
+
+
+REFERENCE = str(Path(__file__).resolve().parents[1] / "resources" / "rCRS" / "rCRS_NimaGen.fasta")
+
+
+@pytest.mark.parametrize("labels, which, expected", [
+    # D5c as Mutect2 records it; the shared frame writes it as FDSTOOLS' molecules do
+    ([("A16181-", .99), ("A16182-", .99), ("A16183-", .99), ("T16189C", .99), ("-16192.1T", .99),
+      ("-16192.2C", .99), ("-16192.3C", .99)], "shared",
+     {"A16181C": .99, "A16182C": .99, "A16183C": .99, "T16189C": .99, "C16190T": .99}),
+    # T57C with one T more (and 55.1T): -56.1C becomes T57C ... -60.1T
+    ([("-55.1T", .99), ("-56.1C", .99), ("T58C", .99)], "separate",
+     {"-55.1T": .99, "T57C": .99, "T59C": .99, "-60.1T": .99}),
+    # next to 57-60 the edges follow the general rule, as for FDSTOOLS
+    ([("-60.1T", .99), ("-60.2T", .99), ("C64-", .99), ("T65-", .99)], "shared",
+     {"C61T": .99, "G62-": .99, "-64.1G": .99}),
+    # a boundary C from the length ceiling on (90%); T16189C keeps its own frequency
+    ([("A16183M", .92), ("T16189C", 1.0)], "separate", {"A16183-": .92, "T16189C": 1.0, "-16193.1C": .92}),
+    ([("A16183M", .86), ("T16189C", 1.0), ("-16193.1c", .54)], "separate",
+     {"A16183M": .86, "T16189C": 1.0, "-16193.1c": .54}),
+])
+def test_mutect2_major_calls_in_the_frames(labels, which, expected):
+    assert frame(labels, which) == pytest.approx(expected)

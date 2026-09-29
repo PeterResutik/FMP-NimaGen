@@ -285,6 +285,37 @@ def respell_rows(df, reference):
     return df
 
 
+def frame_rows(df, reference, frame, length_heteroplasmy_threshold):
+    """Mutect2's major calls in each frame region and within frames.FLANK bases of it,
+    written as FDSTOOLS' molecules are: rebuilt into one molecule and placed by the same
+    alignment, the region in the chosen frame and its edges by the general rule. A C on
+    a leading-run position (A16183M) counts as major from the length ceiling, as in the
+    frames. Minor calls stay as Mutect2 wrote them."""
+    _, lh_ceiling = lh_bounds(length_heteroplasmy_threshold)
+    for region in frames.REGIONS.values():
+        lo, hi = region.first - frames.FLANK, region.last + frames.FLANK
+        majors = {}
+        for idx, row in df.iterrows():
+            label = str(row["MUTECT2"])
+            if not lo <= notation.label_position(label)[0] <= hi:
+                continue
+            m = re.match(r"^([ACGT])(\d+)([MRWSYK])$", label)
+            if notation.is_major(label):
+                majors[idx] = label
+            elif (m and region.lead and region.first <= int(m.group(2)) <= region.lead_end
+                  and m.group(1) == region.lead and IUPAC_BASES[m.group(3)] == {region.lead, "C"}
+                  and row["VariantLevel"] >= lh_ceiling):
+                majors[idx] = label[:-1] + "C"
+        if not majors:
+            continue
+        molecule = notation.apply_labels(majors.values(), reference, lo, hi)
+        bases, flank = frames.region_and_flank(molecule, lo, hi, region, reference)
+        new = frames.labels(region, bases, frame, reference) + flank
+        if sorted(new) != sorted(df.loc[list(majors), "MUTECT2"]):
+            df = replace_labels(df, majors, new)
+    return df
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process mitochondrial variants into EMPOP format.")
     parser.add_argument("input_file", help="Input TSV file with variants")
@@ -292,6 +323,7 @@ def main():
     parser.add_argument("reference_fasta", help="Reference genome in FASTA format")
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 1-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
+    parser.add_argument("--frame", choices=["separate", "shared"], default="separate", help="Frame for 16180-16193 and 300-315, as for FDSTOOLS")
 
     args = parser.parse_args()
 
@@ -316,6 +348,7 @@ def main():
 
         df = finalize_output_table(df, args.lh_thresh/100)
         df = respell_rows(df, load_reference(args.reference_fasta))
+        df = frame_rows(df, load_reference(args.reference_fasta), args.frame, args.lh_thresh/100)
 
         # Rename selected columns
         df = df.rename(columns={

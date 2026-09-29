@@ -50,6 +50,14 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Mutect2's major calls in 57-60, 300-315 and 16180-16193 and within 12 bases
+  of them are written as FDSTOOLS' molecules are: rebuilt into one molecule,
+  placed by the same alignment, and written in the frame chosen with `--frame`
+  (edges by the general rule), so both callers meet on the same labels.
+  Mutect2 wrote D5c's molecule as `A16181- A16182- A16183- -16192.1T ...` and
+  T57C with one T more as `-56.1C`. A C on a leading-run position counts as
+  major from the length ceiling (`--lh_thresh`), as in the frames. Minor calls
+  there stay as Mutect2 writes them.
 - Major calls outside 57-60, 300-315 and 16180-16193 are written by the
   general rule (`resources/scripts/notation.py`) in both callers' tables:
   calls within 10 bases of each other are applied to rCRS and described anew.
@@ -68,7 +76,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   wrote T57C with one T more as `-56.1C`. The rows carry the frame in
   `variant_note`. Within 12 bases of each region the labels come from the same
   alignment, so a change next to the region is not counted on both sides of
-  its edge. Mutect2's rows in these regions are unchanged for now.
+  its edge.
 - Mutect2 always evaluates the alleles in `--force_alleles`
   (`resources/mutect2/force_alleles.vcf`, only A3105G for now). A3105G sits
   two bases before the rCRS N at 3107, where bwa places the missing base as a

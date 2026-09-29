@@ -592,7 +592,7 @@ process p13_merge_variants_p10_p11 {
                 ${vcf_file.baseName}.filtered.txt \
                 ${vcf_file.baseName}.filtered.empop.txt \
                 $reference \
-                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh
+                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh --frame $params.frame
         else
             printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${vcf_file.baseName}.filtered.empop.txt
         fi
