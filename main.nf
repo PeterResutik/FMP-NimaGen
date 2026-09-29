@@ -111,7 +111,7 @@ log_text = """\
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
 
          POSTPROCESSING
-         --depth                          : $params.depth # Read depth threshold for low coverage
+         --depth                          : $params.depth # Read depth threshold for low coverage (LOW); Mutect2 records resting on fewer reads are dropped
          --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
@@ -519,8 +519,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
 
     detection_limit=\$(echo "${params.min_vf_MT2} / 100" | bc -l)
 
+    # drop records resting on fewer than --depth reads (FORMAT/DP): the merge would weigh
+    # a frequency from one or two reads like an FDSTOOLS frequency from many
     bcftools view \
-    -i "FORMAT/AF>=\$detection_limit" \\
+    -i "FORMAT/AF>=\$detection_limit && FORMAT/DP>=${params.depth}" \\
     -o ${bam_file.baseName}.vcf.gz -Oz \
     ${bam_file.baseName}.norm.vcf.gz 
     

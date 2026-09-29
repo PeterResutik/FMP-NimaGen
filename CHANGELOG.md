@@ -50,6 +50,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Mutect2 records resting on fewer than `--depth` reads (FORMAT/DP) are
+  dropped. In the merge, a Mutect2 frequency from one or two reads counted as
+  much as an FDSTOOLS call from many (a 1-read 67% turned a 22-read 100%
+  `T16189C` into `T16189Y`). The amplicon's LOW row still flags the low
+  coverage.
 - Mutect2 reports each substituted position as its own record
   (`--max-mnp-distance 0`). By default it merged substitutions on neighbouring
   positions carried by the same reads into one multi-base record, which split
