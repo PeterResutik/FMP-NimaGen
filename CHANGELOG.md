@@ -55,9 +55,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   placed by the same alignment, and written in the frame chosen with `--frame`
   (edges by the general rule), so both callers meet on the same labels.
   Mutect2 wrote D5c's molecule as `A16181- A16182- A16183- -16192.1T ...` and
-  T57C with one T more as `-56.1C`. A C on a leading-run position counts as
-  major from the length ceiling (`--lh_thresh`), as in the frames. Minor calls
-  there stay as Mutect2 writes them.
+  T57C with one T more as `-56.1C`. Minor calls there stay as Mutect2 writes
+  them.
 - Major calls outside 57-60, 300-315 and 16180-16193 are written by the
   general rule (`resources/scripts/notation.py`) in both callers' tables:
   calls within 10 bases of each other are applied to rCRS and described anew.

@@ -74,11 +74,12 @@ def test_300_315(rcrs, molecule, shared, separate):
 
 
 @pytest.mark.parametrize("shift, shared, separate", [
-    (7, ["-315.1C"], ["-315.1C"]),
+    (7, ["A302M 7%", "-315.1C"], ["-315.1C"]),
     (12, ["A302M 12%", "-315.1C"], ["A302a 12%", "-309.1c 12%", "-315.1C"]),
 ])
-def test_boundary_shift_is_a_length_change_in_both_frames(rcrs, shift, shared, separate):
-    # below the length floor (10%) neither frame reports it, above it both do (spec point 15)
+def test_boundary_shift_uses_each_spellings_threshold(rcrs, shift, shared, separate):
+    # a substitution in the shared frame (from --min_vf, 5%), a length change in the
+    # separate frame (from --lh_thresh, 10%); spec point 15 as revised
     molecules = [(mol(3, 7, "T", 6), 100 - shift), (mol(2, 8, "T", 6), shift)]
     assert report(R310, molecules, "shared", rcrs) == shared
     assert report(R310, molecules, "separate", rcrs) == separate

@@ -231,8 +231,9 @@ def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10
     """Report rows [(label, percent)] for the molecules [(region bases, reads)] of one
     sample, out of `coverage` reads. Substitutions use min_vf, the caller's floor
     (--min_vf_FDS for FDSTOOLS molecules; minor as IUPAC), length changes lh_thresh
-    (--lh_thresh; minor in lowercase). In the shared frame a C on a leading-run
-    position is a boundary shift and uses lh_thresh too, so both frames report the
+    (--lh_thresh; minor in lowercase). A boundary shift is a substitution in the
+    shared frame and a length change in the separate frame, each with its own
+    threshold; setting --min_vf equal to --lh_thresh makes both frames report the
     same molecules."""
     lh_floor, lh_ceiling = min(lh_thresh, 100 - lh_thresh), max(lh_thresh, 100 - lh_thresh)
     bases_at, deleted_at, inserted_at = defaultdict(Counter), Counter(), defaultdict(Counter)
@@ -252,11 +253,9 @@ def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10
         for b, share in sorted(shares.items(), key=lambda x: -x[1]):
             if b == ref:
                 continue
-            boundary = region.lead and b == "C" and p <= region.lead_end
-            floor, ceiling = (lh_floor, lh_ceiling) if boundary else (min_vf, 100 - min_vf)
-            if share >= ceiling:
+            if share >= 100 - min_vf:
                 out.append((f"{ref}{p}{b}", share))
-            elif share >= floor:
+            elif share >= min_vf:
                 out.append((f"{ref}{p}{IUPAC[frozenset((ref, b))]}", share))
         share = 100 * deleted_at[p] / coverage
         if share >= lh_ceiling:

@@ -285,13 +285,11 @@ def respell_rows(df, reference):
     return df
 
 
-def frame_rows(df, reference, frame, length_heteroplasmy_threshold):
+def frame_rows(df, reference, frame):
     """Mutect2's major calls in each frame region and within frames.FLANK bases of it,
     written as FDSTOOLS' molecules are: rebuilt into one molecule and placed by the same
-    alignment, the region in the chosen frame and its edges by the general rule. A C on
-    a leading-run position (A16183M) counts as major from the length ceiling, as in the
-    frames. Minor calls stay as Mutect2 wrote them."""
-    _, lh_ceiling = lh_bounds(length_heteroplasmy_threshold)
+    alignment, the region in the chosen frame and its edges by the general rule. Minor
+    calls stay as Mutect2 wrote them."""
     for region in frames.REGIONS.values():
         lo, hi = region.first - frames.FLANK, region.last + frames.FLANK
         majors = {}
@@ -299,13 +297,8 @@ def frame_rows(df, reference, frame, length_heteroplasmy_threshold):
             label = str(row["MUTECT2"])
             if not lo <= notation.label_position(label)[0] <= hi:
                 continue
-            m = re.match(r"^([ACGT])(\d+)([MRWSYK])$", label)
             if notation.is_major(label):
                 majors[idx] = label
-            elif (m and region.lead and region.first <= int(m.group(2)) <= region.lead_end
-                  and m.group(1) == region.lead and IUPAC_BASES[m.group(3)] == {region.lead, "C"}
-                  and row["VariantLevel"] >= lh_ceiling):
-                majors[idx] = label[:-1] + "C"
         if not majors:
             continue
         molecule = notation.apply_labels(majors.values(), reference, lo, hi)
@@ -348,7 +341,7 @@ def main():
 
         df = finalize_output_table(df, args.lh_thresh/100)
         df = respell_rows(df, load_reference(args.reference_fasta))
-        df = frame_rows(df, load_reference(args.reference_fasta), args.frame, args.lh_thresh/100)
+        df = frame_rows(df, load_reference(args.reference_fasta), args.frame)
 
         # Rename selected columns
         df = df.rename(columns={

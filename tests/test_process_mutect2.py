@@ -129,7 +129,7 @@ def test_a_label_the_rewrite_keeps_keeps_its_frequency(reference):
 
 def frame(labels, which):
     df = pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": "0,100", "Type": "?"} for l, v in labels])
-    return mt2.frame_rows(df, mt2.load_reference(REFERENCE), which, 0.10).set_index("MUTECT2")["VariantLevel"].to_dict()
+    return mt2.frame_rows(df, mt2.load_reference(REFERENCE), which).set_index("MUTECT2")["VariantLevel"].to_dict()
 
 
 REFERENCE = str(Path(__file__).resolve().parents[1] / "resources" / "rCRS" / "rCRS_NimaGen.fasta")
@@ -146,8 +146,10 @@ REFERENCE = str(Path(__file__).resolve().parents[1] / "resources" / "rCRS" / "rC
     # next to 57-60 the edges follow the general rule, as for FDSTOOLS
     ([("-60.1T", .99), ("-60.2T", .99), ("C64-", .99), ("T65-", .99)], "shared",
      {"C61T": .99, "G62-": .99, "-64.1G": .99}),
-    # a boundary C from the length ceiling on (90%); T16189C keeps its own frequency
-    ([("A16183M", .92), ("T16189C", 1.0)], "separate", {"A16183-": .92, "T16189C": 1.0, "-16193.1C": .92}),
+    # a boundary C below the substitution line (95%) is minor and stays as Mutect2 wrote it
+    ([("A16183M", .92), ("T16189C", 1.0)], "separate", {"A16183M": .92, "T16189C": 1.0}),
+    # a major one is written in the frame; T16189C keeps its own frequency
+    ([("A16183C", .97), ("T16189C", 1.0)], "separate", {"A16183-": .97, "T16189C": 1.0, "-16193.1C": .97}),
     ([("A16183M", .86), ("T16189C", 1.0), ("-16193.1c", .54)], "separate",
      {"A16183M": .86, "T16189C": 1.0, "-16193.1c": .54}),
 ])
