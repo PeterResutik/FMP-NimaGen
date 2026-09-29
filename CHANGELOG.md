@@ -50,6 +50,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   depth a call on every read could show as 95% instead of 100%.
 
 ### Changed
+- Mutect2 always evaluates the alleles in `--force_alleles`
+  (`resources/mutect2/force_alleles.vcf`, only A3105G for now). A3105G sits
+  two bases before the rCRS N at 3107, where bwa places the missing base as a
+  deletion plus a substitution; with pileup detection alone Mutect2 reported
+  nothing there. In samples without it the forced allele comes out near 0% and
+  is filtered. Forcing alleles inside dense clusters of variants made Mutect2
+  lose calls there, so the list is kept to isolated sites.
 - Mutect2 also takes candidate changes straight from the aligned reads
   (pileup detection, substitutions and indels seen in at least 10% of the
   reads), not only from its local assembly, which missed variants in dense

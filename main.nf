@@ -58,6 +58,7 @@ params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 4
 params.max_reads_per_alignment_start = 0
+params.force_alleles = "$baseDir/resources/mutect2/force_alleles.vcf" // alleles Mutect2 always evaluates (--alleles)
 params.min_reads_per_strand = 0 // disables StrictStrandBiasFilter — this pipeline's RC-PCR + FLASH-merged reads are always single-orientation, so any nonzero value guarantees FILTER=strict_strand on every call regardless of true variant quality
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
@@ -109,6 +110,7 @@ log_text = """\
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
+         --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth threshold for low coverage (LOW); Mutect2 records resting on fewer reads are dropped
@@ -465,6 +467,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     path reference
     path fasta_index
     path mutect2_index
+    path force_alleles
 
     output:
     tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), emit: mutect2_ch
@@ -480,6 +483,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     
     """  
     mkdir tmp_${sample_id}
+
+    # --alleles needs a bgzipped, indexed VCF; --force_alleles may be plain or bgzipped
+    bcftools view -Oz -o forced_alleles.vcf.gz ${force_alleles}
+    tabix -p vcf forced_alleles.vcf.gz
 
     # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
     # pileup detection: candidates also from the aligned reads, not only from assembly;
@@ -501,6 +508,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         --pileup-detection-enable-indel-pileup-calling true \
         --pileup-detection-proper-pair-read-badness false \
         --pileup-detection-snp-basequality-filter ${params.baseQ} \
+        --alleles forced_alleles.vcf.gz \
         --bam-output ${bam_file.baseName}.bamout.bam \
         --tmp-dir tmp_${sample_id} \
         -I ${bam_file} \
@@ -654,7 +662,7 @@ workflow {
 
     // ────────────────── VARIANT CALLING ─────────────────────
     p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
-    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.reference, p01_index_ch, p01_index_mutect2_ch)
+    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.reference, p01_index_ch, p01_index_mutect2_ch, params.force_alleles)
     p11_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p09.out.mutect2_ch 
 
 

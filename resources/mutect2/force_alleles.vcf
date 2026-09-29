@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##contig=<ID=chrM,length=16622>
+##comment=Alleles Mutect2 always evaluates (--force_alleles). A3105G sits two bases before the rCRS N at 3107, where pileup detection alone misses it.
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chrM	3105	.	A	G	.	.	.
