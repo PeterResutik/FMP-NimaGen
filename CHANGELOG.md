@@ -98,6 +98,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   column is informational; no calls were dropped by it.
 
 ### Added
+- `resources/scripts/notation.py`: how a molecule differs from rCRS, by the
+  general rule (fewest changes, substitutions before gaps, gaps placed 3',
+  whole repeat copies at the 3'-most copy, the rCRS N at 3107 left out). Not
+  used by the report yet; the frames for the complex regions and the rebuild
+  of the callers' major calls will build on it.
 - Unit tests for the Python report scripts in `tests/`, run with `pytest` from
   the repository root (`pytest` added to `FMP-NimaGen.yml`). The first file
   covers `process_mutect2_output_improved.py`: origin coordinates and pooling,
