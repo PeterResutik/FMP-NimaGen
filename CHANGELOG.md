@@ -106,6 +106,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   on an amplicon's reads without "Other sequences", LOW for low or missing
   amplicons with their calls kept, the length-heteroplasmy floor and ceiling,
   and minor deletions and substitutions.
+- Tests for `merge_fdstools_mutect2_improved.py`: one row per locus across
+  both callers' spellings, DISAGREEMENT kept apart from a missed call, the plain
+  and depth-weighted averages, LOW rows per amplicon for both callers, and the
+  colours of these flags in the Excel file.
 - `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a
