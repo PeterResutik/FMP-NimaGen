@@ -13,10 +13,12 @@ into this repository.
   files, inserts located by the primers on rCRS, substitution errors from
   per-base qualities. Positions mitoLEAF marks as ambiguous (IUPAC codes
   such as `16519Y`, lowercase entries such as `315.1c`) get one of their
-  states, drawn per haplogroup (`--ambiguous one`, the default), or become
-  50/50 heteroplasmies on two haplotypes (`--ambiguous het`). Drawn states
-  can combine in ways no real genome shows (e.g. `16181C 16182C 16183C`
-  without `16189C`), which rtn then removes. No PCR stutter yet.
+  states, drawn per haplogroup (`--ambiguous one`, the default), become
+  50/50 heteroplasmies on two haplotypes (`--ambiguous het`), or always take
+  the variant (`--ambiguous alt`) or the rCRS state (`--ambiguous rcrs`).
+  Drawn states and `alt` can combine in ways few real genomes show (e.g.
+  `16181C 16182C 16183C` without `16189C`), which rtn then removes. No PCR
+  stutter yet.
 - `score_calls.py` compares the merged Excel with the truth, overall and per
   caller, and lists mismatches (C-stretches 303-315 and 16180-16193 separately).
   `--exclude` leaves out windows, e.g. `300-320,16170-16200` or `16519-16519`.

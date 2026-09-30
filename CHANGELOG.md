@@ -149,6 +149,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - `tests/simulation/`: tools that simulate NimaGen reads for mitoLEAF
   haplogroups, run the pipeline on them and score the calls against the
   known sequence (see its README).
+- `simulate_reads.py --ambiguous alt` and `rcrs`: positions mitoLEAF marks as
+  ambiguous always take the variant or the rCRS state, besides one state drawn
+  per haplogroup (`one`, the default) and a 50/50 heteroplasmy (`het`).
 - `resources/scripts/frames.py`: the shared and the separate frame for
   16180-16193 and 300-315 (57-60 is laid from the left, with no separate
   variant), and the report rows they give per sample. FDSTOOLS' molecules are

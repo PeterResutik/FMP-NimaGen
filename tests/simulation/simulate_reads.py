@@ -13,7 +13,9 @@ codes (16519Y: T or C) and lowercase entries (315.1c: C inserted or not;
 16193c: C or deleted). With --ambiguous one (default) each such position gets
 one of its states, chosen at random but seeded by haplogroup, in all reads.
 With --ambiguous het they become 50/50 heteroplasmies on two haplotypes,
-reads alternating between them.
+reads alternating between them. With --ambiguous alt every such position
+carries the variant (16519C, 315.1C, 16193 deleted), with --ambiguous rcrs
+the rCRS state (where an IUPAC code excludes the rCRS base, its other base).
 
 Output per haplogroup: <sample>_R1_001.fastq.gz, <sample>_R2_001.fastq.gz
 (the pipeline's read pattern) and <sample>_truth.tsv with the variants used.
@@ -77,7 +79,8 @@ def apply_motif(rcrs, motif, ambiguous="het", rng=None):
     ref + inserted bases for insertions), for two haplotypes. Fixed variants
     are on both. Ambiguous entries (IUPAC, lowercase) are 50/50 with
     ambiguous="het" (variant form on the first haplotype, the other form on
-    the second), or one state drawn with rng on both with ambiguous="one".
+    the second); with "one" one state drawn with rng is on both, with "alt"
+    the variant form, with "rcrs" the other form.
     Returns (haplotypes, variants used)."""
     # rCRS keeps an N placeholder at 3107 where real genomes have no base
     bases = {p: (b if b in "ACGT" else "") for p, b in enumerate(rcrs, start=1)}
@@ -93,6 +96,10 @@ def apply_motif(rcrs, motif, ambiguous="het", rng=None):
                 if rng.random() < 0.5:
                     continue
                 token = f"{pos}.{idx}{base}"
+            if m[3].islower() and ambiguous == "rcrs":
+                continue
+            if m[3].islower() and ambiguous == "alt":
+                token = f"{pos}.{idx}{base}"
             for ins in insertions[:1 if m[3].islower() and ambiguous == "het" else 2]:
                 ins.setdefault(pos, {})[idx] = base
             used.append(token)
@@ -104,15 +111,15 @@ def apply_motif(rcrs, motif, ambiguous="het", rng=None):
         elif (m := re.fullmatch(r"(\d+)([acgt])", token)) and m[2].upper() == ref:
             # lowercase rCRS base: the base or a deletion
             forms, label = ("", ref), token
-            if ambiguous == "one":
-                deleted = rng.random() < 0.5
+            if ambiguous in ("one", "alt", "rcrs"):
+                deleted = rng.random() < 0.5 if ambiguous == "one" else ambiguous == "alt"
                 forms, label = (("", ""), f"{pos}-") if deleted else ((ref, ref), None)
         elif m := re.fullmatch(r"(\d+)([RYMKSWBDHVN])", token):
             alt = next(b for b in IUPAC[m[2]] if b != ref)
             other = ref if ref in IUPAC[m[2]] else next(b for b in IUPAC[m[2]] if b != alt)
             forms, label = (alt, other), f"{pos}{IUPAC_CODE[frozenset((alt, other))]}"
-            if ambiguous == "one":
-                state = rng.choice(sorted(IUPAC[m[2]]))
+            if ambiguous in ("one", "alt", "rcrs"):
+                state = {"one": lambda: rng.choice(sorted(IUPAC[m[2]])), "alt": lambda: alt, "rcrs": lambda: other}[ambiguous]()
                 forms, label = (state, state), (f"{pos}{state}" if state != ref else None)
         elif re.fullmatch(r"(\d+)-", token):
             forms, label = ("", ""), token
@@ -189,8 +196,9 @@ def main():
     p.add_argument("--reads-per-amplicon", type=int, default=100)
     p.add_argument("--read-length", type=int, default=226, help="bases read from each end (current workflow: 226)")
     p.add_argument("--seed", type=int, default=1)
-    p.add_argument("--ambiguous", choices=["one", "het"], default="one",
-                   help="ambiguous motif entries: one state per haplogroup (one) or 50/50 heteroplasmy (het)")
+    p.add_argument("--ambiguous", choices=["one", "het", "alt", "rcrs"], default="one",
+                   help="ambiguous motif entries: one state per haplogroup (one), 50/50 heteroplasmy (het), "
+                        "always the variant (alt) or always the rCRS state (rcrs)")
     p.add_argument("--processes", type=int, default=4)
     p.add_argument("--reference", default=REPO / "resources/rCRS/rCRS_NimaGen.fasta")
     p.add_argument("--left-primers", default=REPO / "resources/primers/left_primers.fasta")
