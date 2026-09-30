@@ -140,6 +140,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   column is informational; no calls were dropped by it.
 
 ### Added
+- `--skip_numt_filter` (default `false`): skips the NUMT filter (`rtn`) in
+  `p08`/`p09`, for simulated reads, which contain no NUMTs. The MAPQ filter
+  and everything downstream are unchanged.
 - `resources/scripts/frames.py`: the shared and the separate frame for
   16180-16193 and 300-315 (57-60 is laid from the left, with no separate
   variant), and the report rows they give per sample. FDSTOOLS' molecules are

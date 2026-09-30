@@ -40,6 +40,7 @@ params.fdstools_library = "$baseDir/resources/fdstools/mtNG_library_file.txt"
 
 // rtn
 params.mapQ = 30
+params.skip_numt_filter = false // true skips rtn, e.g. for simulated reads, which contain no NUMTs; the MAPQ filter still applies
 
 // fdstools
 params.minimum = 2
@@ -102,6 +103,7 @@ log_text = """\
 
          NUMTs REMOVAL (with RTN)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
+         --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
 
          VARIANT CALLING (with FDSTOOLS)
          (tssv)
@@ -369,11 +371,12 @@ process p08_filter_numts_merged_fastq_p06 {
     tuple val(sample_id), path("${bam_wo_scb_merged.baseName}.rtn.bam"), path("${bam_wo_scb_merged.baseName}.rtn.bam.bai"), path("${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq")
 
     script:
+    // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    def numt_filter = params.skip_numt_filter.toString().toBoolean() ?
+        "cp ${bam_wo_scb_merged} ${bam_wo_scb_merged.baseName}.rtn.bam && samtools index ${bam_wo_scb_merged.baseName}.rtn.bam" :
+        "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b ${bam_wo_scb_merged}"
     """
-
-
-    # -i: indels do not count toward a read's distance, as when rtn picks the closest genome
-    rtn -i -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged
+    ${numt_filter}
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged.baseName}.rtn.bam > ${bam_wo_scb_merged.baseName}.rtn_tmp.bam
     samtools fastq ${bam_wo_scb_merged.baseName}.rtn_tmp.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
     """
@@ -396,9 +399,12 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
     tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt")
 
     script:
+    // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    def numt_filter = params.skip_numt_filter.toString().toBoolean() ?
+        "cp ${bam_wo_scb_merged_trimmed} ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam && samtools index ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam" :
+        "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b ${bam_wo_scb_merged_trimmed}"
     """
-    # -i: indels do not count toward a read's distance, as when rtn picks the closest genome
-    rtn -i -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
+    ${numt_filter}
 
     samtools view -b -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools index ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
