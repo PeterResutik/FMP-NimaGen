@@ -74,6 +74,7 @@ params.min_vf_FDS = 5
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
 params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
 params.frame = "separate" // separate | shared: how 16180-16193 and 300-315 are written (resources/scripts/frames.py)
+params.mutect2_disabled_regions = "none" // none | all | names separated by commas (57-60,300-315,16180-16193): complex regions where only Mutect2's major calls count
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -120,6 +121,7 @@ log_text = """\
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
          --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
+         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all, or names separated by commas (57-60,300-315,16180-16193): complex regions where Mutect2 minor calls are left out
          --marker_map                     : $params.fdstools_library # Path to marker map file
 
          OUTPUT DIRECTORY   
@@ -557,7 +559,7 @@ process p13_merge_variants_p10_p11 {
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
-    path python_modules // notation.py, frames.py: imported by the FDSTOOLS script, inputs so -resume sees changes
+    path python_modules // notation.py, frames.py: imported by the p13 scripts, inputs so -resume sees changes
 
     output:
     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
@@ -609,7 +611,8 @@ process p13_merge_variants_p10_p11 {
             ${sample_id}_merged_variants.xlsx \
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
             --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
-            --disagreement_average $params.disagreement_average
+            --disagreement_average $params.disagreement_average \
+            --mutect2_disabled_regions $params.mutect2_disabled_regions
 
 
 

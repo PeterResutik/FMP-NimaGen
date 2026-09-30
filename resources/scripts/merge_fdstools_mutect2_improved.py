@@ -6,6 +6,9 @@ import traceback
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment
 
+import frames
+import notation
+
 
 white_border = Border(
     left=Side(border_style="thin", color="FFFFFF"),
@@ -161,10 +164,34 @@ def caller_average_pct(row, vf_fds, vf_mt2, weighted=False):
     return (vf_fds + vf_mt2 * 100) / 2
 
 
+def disabled_regions(value):
+    """Region names for --mutect2_disabled_regions: none, all, or names from
+    frames.REGIONS separated by commas (300-315,16180-16193)."""
+    if value in ("", "none"):
+        return []
+    if value == "all":
+        return list(frames.REGIONS)
+    names = [n.strip() for n in value.split(",")]
+    unknown = [n for n in names if n not in frames.REGIONS]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown region {', '.join(unknown)}; choose from {', '.join(frames.REGIONS)}, all or none")
+    return names
+
+
+def region_of(label, names):
+    """The region among `names` that a report label lies in, or None."""
+    m = re.match(r"^-?[ACGTN]?(\d+)", str(label))
+    if m:
+        pos = int(m.group(1))
+        return next((n for n in names if frames.REGIONS[n].first <= pos <= frames.REGIONS[n].last), None)
+    return None
+
+
 def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
                           min_vf: float = 5.0, mutect2_depth_file: str = None,
                           marker_map: str = None, depth_threshold: int = 10,
-                          weighted_average: bool = False) -> pd.DataFrame:
+                          weighted_average: bool = False, mutect2_disabled=()) -> pd.DataFrame:
     try:
         df1 = pd.read_csv(file_fdstools, sep="\t")
         df2 = pd.read_csv(file_mutect2, sep="\t")
@@ -185,6 +212,16 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         else:
             ranges = {m: tuple(map(int, str(r).split("-"))) for m, r in zip(fds_low["marker"], fds_low["marker_range"])}
         mt2_depths = mutect2_amplicon_depths(mutect2_depth_file, ranges) if mutect2_depth_file else {}
+
+        # In a disabled region only Mutect2's major calls count; its minor calls
+        # are listed in the note of the region's rows
+        left_out = {}
+        if mutect2_disabled and not df2.empty:
+            minor = df2["MUTECT2"].apply(
+                lambda label: not notation.is_major(label) and region_of(label, mutect2_disabled) is not None)
+            for label, vf in zip(df2.loc[minor, "MUTECT2"], df2.loc[minor, "vf_MT2"]):
+                left_out.setdefault(region_of(label, mutect2_disabled), []).append(f"{label} {round(100 * vf, 2)}%")
+            df2 = df2[~minor].copy()
 
         # Rename original variant columns before merge to avoid conflict
         df1["FMP"] = df1["FDSTOOLS"]
@@ -316,6 +353,18 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         mt2_override = reconciled["mt2_confirms"].notna()
         merged.loc[mt2_override.values, "called_by_MUTECT2"] = reconciled.loc[mt2_override, "mt2_confirms"].apply(
             lambda confirms: True if confirms else "DISAGREEMENT").values
+
+        if mutect2_disabled:
+            region = merged["FMP"].apply(lambda label: region_of(label, mutect2_disabled))
+            silent = merged["called_by_MUTECT2"].apply(lambda v: v is False)
+            merged.loc[region.notna() & silent, "called_by_MUTECT2"] = "disabled"
+            if "variant_note" not in merged.columns:
+                merged["variant_note"] = None
+            for name, labels in left_out.items():
+                note = f"Mutect2 minor calls left out: {', '.join(labels)}"
+                rows = region == name
+                merged.loc[rows, "variant_note"] = merged.loc[rows, "variant_note"].apply(
+                    lambda n: note if pd.isna(n) else f"{n}; {note}")
 
         def extract_position(seq):
             match = re.search(r"(\d+\.?\d*)", str(seq))
@@ -455,13 +504,15 @@ if __name__ == "__main__":
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
     parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
     parser.add_argument("--disagreement_average", choices=["plain", "depth_weighted"], default="plain", help="How the two callers' frequencies are averaged when they disagree on major vs minor: plain average, or weighted by each caller's read depth")
+    parser.add_argument("--mutect2_disabled_regions", type=disabled_regions, default="none", help="Complex regions where only Mutect2's major calls count (its minor calls are listed in the note of the region's rows): none, all, or names separated by commas, e.g. 300-315,16180-16193")
 
     args = parser.parse_args()
 
     try:
         df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
                                           args.mutect2_depth, args.marker_map, args.depth,
-                                          args.disagreement_average == "depth_weighted")
+                                          args.disagreement_average == "depth_weighted",
+                                          args.mutect2_disabled_regions)
         if df_merged.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")

@@ -1,4 +1,5 @@
 """merge_fdstools_mutect2_improved.py: both callers' tables -> one report."""
+import argparse
 import subprocess
 import sys
 
@@ -44,11 +45,12 @@ def write_inputs(tmp_path, fds_rows, mt2_rows, depths):
     return fds_file, mt2_file, depth_file, library
 
 
-def run(tmp_path, fds_rows, mt2_rows, depths={}, weighted=False):
+def run(tmp_path, fds_rows, mt2_rows, depths={}, weighted=False, disabled=()):
     fds_file, mt2_file, depth_file, library = write_inputs(tmp_path, fds_rows, mt2_rows, depths)
     return merge.merge_variant_callers(str(fds_file), str(mt2_file), lh_thresh=10.0, min_vf=5.0,
                                        mutect2_depth_file=str(depth_file), marker_map=str(library),
-                                       depth_threshold=10, weighted_average=weighted)
+                                       depth_threshold=10, weighted_average=weighted,
+                                       mutect2_disabled=disabled)
 
 
 def calls(report):
@@ -145,3 +147,62 @@ def test_script_writes_excel_with_flags_coloured(tmp_path):
     assert fill(rows["LOW"][col["called_by_FDSTOOLS"]]) == "FEFE01"          # low coverage: LOW yellow
     assert rows["LOW"][col["called_by_MUTECT2"]].value == "ok"
     assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # ok is not a miss
+
+
+# 16180-16193 with T16189C: FDSTOOLS sees one C more on 30% of the molecules; Mutect2
+# adds a boundary PHP of its own, T16195Y lies just past the region and A263G far outside
+C_STRETCH_FDS = [fds("T16189C", 100.0, 900, "mtNG_097"), fds("-16193.1c", 30.0, 900, "mtNG_097"),
+                 fds("A263G", 100.0, 900, "mtNG_003")]
+C_STRETCH_MT2 = [mt2("T16189C", 0.99, "5,495", 16189, "T", "C", "SNP"),
+                 mt2("A16183M", 0.07, "465,35", 16183, "A", "C", "PHP"),
+                 mt2("-16193.1c", 0.34, "330,170", 16193, "C", "CC", "LHP"),
+                 mt2("T16195Y", 0.20, "400,100", 16195, "T", "C", "PHP")]
+
+
+def test_mutect2_calls_every_region_by_default(tmp_path):
+    report = calls(run(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2))
+    assert report.loc["A16183M", "called_by_FDSTOOLS"] is False
+    assert report.loc["-16193.1c", "called_by_MUTECT2"] is True
+
+
+def test_disabled_region_keeps_mutect2_majors_and_notes_its_minor_calls(tmp_path):
+    report = calls(run(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2, disabled=["16180-16193"]))
+    assert "A16183M" not in report.index
+    assert report.loc["T16189C", "called_by_MUTECT2"] is True
+    assert report.loc["-16193.1c", "called_by_MUTECT2"] == "disabled"
+    assert pd.isna(report.loc["-16193.1c", "MUTECT2"])
+    assert report.loc["A263G", "called_by_MUTECT2"] is False
+    assert report.loc["T16195Y", "called_by_FDSTOOLS"] is False
+    assert pd.isna(report.loc["T16195Y", "variant_note"])
+    note = "Mutect2 minor calls left out: A16183M 7.0%, -16193.1c 34.0%"
+    assert report.loc["T16189C", "variant_note"] == note
+    assert report.loc["-16193.1c", "variant_note"] == note
+    assert pd.isna(report.loc["A263G", "variant_note"])
+
+
+@pytest.mark.parametrize("value, names", [("none", []), ("all", ["16180-16193", "300-315", "57-60"]),
+                                          ("300-315, 16180-16193", ["300-315", "16180-16193"])])
+def test_disabled_regions_option(value, names):
+    assert merge.disabled_regions(value) == names
+
+
+def test_disabled_regions_option_rejects_unknown_region():
+    with pytest.raises(argparse.ArgumentTypeError):
+        merge.disabled_regions("452-463")
+
+
+def test_script_disables_mutect2_in_a_region(tmp_path):
+    fds_file, mt2_file, depth_file, library = write_inputs(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2, {})
+    xlsx = tmp_path / "merged.xlsx"
+    subprocess.run([sys.executable, merge.__file__, str(fds_file), str(mt2_file), str(xlsx),
+                    "--mutect2_depth", str(depth_file), "--marker_map", str(library),
+                    "--mutect2_disabled_regions", "16180-16193"], check=True)
+    ws = load_workbook(xlsx).active
+    header = [c.value for c in ws[1]]
+    col = {name: header.index(name) for name in ("FMP", "called_by_MUTECT2")}
+    rows = {r[col["FMP"]].value: r for r in ws.iter_rows(min_row=2)}
+    fill = lambda cell: cell.fill.start_color.rgb[-6:]
+    assert rows["-16193.1c"][col["called_by_MUTECT2"]].value == "disabled"
+    assert fill(rows["-16193.1c"][col["called_by_MUTECT2"]]) != "FFC7CE"   # disabled is not a miss
+    assert fill(rows["-16193.1c"][col["FMP"]]) != "F50003"
+    assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"

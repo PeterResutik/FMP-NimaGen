@@ -151,6 +151,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a
   call on a few Mutect2 reads no longer outweighs one on many FDSTOOLS reads.
+- `--mutect2_disabled_regions` (`none` by default, `all`, or region names
+  separated by commas, e.g. `300-315,16180-16193`): complex regions where only
+  Mutect2's major calls count, as rebuilt in the frame. Its minor calls there
+  (PHP, LHP) leave the report and are listed in the `variant_note` of the
+  region's rows (not shown when FDSTOOLS reports nothing in the region); a row
+  there that Mutect2 has no call for says `disabled` instead of False. Applied
+  in the merge, so with `-resume` only `p13` reruns.
 
 ### Removed
 - `--detection_limit`: unused since the mutserve-based setup was replaced; the
