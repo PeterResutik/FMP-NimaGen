@@ -147,6 +147,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   both callers' spellings, DISAGREEMENT kept apart from a missed call, the plain
   and depth-weighted averages, LOW rows per amplicon for both callers, and the
   colours of these flags in the Excel file.
+- `resources/rtn_files/humans/build/`: scripts and lists that build
+  `humans_NimaGen.fa`, rtn's human mitogenomes for NimaGen, from rtn's
+  `humans.fa`: four genomes left out (two containing NUMT sequence, two not
+  modern human), 580 mitoLEAF haplogroups added where no genome matched a
+  NimaGen amplicon exactly, and each genome written once plus its first 100
+  bases instead of twice. Not used by the pipeline yet.
 - `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a

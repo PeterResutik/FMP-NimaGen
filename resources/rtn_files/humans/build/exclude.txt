@@ -1,0 +1,5 @@
+# genomes left out of rtn's humans.fa
+AS_PH_0430	control region 16205-16404 identical to NUMT KM281528.1 (20 differences from its haplogroup M7c1c)
+AS_PH_0429	16497-16543 two differences from NUMT chr1:77436933-77437100, 19 from rCRS
+XX_XX_6514	about 160 differences from every mitoLEAF haplogroup: not a modern human lineage
+XX_XX_6515	about 160 differences from every mitoLEAF haplogroup: not a modern human lineage
