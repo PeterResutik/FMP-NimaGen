@@ -14,7 +14,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - The humans-reference BWA index is built once, in a new
   `p01b_prepare_humans_index` process, instead of inside `p02` for every
   sample, where parallel samples could race to build it on a first run.
-  `bunzip2 -k` now keeps the source archive.
+  `bunzip2 -k` now keeps the source archive. It also builds the humans
+  file's `.fai`, which rtn otherwise creates itself, so parallel rtn runs on a
+  first run could race to write it.
 - `params.mapQ` now applies to the BAM Mutect2 runs on: `p09` built the
   MAPQ-filtered BAM but passed the unfiltered one on. Mutect2 already ignores
   reads below MAPQ 20 by default, so calls are largely unaffected; QC and the

@@ -189,6 +189,10 @@ process p01b_prepare_humans_index {
     else
         echo "BWA index found for human reference."
     fi
+    # rtn reads the genomes through the .fai: built here once, not by the first parallel rtn runs
+    if [[ ! -f "${humans_index_dir}/${humans_base}.fai" ]]; then
+        samtools faidx "${humans_index_dir}/${humans_base}"
+    fi
     """
 }
 
