@@ -50,6 +50,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   "Other sequences"). The depth was reconstructed from each row's rounded
   percentage, which slightly overestimated it and lowered frequencies; at low
   depth a call on every read could show as 95% instead of 100%.
+- rtn runs with `-i`: indels no longer count toward a read's distance from
+  the human genomes. rtn chose among equally close genomes by substitutions
+  only but then judged the read with indels counted, so a read was kept or
+  dropped depending on the order bwa listed those genomes. Reads carrying a
+  length variant that no genome has are no longer dropped for it, which
+  raises minor length variants in the C-stretches slightly.
 
 ### Changed
 - rtn compares reads with `humans_NimaGen.fa` (built by

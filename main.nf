@@ -372,7 +372,8 @@ process p08_filter_numts_merged_fastq_p06 {
     """
 
 
-    rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged
+    # -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    rtn -i -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged
     samtools view -h -q $params.mapQ ${bam_wo_scb_merged.baseName}.rtn.bam > ${bam_wo_scb_merged.baseName}.rtn_tmp.bam
     samtools fastq ${bam_wo_scb_merged.baseName}.rtn_tmp.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
     """
@@ -396,7 +397,8 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
     script:
     """
-    rtn -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
+    # -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    rtn -i -h "${humans_index}/${humans_base}" -n "${numts_index}/${numts_base}" -b $bam_wo_scb_merged_trimmed
 
     samtools view -b -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools index ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
