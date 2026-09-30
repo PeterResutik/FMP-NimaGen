@@ -115,8 +115,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   only means the caller did not report the variant.
 - `LOW` rows cover both callers: one row per amplicon, at the bottom of the
   merged table. The FDSTOOLS and MUTECT2 columns name the amplicon when that
-  caller's depth is below `--depth`, and `called_by_*` read `low` (yellow) or
-  `ok` for each caller, instead of True/False, which in variant rows mean
+  caller's depth is below `--depth`, and `called_by_*` read `LOW` (yellow) or
+  `OK` for each caller, instead of True/False, which in variant rows mean
   called or missed. Mutect2's depth is the read count at the amplicon's middle
   position in the BAM it runs on (from `p09`).
 - `--min_reads_per_strand` default 3 → 0. Merged reads are single-orientation,
@@ -156,7 +156,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   Mutect2's major calls count, as rebuilt in the frame. Its minor calls there
   (PHP, LHP) leave the report and are listed in the `variant_note` of the
   region's rows (not shown when FDSTOOLS reports nothing in the region); a row
-  there that Mutect2 has no call for says `disabled` instead of False. Applied
+  there that Mutect2 has no call for says `DISABLED` instead of False. Applied
   in the merge, so with `-resume` only `p13` reruns.
 
 ### Removed

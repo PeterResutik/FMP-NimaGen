@@ -122,8 +122,8 @@ def test_low_rows_per_amplicon_for_both_callers(tmp_path):
                  depths={"mtNG_003": 3})
     low = report[report["FMP"] == "LOW"].set_index("marker")
     assert sorted(low.index) == ["mtNG_002", "mtNG_003"]
-    assert (low.loc["mtNG_002", "called_by_FDSTOOLS"], low.loc["mtNG_002", "called_by_MUTECT2"]) == ("low", "ok")
-    assert (low.loc["mtNG_003", "called_by_FDSTOOLS"], low.loc["mtNG_003", "called_by_MUTECT2"]) == ("ok", "low")
+    assert (low.loc["mtNG_002", "called_by_FDSTOOLS"], low.loc["mtNG_002", "called_by_MUTECT2"]) == ("LOW", "OK")
+    assert (low.loc["mtNG_003", "called_by_FDSTOOLS"], low.loc["mtNG_003", "called_by_MUTECT2"]) == ("OK", "LOW")
     assert low.loc["mtNG_003", "rd_MT2"] == 3
 
 
@@ -143,9 +143,9 @@ def test_script_writes_excel_with_flags_coloured(tmp_path):
     assert [r[col["FMP"]].value for r in ws.iter_rows(min_row=2)][-1] == "LOW"
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"          # missed call: red
     assert fill(rows["-309.1c"][col["called_by_FDSTOOLS"]]) == "FFD966"       # disagreement: its own colour
-    assert rows["LOW"][col["called_by_FDSTOOLS"]].value == "low"
+    assert rows["LOW"][col["called_by_FDSTOOLS"]].value == "LOW"
     assert fill(rows["LOW"][col["called_by_FDSTOOLS"]]) == "FEFE01"          # low coverage: LOW yellow
-    assert rows["LOW"][col["called_by_MUTECT2"]].value == "ok"
+    assert rows["LOW"][col["called_by_MUTECT2"]].value == "OK"
     assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # ok is not a miss
 
 
@@ -169,7 +169,7 @@ def test_disabled_region_keeps_mutect2_majors_and_notes_its_minor_calls(tmp_path
     report = calls(run(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2, disabled=["16180-16193"]))
     assert "A16183M" not in report.index
     assert report.loc["T16189C", "called_by_MUTECT2"] is True
-    assert report.loc["-16193.1c", "called_by_MUTECT2"] == "disabled"
+    assert report.loc["-16193.1c", "called_by_MUTECT2"] == "DISABLED"
     assert pd.isna(report.loc["-16193.1c", "MUTECT2"])
     assert report.loc["A263G", "called_by_MUTECT2"] is False
     assert report.loc["T16195Y", "called_by_FDSTOOLS"] is False
@@ -202,7 +202,7 @@ def test_script_disables_mutect2_in_a_region(tmp_path):
     col = {name: header.index(name) for name in ("FMP", "called_by_MUTECT2")}
     rows = {r[col["FMP"]].value: r for r in ws.iter_rows(min_row=2)}
     fill = lambda cell: cell.fill.start_color.rgb[-6:]
-    assert rows["-16193.1c"][col["called_by_MUTECT2"]].value == "disabled"
+    assert rows["-16193.1c"][col["called_by_MUTECT2"]].value == "DISABLED"
     assert fill(rows["-16193.1c"][col["called_by_MUTECT2"]]) != "FFC7CE"   # disabled is not a miss
     assert fill(rows["-16193.1c"][col["FMP"]]) != "F50003"
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"
