@@ -144,7 +144,8 @@ def test_script_writes_excel_with_flags_coloured(tmp_path):
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"          # missed call: red
     assert fill(rows["-309.1c"][col["called_by_FDSTOOLS"]]) == "FFD966"       # disagreement: its own colour
     assert rows["LOW"][col["called_by_FDSTOOLS"]].value == "LOW"
-    assert fill(rows["LOW"][col["called_by_FDSTOOLS"]]) == "FEFE01"          # low coverage: LOW yellow
+    assert fill(rows["LOW"][col["called_by_FDSTOOLS"]]) == "FFC7CE"          # low coverage: red, like a miss
+    assert fill(rows["LOW"][col["FMP"]]) == "FEFE01"                          # the LOW row itself stays yellow
     assert rows["LOW"][col["called_by_MUTECT2"]].value == "OK"
     assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # ok is not a miss
 

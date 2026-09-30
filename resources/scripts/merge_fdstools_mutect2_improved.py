@@ -464,7 +464,7 @@ def apply_excel_styles(excel_path: str):
                     # In a LOW row these say "LOW" or "OK" for each caller's depth
                     if row[0].value == "LOW":
                         if cell.value == "LOW":
-                            cell.fill = fill_low
+                            cell.fill = fill_red
                     elif cell.value is False:
                         cell.fill = fill_red
                     elif cell.value == "DISAGREEMENT":
