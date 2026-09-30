@@ -18,6 +18,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
 - [Citation](#citation)  
 - [Contributing](#contributing)  
 - [Contact](#contact)  
+- [License](#license)  
 
 ## Overview
 
@@ -175,3 +176,18 @@ Contributions are welcome. Please open an issue or pull request via GitHub if yo
 
 For support or feedback, submit an issue on the [GitHub repository](https://github.com/PeterResutik/mtDNA-NimaGen).
 
+## License
+
+FMP-NimaGen is released under the [MIT License](LICENSE).
+
+Third-party material in this repository keeps its own terms:
+
+- `resources/rtn_files/humans/humans_NimaGen.fa.bz2` contains sequences derived
+  from [mitoLEAF](https://github.com/forensicgenomics/mitoLeaf), which is licensed
+  under the Mozilla Public License 2.0 (see
+  `resources/rtn_files/humans/build/README.md`).
+- `resources/rtn_files/humans/humans.fa.bz2` and `resources/rtn_files/numts/`
+  come from [RtN](https://github.com/Ahhgust/RtN).
+
+The tools the pipeline runs (FDSTOOLS, GATK, bwa, samtools, rtn and others) are
+not part of this repository and are covered by their own licences.

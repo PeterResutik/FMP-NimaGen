@@ -140,6 +140,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   column is informational; no calls were dropped by it.
 
 ### Added
+- `LICENSE`: MIT, copyright University of Zurich. Third-party material in the
+  repository keeps its own terms, listed in the README.
 - `--skip_numt_filter` (default `false`): skips the NUMT filter (`rtn`) in
   `p08`/`p09`, for simulated reads, which contain no NUMTs. The MAPQ filter
   and everything downstream are unchanged.
