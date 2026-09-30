@@ -11,6 +11,7 @@ params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 // params.multiqc = "$baseDir/multiqc"
 params.publish_dir_mode = "symlink"
 params.outdir = "results"
+params.publish_bams = true // false: BAM/FASTQ intermediates are not copied to outdir (e.g. simulations); VCFs, FDSTOOLS files, QC and the merged Excel still are
 
 params.adapter = 'ATCATAACAAAAAATTTCCACCAAA'
 
@@ -128,6 +129,7 @@ log_text = """\
 
          OUTPUT DIRECTORY   
          outdir                           : ${params.outdir}
+         --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir; VCFs, FDSTOOLS files, QC and the merged Excel still are
          """
 
 log.info(log_text)
@@ -200,7 +202,7 @@ process p01b_prepare_humans_index {
 
 process p02_map_raw_fastq_p01 {
     tag "p02: bwa mem on $sample_id"
-    publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
+    publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(reads)
@@ -234,7 +236,7 @@ process p02_map_raw_fastq_p01 {
 
 process p03_filter_softclipped_fastq_p01_p02 {
     tag "p03: removing scb from $sample_id"
-    publishDir "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}", mode: 'copy', pattern: '*sorted.bam*'
+    publishDir "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}", mode: 'copy', pattern: '*sorted.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
@@ -357,7 +359,7 @@ process p07_map_merged_trimmed_bam_p01_p05 {
 
 process p08_filter_numts_merged_fastq_p06 {
     tag "p08: rtn on $sample_id"
-    publishDir "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy'
+    publishDir "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index)
@@ -384,7 +386,7 @@ process p08_filter_numts_merged_fastq_p06 {
 
 process p09_filter_numts_trimmed_merged_bam_p07 {
     tag "p09: rtn on $sample_id"
-    publishDir "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*'
+    publishDir "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(read_depth_txt)
@@ -476,7 +478,8 @@ process p11_variant_calling_fdstools_sast_p08 {
 
 process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     tag "p12: mutect2 on $sample_id"
-    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy'
+    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy', pattern: '*.vcf.gz*'
+    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy', pattern: '*bamout.bam*', enabled: params.publish_bams.toString().toBoolean()
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts) // the coverages do not need to be passed to mutect2 process
