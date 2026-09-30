@@ -2,8 +2,9 @@
 
 rtn compares every read with a set of human mitogenomes and sets a read to
 MAPQ 0 (a possible NUMT) when it is far from all of them. The scripts here
-build that set for NimaGen, `humans_NimaGen.fa`, from rtn's own `humans.fa`
-(`../humans.fa.bz2`: 43,438 genomes, each written twice):
+build that set for NimaGen, `humans_NimaGen.fa` (`../humans_NimaGen.fa.bz2`,
+the pipeline's default), from rtn's own `humans.fa` (`../humans.fa.bz2`:
+43,438 genomes, each written twice):
 
 1. **Four genomes are left out** (`exclude.txt`, with the reason for each): two
    that contain NUMT sequence and would let NUMT reads through, and two that

@@ -29,7 +29,7 @@ params.maximum_length = 300
 params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5
 
 params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
-params.humans_index_base = "humans.fa"
+params.humans_index_base = "humans_NimaGen.fa" // built by resources/rtn_files/humans/build/ from rtn's humans.fa
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
@@ -184,7 +184,7 @@ process p01b_prepare_humans_index {
     # Check if BWA index for humans reference exists (one of the .amb/.bwt/.ann/.pac/.sa files)
     if [[ ! -f "${humans_index_dir}/${humans_base}.amb" ]]; then
         echo "BWA index for human reference not found. Preparing it now..."
-        bunzip2 -k "${humans_index_dir}/humans.fa.bz2"
+        [[ -f "${humans_index_dir}/${humans_base}" ]] || bunzip2 -k "${humans_index_dir}/${humans_base}.bz2"
         bwa index "${humans_index_dir}/${humans_base}"
     else
         echo "BWA index found for human reference."
