@@ -306,6 +306,6 @@ def test_script_disables_mutect2_in_a_region(tmp_path):
     rows = {r[col["FMP"]].value: r for r in ws.iter_rows(min_row=2)}
     fill = lambda cell: cell.fill.start_color.rgb[-6:]
     assert rows["-16193.1c"][col["called_by_MUTECT2"]].value == "DISABLED"
-    assert fill(rows["-16193.1c"][col["called_by_MUTECT2"]]) != "FFC7CE"   # disabled is not a miss
+    assert fill(rows["-16193.1c"][col["called_by_MUTECT2"]]) == "D9D9D9"   # disabled: grey, not a miss
     assert fill(rows["-16193.1c"][col["FMP"]]) != "F50003"
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"

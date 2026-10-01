@@ -483,6 +483,7 @@ def apply_excel_styles(excel_path: str):
         fill_blue = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")   # N to X
         fill_red = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")    # False flags (caller didn't call it at all)
         fill_disagree = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")  # DISAGREEMENT flags (caller called it, but on the other side of the major/minor threshold)
+        fill_disabled = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # DISABLED: Mutect2 left out in this region
 
         # Define additional fill colors for column A
         fill_low = PatternFill(start_color="FEFE01", end_color="FEFE01", fill_type="solid")
@@ -537,6 +538,8 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_red
                     elif cell.value == "DISAGREEMENT":
                         cell.fill = fill_disagree
+                    elif cell.value == "DISABLED":
+                        cell.fill = fill_disabled
                     # True/False are booleans and Excel centers those by
                     # default, but "DISAGREEMENT" is a plain string, which
                     # Excel left-aligns by default - so without an explicit

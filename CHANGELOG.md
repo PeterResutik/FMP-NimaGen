@@ -282,7 +282,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   Mutect2's major calls count, as rebuilt in the frame. Its minor calls there
   (PHP, LHP) leave the report and are listed in the `variant_note` of the
   region's rows (not shown when FDSTOOLS reports nothing in the region); a row
-  there that Mutect2 has no call for says `DISABLED` instead of False. Applied
+  there that Mutect2 has no call for says `DISABLED` (grey) instead of False. Applied
   in the merge, so with `-resume` only `p13` reruns.
 
 ### Removed
