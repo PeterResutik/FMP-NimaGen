@@ -173,6 +173,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   on an amplicon's reads without "Other sequences", LOW for low or missing
   amplicons with their calls kept, the length-heteroplasmy floor and ceiling,
   and minor deletions and substitutions.
+- A test that the frame labels of every run structure of 16180-16193 and 300-315
+  (run lengths, interrupt present, missing or substituted) and of 57-60 give
+  their molecule back exactly, in both frames.
 - Tests for `merge_fdstools_mutect2_improved.py`: one row per locus across
   both callers' spellings, DISAGREEMENT kept apart from a missed call, the plain
   and depth-weighted averages, LOW rows per amplicon for both callers, and the

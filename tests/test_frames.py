@@ -1,10 +1,12 @@
 """frames.py: the shared and the separate frame in 16180-16193, 300-315 and 57-60."""
+import itertools
 import json
 from pathlib import Path
 
 import pytest
 
 import frames
+import notation
 
 MOLECULES = json.loads((Path(__file__).parent / "fixtures" / "frame_mitoleaf_molecules.json").read_text())
 R16189, R310, R57 = frames.REGIONS["16180-16193"], frames.REGIONS["300-315"], frames.REGIONS["57-60"]
@@ -131,3 +133,27 @@ def test_mitoleaf_molecules(rcrs, case):
     region = frames.REGIONS[case["region"]]
     assert frames.labels(region, case["molecule"], "shared", rcrs) == case["shared"]
     assert frames.labels(region, case["molecule"], "separate", rcrs) == case["separate"]
+
+
+def structures(region):
+    """Every run structure of a region: for the C-stretches a leading A-run of 1-6, a
+    C-run of 1-12, the interrupt T, missing, A or G, and a second C-run of 1-10; for
+    57-60 T-runs of 1-8."""
+    if region.lead:
+        return sorted({"A" * a + "C" * c + x + "C" * c2 for a, c, x, c2 in
+                       itertools.product(range(1, 7), range(1, 13), ("T", "", "A", "G"), range(1, 11))})
+    return ["T" * n for n in range(1, 9)]
+
+
+@pytest.mark.parametrize("frame", ["shared", "separate"])
+@pytest.mark.parametrize("name", list(frames.REGIONS))
+def test_labels_give_every_structure_back(reference, name, frame):
+    """Labels describe their molecule exactly: applied to rCRS they give it back."""
+    region = frames.REGIONS[name]
+    before = reference[region.first - 2]  # an insertion may sit on the base before the region
+    wrong = []
+    for bases in structures(region):
+        labels = frames.labels(region, bases, frame, reference)
+        if notation.apply_labels(labels, reference, region.first - 1, region.last) != before + bases:
+            wrong.append((bases, labels))
+    assert wrong == []
