@@ -7,12 +7,13 @@ variants are written in the pipeline's notation (A73G, -315.1C, C8281-; 50/50
 heteroplasmies as T16519Y, -315.1c, C16193c) and compared with the reported
 calls (FMP) and with each caller's own label. Calls inside the C-stretches
 303-315 and 16180-16193 are counted separately. Mismatches within 10 bp of
-each other form one cluster; each cluster is checked on sequence level (truth
-vs reported calls applied to rCRS), so "same sequence, different notation" is
-told apart from a real error; a heteroplasmy reported as homoplasmic (or the
-other way round) counts as a different sequence. --exclude drops truth
-variants and calls inside the given windows (e.g. the C-stretches) before
-comparing.
+each other, and all mismatches within one C-stretch, form one cluster; each
+cluster is checked on sequence level (truth vs reported calls applied to
+rCRS), so "same sequence, different notation" is told apart from a real error;
+a heteroplasmy reported as homoplasmic (or the other way round) counts as a
+different sequence. --exclude drops truth variants and calls inside the given
+windows (e.g. the C-stretches) before comparing. The summary printed gives per
+view the samples whose reported calls describe the true sequence.
 
 Writes summary.tsv (one row per sample) and details.tsv (one row per
 mismatch) to --out.
@@ -60,10 +61,15 @@ def apply_labels(labels, rcrs):
 
 
 def clusters(labels, gap=10):
+    """Mismatch positions grouped for the sequence check: positions within `gap`
+    bases of each other, and all positions in one C-stretch however far apart (a
+    change at each end of a C-stretch can describe one molecule together, e.g.
+    A16182C against A16182- -16193.1C)."""
     positions = sorted({position(l) for l in labels if position(l)})
     groups = []
     for p in positions:
-        if groups and p - groups[-1][-1] <= gap:
+        same_stretch = groups and region_of(p) != "elsewhere" and region_of(p) == region_of(groups[-1][-1])
+        if groups and (p - groups[-1][-1] <= gap or same_stretch):
             groups[-1].append(p)
         else:
             groups.append([p])
@@ -76,7 +82,10 @@ def position(label):
 
 
 def region(label):
-    p = position(label)
+    return region_of(position(label))
+
+
+def region_of(p):
     return next((f"{a}-{b}" for a, b in C_STRETCHES if p and a <= p <= b), "elsewhere")
 
 
@@ -164,9 +173,8 @@ def main():
             f.write("\t".join(map(str, row)) + "\n")
     scored = [r for r in summary if r[3] != "NO_REPORT"]
     for i, view in enumerate(views):
-        exact = sum(1 for r in scored if r[3 + 3 * i] == 0 and r[4 + 3 * i] == 0)
         right_seq = sum(1 for r in scored if r[5 + 3 * i] == 0)
-        print(f"{view:9}: {exact}/{len(scored)} samples exact, {right_seq}/{len(scored)} with the correct sequence")
+        print(f"{view:9}: {right_seq}/{len(scored)} samples with the correct sequence")
 
 
 if __name__ == "__main__":

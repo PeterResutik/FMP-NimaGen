@@ -60,6 +60,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   2.2, `samplestats` reads every allele name back as a sequence and rejects
   `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
   so `p11` failed on a fresh install.
+- `tests/simulation/score_calls.py` checks all mismatches within one C-stretch
+  together: A16182C against A16182- -16193.1C (one molecule, two spellings)
+  lie 11 bases apart and were checked separately, as a wrong sequence. Its
+  summary gives the samples whose calls describe the true sequence.
 - Every `publishDir` overwrites: with `-resume`, Nextflow left a file already
   in `--outdir` in place, so after a change of option (e.g. `--frame shared`,
   then back to `--frame separate`) the folder kept the report of an earlier
