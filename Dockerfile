@@ -38,7 +38,6 @@ RUN mamba create -n bioinfo -c bioconda -c conda-forge -y \
     samtools=1.21 \
     bwa=0.7.18 \
     flash=1.2.11 \
-    csvtk \
     fastqc \
     pandas \
     biopython \

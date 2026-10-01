@@ -257,6 +257,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   Mutect2 frequency floor is `--min_vf_MT2`.
 - `--min_reads_filt`: only passed to `fdstools samplestats`, where it has no
   effect because samplestats filtering is off.
+- `csvtk` from `FMP-NimaGen.yml` and the Dockerfile: no step of the pipeline
+  uses it.
 
 ## [0.1.4] – 2025-05-19
 
