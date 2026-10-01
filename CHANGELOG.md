@@ -60,6 +60,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   2.2, `samplestats` reads every allele name back as a sequence and rejects
   `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
   so `p11` failed on a fresh install.
+- The other tools in `FMP-NimaGen.yml` and the Dockerfile are pinned too
+  (gatk4 4.6.2.0, bcftools 1.21, pandas 2.2.3, biopython 1.85, matplotlib
+  3.9.4, openpyxl 3.1.5, fastqc 0.12.1, pytest 8.4.2), the versions the
+  pipeline is validated with; a fresh install took whatever was newest.
+  pytest comes from pip: conda's 8.4.2 needs Python 3.10.
 - Outside the frame regions, FDSTOOLS no longer writes a substitution and a
   deletion at one position as one lowercase label with their shares added:
   A on 40% and 30% deleted at 756 gave C756a 70%, A on 70% and 30% deleted
