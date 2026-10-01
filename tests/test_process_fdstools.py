@@ -153,6 +153,17 @@ def test_frame_rows_replace_fdstools_labels_in_the_region(tmp_path, reference, r
     assert notes["T16189C"] == f"{frame} frame" and pd.isna(notes["T16217C"])
 
 
+def test_frame_rows_carry_the_dominant_molecule(tmp_path, reference, reference_fasta):
+    # 60% one C more, 40% as rCRS-like T16189C; the flank row T16217C gets no cell
+    sast = [("mtNG_097", "T16189C 16193.1C T16217C", 60), ("mtNG_097", "T16189C T16217C", 40)]
+    tssv = [("mtNG_097", mtng_097(reference, {16189: "C", 16193: "CC", 16217: "C"}), 60),
+            ("mtNG_097", mtng_097(reference, {16189: "C", 16217: "C"}), 40)]
+    report = run(tmp_path, sast, tssv=tssv, reference_fasta=reference_fasta).set_index("FDSTOOLS")
+    assert report.loc["T16189C", "dominant_molecule"] == "T16189C (60.0%)"
+    assert report.loc["-16193.1c", "dominant_molecule"] == "-16193.1C (60.0%)"
+    assert pd.isna(report.loc["T16217C", "dominant_molecule"])
+
+
 def test_frame_rows_use_the_amplicon_reads_without_other_sequences(tmp_path, reference, reference_fasta):
     sast = [("mtNG_097", "T16189C", 70), ("mtNG_097", "T16189C 16193.1C", 30), ("mtNG_097", "Other sequences", 12)]
     tssv = [("mtNG_097", mtng_097(reference, {16189: "C"}), 70),

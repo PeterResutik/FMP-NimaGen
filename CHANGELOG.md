@@ -184,6 +184,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `dominant_molecule` column on the rows of 16180-16193, 300-315 and 57-60:
+  the change of the region's dominant molecule at the row's position and of
+  its kind (substitution, deletion, or insertion at that index), in the
+  selected frame, with the molecule's share of the reads, e.g. `-16193.2C
+  (40.9%)`. The dominant molecule is FDSTOOLS' molecule with the most reads;
+  on equal reads the one with fewer changes from rCRS; molecules equal on
+  both are shown together (`T16189C (25.0% + 25.0%)`). Empty where the
+  dominant molecule does not carry that change. The rows still give every
+  molecule's share per position; the column shows which changes belong to
+  the most common molecule.
 - `LICENSE`: MIT, copyright University of Zurich. Third-party material in the
   repository keeps its own terms, listed in the README.
 - `--skip_numt_filter` (default `false`): skips the NUMT filter (`rtn`) in

@@ -256,6 +256,12 @@ C_STRETCH_MT2 = [mt2("T16189C", 0.99, "5,495", 16189, "T", "C", "SNP"),
                  mt2("T16195Y", 0.20, "400,100", 16195, "T", "C", "PHP")]
 
 
+def test_dominant_molecule_passes_through(tmp_path):
+    report = calls(run(tmp_path, [{**fds("T16189C", 100.0, 900, "mtNG_097"), "dominant_molecule": "T16189C (62.0%)"}],
+                       [mt2("T16189C", 0.99, "5,495", 16189, "T", "C", "SNP")]))
+    assert report.loc["T16189C", "dominant_molecule"] == "T16189C (62.0%)"
+
+
 def test_mutect2_calls_every_region_by_default(tmp_path):
     report = calls(run(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2))
     assert report.loc["A16183M", "called_by_FDSTOOLS"] is False

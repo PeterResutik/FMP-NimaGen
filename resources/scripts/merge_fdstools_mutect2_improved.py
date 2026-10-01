@@ -524,7 +524,7 @@ def apply_excel_styles(excel_path: str):
 
                 if col_name.endswith("_MUTECT2") or col_name.endswith("_MT2") or col_name in ["MUTECT2", "Filter", "Pos", "Ref", "Variant", "GT", "Type", "MBQ", "Filter" ]:
                     cell.fill = fill_blue
-                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "interp_total", "marker", "marker_range", "num_markers", "variant_note"]:
+                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "interp_total", "marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
                     cell.fill = fill_green
 
 

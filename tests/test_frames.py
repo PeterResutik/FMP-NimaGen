@@ -173,3 +173,35 @@ def test_labels_give_every_structure_back(reference, name, frame):
 ])
 def test_rows_one_per_position(rcrs, frame, molecules, expected):
     assert report(R16189, molecules, frame, rcrs) == expected
+
+
+@pytest.mark.parametrize("molecules, expected", [
+    # most reads wins
+    ([(mol(4, 11), 60), (mol(4, 10), 40)], [(["T16189C", "-16193.1C"], 60)]),
+    # equal reads: fewer changes from rCRS
+    ([(mol(4, 11), 50), (mol(4, 10), 50)], [(["T16189C"], 50)]),
+    # equal reads and equal changes: both, shown together
+    ([(mol(4, 11), 50), (mol(4, 9), 50)], [(["T16189C", "-16193.1C"], 50), (["T16189C", "C16193-"], 50)]),
+])
+def test_dominant_molecule(rcrs, molecules, expected):
+    assert sorted(frames.dominant(R16189, molecules, "separate", rcrs)) == sorted(expected)
+
+
+S26_DOMINANT = [(["A16182-", "A16183-", "T16189C", "-16193.1C", "-16193.2C"], 33)]
+TIED = [(["A16183-", "T16189C", "-16193.1C"], 25), (["A16183C", "T16189C", "-16193.1C"], 25)]
+
+
+@pytest.mark.parametrize("dominant, coverage, row, cell", [
+    # s26-02989's rows in 16180-16193: the change of the same kind at the row's position
+    (S26_DOMINANT, 107, "A16181a", ""),
+    (S26_DOMINANT, 107, "A16182M", ""),          # a substitution; the molecule has a deletion there
+    (S26_DOMINANT, 107, "A16182a", "A16182- (30.8%)"),
+    (S26_DOMINANT, 107, "-16193.2c", "-16193.2C (30.8%)"),
+    (S26_DOMINANT, 107, "-16193.3c", ""),
+    # two molecules tied on reads and on changes
+    (TIED, 100, "T16189C", "T16189C (25.0% + 25.0%)"),
+    (TIED, 100, "A16183-", "A16183- (25.0%)"),
+    (TIED, 100, "A16183M", "A16183C (25.0%)"),
+])
+def test_dominant_cell(dominant, coverage, row, cell):
+    assert frames.dominant_cell(row, dominant, coverage) == cell

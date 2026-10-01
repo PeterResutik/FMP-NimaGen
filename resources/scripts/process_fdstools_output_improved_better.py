@@ -113,7 +113,8 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
     amplicon holding a region (tssv.csv) is placed and written in the chosen frame, out
     of the same reads as every other row of that amplicon. The changes within
     frames.FLANK bases of the region come from the same alignment, so a change next to
-    the region is never counted on both sides of its edge."""
+    the region is never counted on both sides of its edge. The region's rows also get
+    the dominant molecule's change at their position (frames.dominant_cell)."""
     tssv = pd.read_csv(tssv_path, sep="\t", dtype=str)
     ranges = {m: tuple(int(x) for x in r.split("-")) for m, r in marker_map.items()}
     rows = []
@@ -128,7 +129,9 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
             molecules = frames.region_molecules(sequences, start, end, region, reference)
             region_rows = frames.rows(region, molecules, coverage, frame, reference, min_vf, lh_thresh)
             flank = frames.flank_rows(sequences, start, end, region, reference, coverage, min_vf, lh_thresh)
+            dominant = frames.dominant(region, molecules, frame, reference)
             for label, share, note in [r + (f"{frame} frame",) for r in region_rows] + [r + (None,) for r in flank]:
+                cell = frames.dominant_cell(label, dominant, coverage)
                 if isinstance(share, dict):  # several bases other than rCRS
                     total = iupac.format_values({b: s * coverage / 100 for b, s in share.items()}, 0)
                     share = iupac.format_values(share)
@@ -137,7 +140,7 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
                 rows.append({"sequence": label, "total": total,
                              "interpolated_total_coverage": coverage, "variant_frequency": share,
                              "marker": marker, "num_markers": 1, "is_noise_or_low_frq": False,
-                             "variant_note": note})
+                             "variant_note": note, "dominant_molecule": cell or None})
     return pd.DataFrame(rows)
 
 
@@ -299,6 +302,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         "rd_FDS",
         "interpolated_total_coverage",
         "variant_note",
+        "dominant_molecule",
         "marker",
         "marker_range",
         "num_markers"

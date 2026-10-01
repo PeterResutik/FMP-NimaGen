@@ -275,3 +275,44 @@ def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10
         elif share >= lh_floor:
             out.append((f"-{anchor}.{k}{b.lower()}", share))
     return sorted(out, key=lambda r: notation.label_position(r[0]))
+
+
+def dominant(region, molecules, frame, reference):
+    """The dominant molecule of a region as [(labels, reads)]: the molecule
+    [(region bases, reads)] with the most reads; on equal reads the one with fewer
+    changes from rCRS (its labels in the frame); molecules equal on both are all
+    returned, to be shown together."""
+    if not molecules:
+        return []
+    most = max(reads for _, reads in molecules)
+    tied = [(labels(region, bases, frame, reference), reads) for bases, reads in molecules if reads == most]
+    fewest = min(len(found) for found, _ in tied)
+    return [(found, reads) for found, reads in tied if len(found) == fewest]
+
+
+def change_key(label):
+    """What a label changes, whatever its spelling: a substitution at a position
+    (A16183C, A16183M), a deletion there (A16183-, A16183a), or an insertion after a
+    position at an index (-16193.1C, -16193.1c)."""
+    m = re.match(r"^-(\d+)\.(\d+)[A-Za-z]$", label)
+    if m:
+        return "insertion", int(m.group(1)), int(m.group(2))
+    m = re.match(r"^[ACGTN](\d+)(-|[a-z]|[A-Z])$", label)
+    if m:
+        return ("substitution" if m.group(2).isupper() else "deletion"), int(m.group(1))
+    return None
+
+
+def dominant_cell(label, dominant_molecules, coverage):
+    """The dominant_molecule cell of a report row: the change of the dominant
+    molecule(s) at the row's position and of its kind, as a major label with the
+    molecule's share of the reads ("-16193.2C (40.9%)"); a change two tied molecules
+    share shows both shares ("T16189C (25.0% + 25.0%)"). Empty if the dominant
+    molecule does not carry that change."""
+    key = change_key(label)
+    found = {}
+    for changes, reads in dominant_molecules:
+        for change in changes:
+            if key is not None and change_key(change) == key:
+                found.setdefault(change, []).append(100 * reads / coverage)
+    return " / ".join(f"{change} ({' + '.join(f'{s:.1f}%' for s in shares)})" for change, shares in found.items())
