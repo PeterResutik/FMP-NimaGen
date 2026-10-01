@@ -72,9 +72,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   `.nextflow` (not `.nextflow.cache`).
 - The other tools in `FMP-NimaGen.yml` and the Dockerfile are pinned too
   (gatk4 4.6.2.0, bcftools 1.21, pandas 2.2.3, biopython 1.85, matplotlib
-  3.9.4, openpyxl 3.1.5, fastqc 0.12.1, pytest 8.4.2), the versions the
-  pipeline is validated with; a fresh install took whatever was newest.
-  pytest comes from pip: conda's 8.4.2 needs Python 3.10.
+  3.9.4, openpyxl 3.1.5, pytest 8.4.2), the versions the pipeline is
+  validated with; a fresh install took whatever was newest. pytest comes
+  from pip: conda's 8.4.2 needs Python 3.10.
 - Outside the frame regions, FDSTOOLS no longer writes a substitution and a
   deletion at one position as one lowercase label with their shares added:
   A on 40% and 30% deleted at 756 gave C756a 70%, A on 70% and 30% deleted
@@ -277,6 +277,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   effect because samplestats filtering is off.
 - `csvtk` from `FMP-NimaGen.yml` and the Dockerfile: no step of the pipeline
   uses it.
+- FastQC from `p10` and the environment: nothing used its report, and on
+  amplicon reads it flags duplication and sequence content on every sample.
+  `p10` keeps the read-depth plot.
 
 ## [0.1.4] – 2025-05-19
 

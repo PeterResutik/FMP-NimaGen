@@ -8,7 +8,6 @@ dependencies:
   - samtools=1.21
   - bwa=0.7.18
   - flash=1.2.11
-  - fastqc=0.12.1
   - pandas=2.2.3
   - biopython=1.85
   - matplotlib=3.9.4

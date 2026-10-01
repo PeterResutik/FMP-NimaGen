@@ -417,7 +417,7 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 }
 
 process p10_quality_control_p09 {
-    tag "p10: fastqc + read depth on $sample_id"
+    tag "p10: read depth on $sample_id"
     publishDir "${params.outdir}/p10_quality_control/${sample_id}", mode: 'copy', overwrite: true
     
     input:
@@ -425,20 +425,12 @@ process p10_quality_control_p09 {
     path python_script_generate_read_depth_plot
 
     output:
-    path "*.zip", emit: fastqc_ch
     path(read_depth_txt)
     path(read_depth_txt_numts)
     path("*read_depth_plot.png")
 
     script:
-    def avail_mem = 1024
-    if (task.memory) {
-        avail_mem = (task.memory.mega * 0.8).intValue()
-    }
-
     """
-    fastqc --threads ${task.cpus} --memory ${avail_mem} $bam_file -o .
-
     # Remove any pre-existing plot from a rerun (ensures reproducibility)
     rm -f ${sample_id}_read_depth_plot.png
 
