@@ -12,6 +12,8 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
 - [Running the Pipeline](#running-the-pipeline)  
   - [Running Locally with Conda (Recommended)](#running-locally-with-conda-recommended)  
   - [Running with Docker](#running-with-docker)  
+- [Input and Output](#input-and-output)  
+- [Main Options](#main-options)  
 - [Configuration](#configuration)  
 - [Tests](#tests)  
 - [Known Limitations](#known-limitations)  
@@ -119,6 +121,40 @@ nextflow run main.nf -profile docker
 > **Note**: the Docker image (`peterresutik/nimagen-pipeline:latest`) dates from May 2025
 > and has not been tested with this version of the pipeline. Use Conda until a new
 > image is published.
+
+## Input and Output
+
+Read files must be named `<sample>_R1_001.fastq.gz` and `<sample>_R2_001.fastq.gz`
+and are taken from `raw_data/` by default. Results go to `results/`:
+
+| Folder | Contents |
+|---|---|
+| `p00_parameters.txt` | the options of the run |
+| `p10_quality_control/<sample>/` | read depth per amplicon (plot and tables) |
+| `p11_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
+| `p12_mutect2/<sample>/` | Mutect2 VCF |
+| `p13_merged_variants_xlsx/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
+
+BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
+
+## Main Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--reads` | `raw_data/*_{R1,R2}_001.fastq.gz` | input files |
+| `--outdir` | `results` | output folder |
+| `--min_vf_FDS`, `--min_vf_MT2` | 5 | a base counts as present from this share (%), per caller |
+| `--lh_thresh` | 10 | length variants: under 10% not reported, 10–90% minor (lowercase), above 90% major |
+| `--depth` | 10 | amplicons with fewer reads are marked LOW |
+| `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
+| `--mutect2_disabled_regions` | `none` | complex regions where Mutect2's minor calls are left out: `none`, `all`, or e.g. `300-315,16180-16193` |
+| `--disagreement_average` | `plain` | how the two callers' frequencies are averaged when they disagree: `plain` or `depth_weighted` |
+| `--mapQ` | 30 | reads with a lower mapping quality are removed |
+| `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
+| `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
+
+All options and their values are printed at the start of each run and saved in
+`p00_parameters.txt`.
 
 ## Configuration
 

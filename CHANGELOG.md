@@ -204,6 +204,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- README: Input and Output (file names, the results folders) and Main Options.
 - `resources/amplicon_bed/NimaGen_primers.bed`: the panel's 200 primer binding
   sites and 64 wobble bases, for checking primer sites against population
   variants. The pipeline does not read it.
