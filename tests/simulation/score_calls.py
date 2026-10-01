@@ -2,16 +2,17 @@
 """Compare the pipeline's merged calls for simulated samples with their truth.
 
 For every <sample>_truth.tsv (written by simulate_reads.py) the matching
-<sample>_merged_variants.xlsx is read. Truth variants are written in the
-pipeline's notation (A73G, -315.1C, C8281-; 50/50 heteroplasmies as
-T16519Y, -315.1c, C16193c) and compared with the reported
+report <sample>_<frame>_frame.xlsx is read (--frame, default separate). Truth
+variants are written in the pipeline's notation (A73G, -315.1C, C8281-; 50/50
+heteroplasmies as T16519Y, -315.1c, C16193c) and compared with the reported
 calls (FMP) and with each caller's own label. Calls inside the C-stretches
 303-315 and 16180-16193 are counted separately. Mismatches within 10 bp of
-each other form one cluster; each cluster is checked on sequence level
-(truth vs reported calls applied to rCRS), so "same sequence, different
-notation" is told apart from a real error; a heteroplasmy reported as
-homoplasmic (or the other way round) counts as a different sequence. --exclude drops truth variants
-and calls inside the given windows (e.g. the C-stretches) before comparing.
+each other form one cluster; each cluster is checked on sequence level (truth
+vs reported calls applied to rCRS), so "same sequence, different notation" is
+told apart from a real error; a heteroplasmy reported as homoplasmic (or the
+other way round) counts as a different sequence. --exclude drops truth
+variants and calls inside the given windows (e.g. the C-stretches) before
+comparing.
 
 Writes summary.tsv (one row per sample) and details.tsv (one row per
 mismatch) to --out.
@@ -117,6 +118,8 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--reference", default=REPO / "resources/rCRS/rCRS_NimaGen.fasta")
     p.add_argument("--exclude", default="", help="windows to leave out, e.g. 300-320,16170-16200")
+    p.add_argument("--frame", choices=["separate", "shared"], default="separate",
+                   help="frame of the reports to score (<sample>_<frame>_frame.xlsx)")
     args = p.parse_args()
     windows = [tuple(map(int, w.split("-"))) for w in args.exclude.split(",") if w]
     keep = lambda labels: {l for l in labels if not any(a <= (position(l) or 0) <= b for a, b in windows)}
@@ -130,7 +133,7 @@ def main():
         sample = truth_file.name[: -len("_truth.tsv")]
         truth = dict(l.rstrip("\n").split("\t", 1) for l in open(truth_file))
         expected = keep(expected_labels(truth.get("variants_used", ""), rcrs))
-        xlsx = Path(args.merged_dir) / f"{sample}_merged_variants.xlsx"
+        xlsx = Path(args.merged_dir) / f"{sample}_{args.frame}_frame.xlsx"
         if not xlsx.exists():
             summary.append([sample, truth["haplogroup"], len(expected), "NO_REPORT"])
             continue

@@ -569,7 +569,7 @@ process p13_merge_variants_p10_p11 {
     path python_modules // notation.py, frames.py, iupac.py: imported by the p13 scripts, inputs so -resume sees changes
 
     output:
-    path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
+    path("${sample_id}_${params.frame}_frame.xlsx"), emit: merged_variants_ch
 
     script:
     def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
@@ -615,7 +615,7 @@ process p13_merge_variants_p10_p11 {
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
             ${vcf_file.baseName}.filtered.empop.txt \
-            ${sample_id}_merged_variants.xlsx \
+            ${sample_id}_${params.frame}_frame.xlsx \
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
             --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
             --disagreement_average $params.disagreement_average \
@@ -625,7 +625,7 @@ process p13_merge_variants_p10_p11 {
 
     else
         echo "Skipping ${sample_id}: one or more input files are empty." >&2
-        python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_merged_variants.xlsx', index=False, header=False)"
+        python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_${params.frame}_frame.xlsx', index=False, header=False)"
     fi
     """
 }

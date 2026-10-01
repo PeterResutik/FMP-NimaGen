@@ -130,7 +130,7 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
             region_rows = frames.rows(region, molecules, coverage, frame, reference, min_vf, lh_thresh)
             flank = frames.flank_rows(sequences, start, end, region, reference, coverage, min_vf, lh_thresh)
             dominant = frames.dominant(region, molecules, frame, reference)
-            for label, share, note in [r + (f"{frame} frame",) for r in region_rows] + [r + (None,) for r in flank]:
+            for label, share in region_rows + flank:
                 cell = frames.dominant_cell(label, dominant, coverage)
                 if isinstance(share, dict):  # several bases other than rCRS
                     total = iupac.format_values({b: s * coverage / 100 for b, s in share.items()}, 0)
@@ -140,7 +140,7 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
                 rows.append({"sequence": label, "total": total,
                              "interpolated_total_coverage": coverage, "variant_frequency": share,
                              "marker": marker, "num_markers": 1, "is_noise_or_low_frq": False,
-                             "variant_note": note, "dominant_molecule": cell or None})
+                             "variant_note": None, "dominant_molecule": cell or None})
     return pd.DataFrame(rows)
 
 

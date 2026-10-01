@@ -82,6 +82,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- The report is named after its frame, `<sample>_separate_frame.xlsx` or
+  `<sample>_shared_frame.xlsx` (was `<sample>_merged_variants.xlsx`), so
+  reports in both frames can sit side by side; `variant_note` no longer says
+  "separate frame" or "shared frame" on every row of the C-stretches.
+  `tests/simulation/score_calls.py` takes `--frame`.
 - rtn compares reads with `humans_NimaGen.fa` (built by
   `resources/rtn_files/humans/build/`) instead of rtn's `humans.fa`. NUMT
   reads that one of the removed genomes let through in the control region are

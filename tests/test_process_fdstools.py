@@ -150,7 +150,7 @@ def test_frame_rows_replace_fdstools_labels_in_the_region(tmp_path, reference, r
                  tssv=[("mtNG_097", mtng_097(reference, edits), 500)], reference_fasta=reference_fasta, frame=frame)
     assert {k: v for k, v in calls(report).items() if k != "LOW"} == expected
     notes = report.set_index("FDSTOOLS")["variant_note"]
-    assert notes["T16189C"] == f"{frame} frame" and pd.isna(notes["T16217C"])
+    assert pd.isna(notes["T16189C"]) and pd.isna(notes["T16217C"])
 
 
 def test_frame_rows_carry_the_dominant_molecule(tmp_path, reference, reference_fasta):
@@ -195,7 +195,7 @@ def test_a_change_next_to_a_region_is_counted_once(tmp_path, reference, referenc
                  reference_fasta=reference_fasta, frame="shared")
     assert {k: v for k, v in calls(report).items() if k != "LOW"} == {"A297G": 100.0, "-315.1C": 100.0, "G316A": 100.0}
     notes = report.set_index("FDSTOOLS")["variant_note"]
-    assert notes["-315.1C"] == "shared frame" and pd.isna(notes["G316A"])
+    assert pd.isna(notes["-315.1C"]) and pd.isna(notes["G316A"])
 
 def test_major_calls_written_by_the_general_rule(tmp_path, reference_fasta):
     # L3f3 as FDSTOOLS names it; the general rule writes the same molecule T15940C T15944-
