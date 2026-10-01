@@ -189,6 +189,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `resources/amplicon_bed/NimaGen_primers.bed`: the panel's 200 primer binding
+  sites and 64 wobble bases, for checking primer sites against population
+  variants. The pipeline does not read it.
 - `dominant_molecule` column on the rows of 16180-16193, 300-315 and 57-60:
   the change of the region's dominant molecule at the row's position and of
   its kind (substitution, deletion, or insertion at that index), in the
