@@ -58,7 +58,7 @@ RUN cp /workspace/RtN/Nix_binary/rtn /usr/local/bin/ && chmod +x /usr/local/bin/
 ENV RTN_PATH="/workspace/RtN/build"
 
 # Activate the environment and install fdstools via pip
-RUN /opt/conda/envs/bioinfo/bin/pip install fdstools
+RUN /opt/conda/envs/bioinfo/bin/pip install fdstools==2.1.1
 
 # Copy scripts into the container
 COPY resources/scripts /workspace/resources/scripts

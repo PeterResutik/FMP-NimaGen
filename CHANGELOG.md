@@ -56,6 +56,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   dropped depending on the order bwa listed those genomes. Reads carrying a
   length variant that no genome has are no longer dropped for it, which
   raises minor length variants in the C-stretches slightly.
+- FDSTOOLS is pinned to 2.1.1 in `FMP-NimaGen.yml` and the Dockerfile. In
+  2.2, `samplestats` reads every allele name back as a sequence and rejects
+  `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
+  so `p11` failed on a fresh install.
 
 ### Changed
 - rtn compares reads with `humans_NimaGen.fa` (built by

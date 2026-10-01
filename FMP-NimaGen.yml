@@ -20,4 +20,4 @@ dependencies:
   - pip
   - pip:
       - cutadapt==4.6
-      - fdstools
+      - fdstools==2.1.1
