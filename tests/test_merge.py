@@ -57,13 +57,14 @@ def calls(report):
     return report[report["FMP"] != "LOW"].set_index("FMP")
 
 
-@pytest.mark.parametrize("a, b", [("-309.1C", "-309.1c"), ("T16189C", "T16189Y"), ("A523-", "A523a")])
+@pytest.mark.parametrize("a, b", [("-309.1C", "-309.1c"), ("T16189C", "T16189Y"), ("T16189Y", "T16189H"),
+                                  ("C756M", "C756Y"), ("A523-", "A523a")])
 def test_merge_key_same_locus_any_spelling(a, b):
     assert merge.merge_key(a) == merge.merge_key(b)
 
 
-def test_merge_key_keeps_different_alleles_apart():
-    assert merge.merge_key("C756M") != merge.merge_key("C756Y")
+def test_merge_key_keeps_substitution_and_deletion_apart():
+    assert merge.merge_key("A523C") != merge.merge_key("A523-")
 
 
 def test_agreeing_callers_share_a_row(tmp_path):
@@ -99,6 +100,75 @@ def test_substitution_disagreement(tmp_path, weighted, reported, kind, disagreei
     assert list(report.index) == [reported]
     assert report.loc[reported, "Type"] == kind
     assert report.loc[reported, disagreeing] == "DISAGREEMENT"
+
+
+def fds_bases(label, vf, reads, depth, marker):
+    """An FDSTOOLS row whose vf and reads are given per base ("C 40, A 10")."""
+    return {**fds(label, 0.0, depth, marker), "vf_FDS": vf, "rd_FDS": reads}
+
+
+def test_rows_per_base_become_one_row(tmp_path):
+    # T 50%, C 40%, A 10% written as one row per base other than rCRS
+    report = calls(run(tmp_path, [fds("T16189Y", 40.0, 500, "mtNG_097"), fds("T16189W", 10.0, 500, "mtNG_097")],
+                       [mt2("T16189Y", 0.4, "250,200", 16189, "T", "C", "PHP"),
+                        mt2("T16189W", 0.1, "250,50", 16189, "T", "A", "PHP")]))
+    assert list(report.index) == ["T16189H"]
+    row = report.loc["T16189H"]
+    assert (row["vf_FDS"], row["rd_FDS"]) == ("C 40, A 10", "C 200, A 50")
+    assert (row["vf_MT2"], row["rd_MT2"], row["Type"]) == ("C 0.4, A 0.1", "250,200,50", "PHP")
+    assert row["called_by_FDSTOOLS"] is True and row["called_by_MUTECT2"] is True
+
+
+def test_rows_per_base_without_rcrs(tmp_path):
+    # C 70% and A 30%, no T: the old rows' codes both claim a T
+    report = calls(run(tmp_path, [fds("T16189Y", 70.0, 500, "mtNG_097"), fds("T16189W", 30.0, 500, "mtNG_097")], []))
+    assert list(report.index) == ["T16189M"]
+    assert report.loc["T16189M", "vf_FDS"] == "C 70, A 30"
+
+
+def test_a_base_one_caller_found_is_kept(tmp_path):
+    # FDSTOOLS: T, C and A; Mutect2: T and C (A below its floor) -> H, Mutect2 disagrees
+    report = calls(run(tmp_path, [fds_bases("T16189H", "C 40, A 10", "C 200, A 50", 500, "mtNG_097")],
+                       [mt2("T16189Y", 0.44, "280,220", 16189, "T", "C", "PHP")]))
+    assert list(report.index) == ["T16189H"]
+    assert report.loc["T16189H", "called_by_FDSTOOLS"] is True
+    assert report.loc["T16189H", "called_by_MUTECT2"] == "DISAGREEMENT"
+
+
+def test_different_bases_from_the_two_callers_share_a_row(tmp_path):
+    report = calls(run(tmp_path, [fds("T16189Y", 30.0, 500, "mtNG_097")],
+                       [mt2("T16189W", 0.08, "460,40", 16189, "T", "A", "PHP")]))
+    assert list(report.index) == ["T16189H"]
+    assert report.loc["T16189H", "called_by_FDSTOOLS"] == "DISAGREEMENT"
+    assert report.loc["T16189H", "called_by_MUTECT2"] == "DISAGREEMENT"
+
+
+@pytest.mark.parametrize("deleted, reported", [(None, "T16189Y"), (10.0, "T16189C")])
+def test_rcrs_share_leaves_out_deleted_molecules(tmp_path, deleted, reported):
+    # FDSTOOLS: C 90%, the remaining 10% T or deleted; Mutect2: C 93%, T 7%
+    fds_rows = [fds("T16189C", 90.0, 500, "mtNG_097")]
+    if deleted:
+        fds_rows.append(fds("T16189t", deleted, 500, "mtNG_097"))
+    report = calls(run(tmp_path, fds_rows, [mt2("T16189Y", 0.93, "35,465", 16189, "T", "C", "PHP")]))
+    assert reported in report.index
+
+
+def test_rcrs_missing_with_two_other_bases(tmp_path):
+    report = calls(run(tmp_path, [fds_bases("T16189M", "C 60, A 40", "C 300, A 200", 500, "mtNG_097")],
+                       [mt2("T16189C", 0.96, "20,480", 16189, "T", "C", "SNP")]))
+    assert list(report.index) == ["T16189M"]
+    assert report.loc["T16189M", "Type"] == "PHP"
+    assert report.loc["T16189M", "called_by_MUTECT2"] == "DISAGREEMENT"
+
+
+def test_values_per_base_do_not_stop_the_other_rows(tmp_path):
+    # one row with vf per base makes the column text; the length disagreement on
+    # another row is still averaged (it crashed on the old branch at min_vf 1)
+    report = calls(run(tmp_path, [fds_bases("A16265V", "C 6, G 4", "C 30, G 20", 500, "mtNG_097"),
+                                  fds("-309.1C", 92.0, 900, "mtNG_003")],
+                       [mt2("-309.1c", 0.80, "180,720", 302, "A", "AC", "LHP")]))
+    assert "-309.1c" in report.index
+    assert report.loc["A16265V", "vf_FDS"] == "C 6, G 4"
 
 
 def test_minor_deletion_from_both_callers_shares_a_row(tmp_path):
@@ -148,6 +218,20 @@ def test_script_writes_excel_with_flags_coloured(tmp_path):
     assert fill(rows["LOW"][col["FMP"]]) == "FEFE01"                          # the LOW row itself stays yellow
     assert rows["LOW"][col["called_by_MUTECT2"]].value == "OK"
     assert fill(rows["LOW"][col["called_by_MUTECT2"]]) != "FFC7CE"           # ok is not a miss
+
+
+def test_script_writes_values_per_base_in_percent(tmp_path):
+    fds_file, mt2_file, depth_file, library = write_inputs(
+        tmp_path, [fds_bases("T16189H", "C 40, A 10", "C 200, A 50", 500, "mtNG_097")],
+        [mt2("T16189H", "C 0.4, A 0.1", "250,200,50", 16189, "T", "C", "PHP")], {})
+    xlsx = tmp_path / "merged.xlsx"
+    subprocess.run([sys.executable, merge.__file__, str(fds_file), str(mt2_file), str(xlsx),
+                    "--mutect2_depth", str(depth_file), "--marker_map", str(library)], check=True)
+    ws = load_workbook(xlsx).active
+    header = [c.value for c in ws[1]]
+    row = next(r for r in ws.iter_rows(min_row=2) if r[0].value == "T16189H")
+    assert row[header.index("vf_MT2")].value == "C 40, A 10"
+    assert row[0].fill.start_color.rgb[-6:] == "FAC000"                        # an IUPAC code
 
 
 # 16180-16193 with T16189C: FDSTOOLS sees one C more on 30% of the molecules; Mutect2

@@ -146,6 +146,18 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   both callers' scripts, the frames and the merge (each kept its own copy of
   the two-base codes). It also holds the three- and four-base codes; output
   is unchanged.
+- The merge compares substitutions by position: each caller's call at a
+  position is one row, whatever bases it found (T16189C, T16189Y, T16189H).
+  Where the callers' labels differ, every base other than rCRS that either
+  found is kept, and rCRS counts as present when the callers' averaged share
+  of it (molecules with a deletion there left out) reaches `--min_vf`; a
+  caller whose label differs is DISAGREEMENT. Different bases from the two
+  callers were two rows, each missed by the other caller. A caller's rows
+  per base at one position are read as one row (T16189Y and T16189W become
+  T16189H). With several bases other than rCRS, vf and reads are given per
+  base (`C 40, A 10`); such values no longer turn the column into text, which
+  broke the averaging on the other rows. Three- and four-base codes are
+  coloured like the two-base ones.
 
 ### Added
 - `LICENSE`: MIT, copyright University of Zurich. Third-party material in the

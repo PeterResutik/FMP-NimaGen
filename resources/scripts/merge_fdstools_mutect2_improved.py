@@ -40,51 +40,109 @@ def is_major_format(variant_str):
     return None
 
 
-_SUBSTITUTION = re.compile(r'^([ACGT])(\d+)([ACGTRYMKSW])$')
+_SUBSTITUTION = re.compile(r'^([ACGT])(\d+)([ACGTRYMKSWVHDBN])$')
 _DELETION = re.compile(r'^([ACGT])(\d+)(-|[acgt])$')
 
 
 def substitution_parts(variant_str):
-    """(ref, position, alt, is_major) for a point substitution label.
-
-    A heteroplasmic call carries an IUPAC code for {ref, alt} (T16189Y),
-    a homoplasmic one carries the alt base itself (T16189C). Returns None
-    for anything that isn't a plain point substitution.
-    """
+    """(ref, position, code) of a point substitution label: the base when it is the
+    only one present (T16189C), else the IUPAC code of all bases present (T16189Y,
+    T16189H). None for anything else."""
     if not isinstance(variant_str, str):
         return None
     match = _SUBSTITUTION.match(variant_str.strip())
-    if not match:
+    if not match or match.group(3) == match.group(1):
         return None
-    ref, pos, code = match.groups()
-    if code in iupac.BASES:
-        others = iupac.BASES[code] - {ref}
-        if len(others) != 1:
-            return None
-        return ref, pos, others.pop(), False
-    return ref, pos, code, True
+    return match.groups()
 
 
 def merge_key(variant_str):
     """Key that puts the same locus on one row across both callers.
 
-    Length variants only differ by letter case between a major and minor
-    call ("-309.1C" vs "-309.1c"), so upper-casing is enough. Point
-    substitutions don't: the heteroplasmic form is spelled with an IUPAC
-    code ("T16189Y") and the homoplasmic one with the alt base
-    ("T16189C"), which never match. Both are collapsed to the alt-base
-    form here so the two callers meet on one row and get reconciled,
-    instead of the same variant being reported twice. Deletions likewise:
-    major "A523-" and minor "A523a" both key as "A523-".
+    Length variants only differ by letter case between a major and minor call
+    ("-309.1C" vs "-309.1c"), so upper-casing is enough; deletions likewise (major
+    "A523-" and minor "A523a" both key as "A523-"). Substitutions meet by position,
+    whatever bases each caller found there (T16189C, T16189Y and T16189H all key as
+    "T16189~"), so the two callers are compared on one row; "~" sorts after "-", so
+    the row follows a deletion at the same position.
     """
     parts = substitution_parts(variant_str)
     if parts:
-        ref, pos, alt, _is_major = parts
-        return f"{ref}{pos}{alt}"
+        ref, pos, _code = parts
+        return f"{ref}{pos}~"
     deletion = _DELETION.match(str(variant_str).strip())
     if deletion and deletion.group(3) in ("-", deletion.group(1).lower()):
         return f"{deletion.group(1)}{deletion.group(2)}-"
     return str(variant_str).upper()
+
+
+def as_number(value):
+    """A value from a caller's table as a number where it is one; values per base
+    ("C 40, A 10") stay text."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor):
+    """A caller's substitution rows at one position as one row, for a caller that
+    writes one row per base other than rCRS: T16189Y (C 40%) and T16189W (A 10%)
+    become T16189H with vf "C 40, A 10". rCRS counts as present when what is left
+    of the reads (100% minus the other bases and the molecules with a deletion
+    there, `deleted`) reaches min_vf, so C 70% and A 30% become T16189M. vf times
+    `factor` is percent. Reads: FDSTOOLS gives one number per base, Mutect2
+    "ref,alt" per row, which becomes "ref,alt1,alt2" in the order of vf."""
+    parts = df[label].apply(substitution_parts)
+    groups = {}
+    for i, p in parts.items():
+        if p:
+            groups.setdefault(p[:2], []).append(i)
+    rows, combined = [], []
+    for (ref, pos), idx in groups.items():
+        if len(idx) < 2:
+            continue
+        vfs, reads, ref_reads = {}, {}, None
+        for i in idx:
+            bases = iupac.alts(parts[i][2], ref)
+            values = iupac.parse_values(df.at[i, vf], bases)
+            if values is None:
+                break
+            vfs.update(values)
+            if "," in str(df.at[i, rd]):
+                ref_reads, n = str(df.at[i, rd]).split(",", 1)
+            else:
+                n = df.at[i, rd]
+            reads[next(iter(bases))] = n
+        else:
+            ref_share = 100 - factor * sum(vfs.values()) - deleted.get((ref, pos), 0)
+            present = set(vfs) | ({ref} if ref_share >= min_vf else set())
+            row = {c: " | ".join(dict.fromkeys(str(v) for v in df.loc[idx, c].dropna())) or None
+                   for c in df.columns}
+            order = sorted(vfs, key=lambda b: (-vfs[b], b))
+            row[label] = f"{ref}{pos}{iupac.code(present)}"
+            row[vf] = iupac.format_values(vfs, 4 if vf == "vf_MT2" else 2)
+            row[rd] = (f"{ref_reads}," + ",".join(str(reads[b]) for b in order) if ref_reads is not None
+                       else ", ".join(f"{b} {reads[b]:g}" for b in order))
+            if "Type" in row:
+                row["Type"] = "SNP" if len(present) == 1 else "PHP"
+            rows.append(row)
+            combined += idx
+    if not rows:
+        return df
+    return pd.concat([df.drop(index=combined), pd.DataFrame(rows)], ignore_index=True)
+
+
+def deletion_shares(labels, vfs, factor):
+    """{(ref, position): percent} of a caller's deletion rows (A523-, A523a)."""
+    out = {}
+    for label, vf in zip(labels, vfs):
+        m = _DELETION.match(str(label))
+        if m and m.group(3) in ("-", m.group(1).lower()):
+            value = as_number(vf)
+            if isinstance(value, float):
+                out[(m.group(1), m.group(2))] = value * factor
+    return out
 
 
 def load_amplicon_ranges(library_path):
@@ -200,6 +258,11 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         print("Both inputs are empty (negative control / H2O). Writing empty output.", file=sys.stderr)
         return pd.DataFrame()
 
+    for df, columns in ((df1, ("vf_FDS", "rd_FDS")), (df2, ("vf_MT2",))):
+        for c in columns:
+            if c in df.columns and df[c].dtype == object:
+                df[c] = df[c].map(as_number)
+
     try:
         # LOW rows are rebuilt per amplicon for both callers after the merge
         fds_low = df1[df1["FDSTOOLS"] == "LOW"]
@@ -217,8 +280,14 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
             minor = df2["MUTECT2"].apply(
                 lambda label: not notation.is_major(label) and region_of(label, mutect2_disabled) is not None)
             for label, vf in zip(df2.loc[minor, "MUTECT2"], df2.loc[minor, "vf_MT2"]):
-                left_out.setdefault(region_of(label, mutect2_disabled), []).append(f"{label} {round(100 * vf, 2)}%")
+                left_out.setdefault(region_of(label, mutect2_disabled), []).append(f"{label} {iupac.scale_values(vf, 100)}%")
             df2 = df2[~minor].copy()
+
+        fds_deleted = deletion_shares(df1["FDSTOOLS"], df1["vf_FDS"], 1)
+        mt2_deleted = deletion_shares(df2["MUTECT2"], df2["vf_MT2"], 100) if not df2.empty else {}
+        df1 = one_row_per_position(df1, "FDSTOOLS", "vf_FDS", "rd_FDS", min_vf, fds_deleted, 1)
+        if not df2.empty:
+            df2 = one_row_per_position(df2, "MUTECT2", "vf_MT2", "rd_MT2", min_vf, mt2_deleted, 100)
 
         # Rename original variant columns before merge to avoid conflict
         df1["FMP"] = df1["FDSTOOLS"]
@@ -256,35 +325,32 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
             both_called = pd.notna(fmp_fds) and pd.notna(fmp_mt2)
             is_length_type = current_type in ("DEL", "INS", "LHP")
 
-            # Point substitutions get the same treatment as length variants:
-            # when both callers hit the locus but land on opposite sides of
-            # the homoplasmy boundary - one spelling it T16189C, the other
-            # T16189Y - decide from the averaged frequency rather than
-            # trusting either estimate, and let called_by_* flag whichever
-            # caller disagrees with what gets reported. Without this the two
-            # spellings never matched, so the same variant appeared twice in
-            # the report with no indication the callers disagreed.
+            # Substitutions: both callers on one row per position. When their labels
+            # differ, every base other than rCRS that either caller found is kept
+            # (as a minor call from one caller is reported on its own row), and
+            # whether rCRS is still present is decided from the two callers'
+            # averaged share of it, as major vs minor is decided for length
+            # variants. A caller whose own label differs is a DISAGREEMENT.
             if both_called and not is_length_type:
                 fds_parts = substitution_parts(fmp_fds)
                 mt2_parts = substitution_parts(fmp_mt2)
-                vf_fds, vf_mt2 = row.get("vf_FDS"), row.get("vf_MT2")
-                if (fds_parts and mt2_parts
-                        and fds_parts[3] != mt2_parts[3]
-                        and pd.notna(vf_fds) and pd.notna(vf_mt2)):
-                    ref, pos, alt, _ = fds_parts
-                    avg_pct = caller_average_pct(row, vf_fds, vf_mt2, weighted_average)
-                    desired_major = avg_pct >= (100 - min_vf)
-                    if desired_major:
-                        fmp = f"{ref}{pos}{alt}"
-                    else:
-                        code = iupac.CODES.get(frozenset((ref, alt)), alt)
-                        fmp = f"{ref}{pos}{code}"
-                    return pd.Series({
-                        "FMP": fmp,
-                        "Type": "SNP" if desired_major else "PHP",
-                        "fds_confirms": fds_parts[3] == desired_major,
-                        "mt2_confirms": mt2_parts[3] == desired_major,
-                    })
+                if fds_parts and mt2_parts and fmp_fds != fmp_mt2:
+                    ref, pos, _ = fds_parts
+                    fds_alts = iupac.parse_values(row.get("vf_FDS"), iupac.alts(fds_parts[2], ref))
+                    mt2_alts = iupac.parse_values(iupac.scale_values(row.get("vf_MT2"), 100, 6),
+                                                  iupac.alts(mt2_parts[2], ref))
+                    if fds_alts is not None and mt2_alts is not None:
+                        ref_fds = 100 - sum(fds_alts.values()) - fds_deleted.get((ref, pos), 0)
+                        ref_mt2 = 100 - sum(mt2_alts.values()) - mt2_deleted.get((ref, pos), 0)
+                        avg_ref = caller_average_pct(row, ref_fds, ref_mt2 / 100, weighted_average)
+                        present = set(fds_alts) | set(mt2_alts) | ({ref} if avg_ref >= min_vf else set())
+                        fmp = f"{ref}{pos}{iupac.code(present)}"
+                        return pd.Series({
+                            "FMP": fmp,
+                            "Type": "SNP" if len(present) == 1 else "PHP",
+                            "fds_confirms": fmp_fds == fmp,
+                            "mt2_confirms": fmp_mt2 == fmp,
+                        })
 
             if not (both_called and is_length_type):
                 fmp = fmp_fds if pd.notna(fmp_fds) else fmp_mt2
@@ -438,7 +504,7 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_lowercase
                     elif "-" in val:
                         cell.fill = fill_dash
-                    elif re.search(r"[MRYWSK]", val):
+                    elif re.match(r"^[ACGT]\d+[RYMKSWVHDBN]$", val):
                         cell.fill = fill_iupac
                     else:
                         cell.fill = fill_default
@@ -495,7 +561,7 @@ if __name__ == "__main__":
     parser.add_argument("caller2", help="Path to the MUTECT2 file (TSV format, with 'MUTECT2' column).")
     parser.add_argument("output_file", help="Path to save the merged output (XLSX format).")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold, used to reconcile major/minor case disagreements between callers via their averaged variant frequency")
-    parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold; its complement (100-min_vf) is the homoplasmy boundary used to reconcile SNP-vs-IUPAC disagreements between callers via their averaged variant frequency")
+    parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold: where the callers' substitution labels differ, rCRS counts as present when the callers' averaged share of it reaches min_vf")
     parser.add_argument("--mutect2_depth", help="samtools depth at each amplicon's middle position in the BAM Mutect2 runs on (p09); amplicons below --depth are reported as LOW for Mutect2")
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
     parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
@@ -520,7 +586,9 @@ if __name__ == "__main__":
             "variant_frequency_wo_noise_or_low_frq": "variant_frequency_clean"
         }, inplace=True)
         if "vf_MT2" in df_merged.columns:
-            df_merged["vf_MT2"] = (df_merged["vf_MT2"] * 100).round(2)
+            number = pd.to_numeric(df_merged["vf_MT2"], errors="coerce")
+            df_merged["vf_MT2"] = (number * 100).round(2).where(
+                number.notna(), df_merged["vf_MT2"].map(lambda v: iupac.scale_values(v, 100)))
         df_merged.to_excel(args.output_file, index=False, engine="openpyxl")
         print(f"Merged Excel file saved to: {args.output_file}")
     except Exception:
