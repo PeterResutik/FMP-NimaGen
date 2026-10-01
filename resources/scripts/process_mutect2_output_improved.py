@@ -7,17 +7,8 @@ import argparse
 import sys
 
 import frames
+import iupac
 import notation
-
-IUPAC_CODES = {
-    frozenset(["A", "G"]): "R",
-    frozenset(["C", "T"]): "Y",
-    frozenset(["A", "C"]): "M",
-    frozenset(["G", "T"]): "K",
-    frozenset(["G", "C"]): "S",
-    frozenset(["A", "T"]): "W"
-}
-IUPAC_BASES = {code: set(bases) for bases, code in IUPAC_CODES.items()}
 
 def claim_key(label):
     """Same claim regardless of major/minor spelling (T16189C/T16189Y,
@@ -29,7 +20,7 @@ def claim_key(label):
         ref, pos, code = m.groups()
         if code == "-" or code == ref.lower():
             return f"{ref}{pos}-"
-        others = IUPAC_BASES.get(code, set()) - {ref}
+        others = iupac.BASES.get(code, set()) - {ref}
         if len(others) == 1:
             return f"{ref}{pos}{others.pop()}"
     return label.upper()
@@ -116,7 +107,7 @@ def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency):
         if var_level >= 1 - min_variant_frequency:
             formatted.append(f"{r}{label_pos}{v}")
         else:
-            code = IUPAC_CODES.get(frozenset([r, v]), f"{r}/{v}")
+            code = iupac.CODES.get(frozenset([r, v]), f"{r}/{v}")
             formatted.append(f"{r}{label_pos}{code}")
 
     # Return after the loop finishes

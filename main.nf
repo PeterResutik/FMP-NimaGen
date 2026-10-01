@@ -574,7 +574,7 @@ process p13_merge_variants_p10_p11 {
     path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
-    path python_modules // notation.py, frames.py: imported by the p13 scripts, inputs so -resume sees changes
+    path python_modules // notation.py, frames.py, iupac.py: imported by the p13 scripts, inputs so -resume sees changes
 
     output:
     path("${sample_id}_merged_variants.xlsx"), emit: merged_variants_ch
@@ -693,6 +693,6 @@ workflow {
     p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, bam, bai, rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
     p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
     p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
-                               files("$baseDir/resources/scripts/{notation,frames}.py"))
+                               files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
 
 }

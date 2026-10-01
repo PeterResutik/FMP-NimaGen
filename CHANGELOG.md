@@ -142,6 +142,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - `--min_reads_per_strand` default 3 → 0. Merged reads are single-orientation,
   so any non-zero value tagged every Mutect2 call `strict_strand`. The FILTER
   column is informational; no calls were dropped by it.
+- The IUPAC codes live in one table, `resources/scripts/iupac.py`, shared by
+  both callers' scripts, the frames and the merge (each kept its own copy of
+  the two-base codes). It also holds the three- and four-base codes; output
+  is unchanged.
 
 ### Added
 - `LICENSE`: MIT, copyright University of Zurich. Third-party material in the

@@ -7,6 +7,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment
 
 import frames
+import iupac
 import notation
 
 
@@ -39,10 +40,6 @@ def is_major_format(variant_str):
     return None
 
 
-IUPAC_PAIRS = {
-    "R": {"A", "G"}, "Y": {"C", "T"}, "M": {"A", "C"},
-    "K": {"G", "T"}, "S": {"G", "C"}, "W": {"A", "T"},
-}
 _SUBSTITUTION = re.compile(r'^([ACGT])(\d+)([ACGTRYMKSW])$')
 _DELETION = re.compile(r'^([ACGT])(\d+)(-|[acgt])$')
 
@@ -60,8 +57,8 @@ def substitution_parts(variant_str):
     if not match:
         return None
     ref, pos, code = match.groups()
-    if code in IUPAC_PAIRS:
-        others = IUPAC_PAIRS[code] - {ref}
+    if code in iupac.BASES:
+        others = iupac.BASES[code] - {ref}
         if len(others) != 1:
             return None
         return ref, pos, others.pop(), False
@@ -280,8 +277,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
                     if desired_major:
                         fmp = f"{ref}{pos}{alt}"
                     else:
-                        code = next((c for c, bases in IUPAC_PAIRS.items()
-                                     if bases == {ref, alt}), alt)
+                        code = iupac.CODES.get(frozenset((ref, alt)), alt)
                         fmp = f"{ref}{pos}{code}"
                     return pd.Series({
                         "FMP": fmp,

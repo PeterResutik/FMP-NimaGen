@@ -11,6 +11,7 @@ import traceback
 from Bio import SeqIO
 
 import frames
+import iupac
 import notation
 
 # Utility: extract numeric position from sequence
@@ -34,7 +35,7 @@ def lh_bounds_pct(threshold_pct):
     return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
 
 # IUPAC resolution for heteroplasmies
-def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES):
+def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold):
     seq = row['sequence']
 
     if 'DEL' in seq or '.' in seq:
@@ -50,7 +51,7 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
         match = re.match(r'([ACGT])(\d+)([ACGT])', seq)
         if match:
             ref, pos, alt = match.groups()
-            code = IUPAC_CODES.get(frozenset([ref, alt]))
+            code = iupac.CODES.get(frozenset([ref, alt]))
             if code:
                 return f"{ref}{pos}{code}"
     return seq
@@ -136,12 +137,6 @@ def respell_rows(table, reference):
 # Main processing function
 def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_frequency_pct=5.0, depth_threshold=10, length_heteroplasmy_threshold=90.0,
                           tssv_path=None, reference_path=None, frame="separate"):
-    IUPAC_CODES = {
-        frozenset(["A", "G"]): "R", frozenset(["C", "T"]): "Y",
-        frozenset(["A", "C"]): "M", frozenset(["G", "T"]): "K",
-        frozenset(["G", "C"]): "S", frozenset(["A", "T"]): "W"
-    }
-
     df = pd.read_csv(file_path, sep="\t", dtype=str)
     df = df.drop(columns=[
         "total_mp_max", "forward_pct", "forward", "forward_mp_sum",
@@ -293,7 +288,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         return
     if not final.empty:
         resolved = final.apply(
-            lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
+            lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold),
             axis=1
         )
 
@@ -307,7 +302,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
             final = respell_rows(final, reference)
     
     # final["sequence"] = final.apply(
-    #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold, IUPAC_CODES),
+    #     lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold),
     #     axis=1
     # )
 

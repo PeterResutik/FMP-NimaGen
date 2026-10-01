@@ -25,9 +25,8 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 
+import iupac
 import notation
-
-IUPAC = {frozenset(k): v for k, v in {"AG": "R", "CT": "Y", "AC": "M", "GT": "K", "CG": "S", "AT": "W"}.items()}
 
 
 @dataclass(frozen=True)
@@ -223,7 +222,7 @@ def flank_rows(sequences, start, end, region, reference, coverage, min_vf=5.0, l
         elif share >= 100 - min_vf:
             out.append((label, share))
         elif share >= min_vf:
-            out.append((label[:-1] + IUPAC[frozenset((label[0], label[-1]))], share))
+            out.append((label[:-1] + iupac.CODES[frozenset((label[0], label[-1]))], share))
     return sorted(out, key=lambda r: notation.label_position(r[0]))
 
 
@@ -256,7 +255,7 @@ def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10
             if share >= 100 - min_vf:
                 out.append((f"{ref}{p}{b}", share))
             elif share >= min_vf:
-                out.append((f"{ref}{p}{IUPAC[frozenset((ref, b))]}", share))
+                out.append((f"{ref}{p}{iupac.CODES[frozenset((ref, b))]}", share))
         share = 100 * deleted_at[p] / coverage
         if share >= lh_ceiling:
             out.append((f"{ref}{p}-", share))
