@@ -91,12 +91,13 @@ def test_length_disagreement_decided_by_average(tmp_path):
 
 
 @pytest.mark.parametrize("weighted, reported, kind, disagreeing", [
-    (False, "T16189Y", "PHP", "called_by_FDSTOOLS"),   # (100 + 66.7) / 2 < 95
-    (True, "T16189C", "SNP", "called_by_MUTECT2"),     # 22 FDSTOOLS reads outweigh 1 Mutect2 read
+    (False, "T16189Y", "PHP", "called_by_FDSTOOLS"),   # rCRS T: (0 + 10) / 2 = 5%, present
+    (True, "T16189C", "SNP", "called_by_MUTECT2"),     # 2000 FDSTOOLS reads outweigh 20 Mutect2 reads
 ])
 def test_substitution_disagreement(tmp_path, weighted, reported, kind, disagreeing):
-    report = calls(run(tmp_path, [fds("T16189C", 100.0, 22, "mtNG_097")],
-                       [mt2("T16189Y", 0.667, "0,1", 16189, "T", "C", "PHP")], weighted=weighted))
+    # FDSTOOLS: no T; Mutect2: T on 2 of its 20 reads
+    report = calls(run(tmp_path, [fds("T16189C", 100.0, 2000, "mtNG_097")],
+                       [mt2("T16189Y", 0.90, "2,18", 16189, "T", "C", "PHP")], weighted=weighted))
     assert list(report.index) == [reported]
     assert report.loc[reported, "Type"] == kind
     assert report.loc[reported, disagreeing] == "DISAGREEMENT"
@@ -151,6 +152,17 @@ def test_rcrs_share_leaves_out_deleted_molecules(tmp_path, deleted, reported):
         fds_rows.append(fds("T16189t", deleted, 500, "mtNG_097"))
     report = calls(run(tmp_path, fds_rows, [mt2("T16189Y", 0.93, "35,465", 16189, "T", "C", "PHP")]))
     assert reported in report.index
+
+
+def test_mutect2_rcrs_share_from_its_reads(tmp_path):
+    # 24 reads, all G: Mutect2 reports 0.96, which would leave 4% for rCRS and average
+    # 2% with FDSTOOLS' 0%; its reads show no rCRS
+    fds_file, mt2_file, depth_file, library = write_inputs(
+        tmp_path, [fds("A73G", 100.0, 100, "mtNG_001")], [mt2("A73R", 0.96, "0,24", 73, "A", "G", "PHP")], {})
+    report = calls(merge.merge_variant_callers(str(fds_file), str(mt2_file), lh_thresh=10.0, min_vf=2.0,
+                                               mutect2_depth_file=str(depth_file), marker_map=str(library)))
+    assert list(report.index) == ["A73G"]
+    assert report.loc["A73G", "called_by_MUTECT2"] == "DISAGREEMENT"
 
 
 def test_rcrs_missing_with_two_other_bases(tmp_path):

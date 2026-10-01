@@ -14,6 +14,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
   - [Running Locally with Conda](#running-locally-with-conda)  
 - [Configuration](#configuration)  
 - [Tests](#tests)  
+- [Known Limitations](#known-limitations)  
 - [Cleaning Up](#cleaning-up)  
 - [Citation](#citation)  
 - [Contributing](#contributing)  
@@ -136,6 +137,19 @@ from the repository root in the Conda environment:
 conda activate FMP-NimaGen
 pytest
 ```
+
+## Known Limitations
+
+- Mutect2's frequency for a substitution is too high where some reads have no
+  base at that position (a substitution and a deletion at one position). In a
+  test with 50% rCRS, 30% substituted and 20% deleted, Mutect2 gave the
+  deletion 20% but the substitution 42%: it counts the reads without a base
+  toward the substitution. Only the frequency shown is affected: whether rCRS
+  is still present is decided from Mutect2's read counts, which give rCRS 50%
+  there. In a repeat (two equal bases in a row) Mutect2 counts those reads as
+  rCRS instead. FDSTOOLS counts each molecule once and is not affected. In the
+  C-stretches, where this is most frequent, Mutect2 can be left out with
+  `--mutect2_disabled_regions`.
 
 ## Cleaning Up
 

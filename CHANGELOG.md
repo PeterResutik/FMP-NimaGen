@@ -167,6 +167,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   than rCRS (`C 40, A 10`). Several bases were one row each, coded with rCRS
   even where rCRS was absent, and a base was major only from 95%: C on 94%
   of the reads with T and A on 3% each was T16189Y, now T16189C.
+- Mutect2's substitutions are one row per position by the same rule as
+  FDSTOOLS', from `--min_vf_MT2`: its records for several bases at a position
+  (A and T at 756: C756M and C756Y) are one row (C756H, vf `A 0.293, T 0.051`,
+  reads `70,29,5`). Whether rCRS is present is decided from Mutect2's reads
+  (its reference reads among all reads it counted there), here and in the
+  merge, not from 1 minus its frequency: for a base on all n reads Mutect2
+  reports about (n + 1) / (n + 2), so with `--min_vf_MT2 2` every call from
+  fewer than about 48 reads kept rCRS and became a code (with 1%, 100 reads
+  all G gave A73R instead of A73G). The frequencies shown stay Mutect2's
+  (README, Known Limitations).
 
 ### Added
 - `LICENSE`: MIT, copyright University of Zurich. Third-party material in the

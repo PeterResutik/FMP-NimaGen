@@ -3,6 +3,7 @@
 import pandas as pd
 from Bio import SeqIO
 import re
+from collections import defaultdict
 import argparse
 import sys
 
@@ -246,6 +247,61 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
     grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
     return grouped
 
+SUBSTITUTION = re.compile(r"^([ACGT])(\d+)([ACGTRYMKSW])$")
+DELETION = re.compile(r"^([ACGT])(\d+)(-|[acgt])$")
+
+
+def position_rows(df, min_vf):
+    """One row per position for Mutect2's substitutions (one record per base other
+    than rCRS), by iupac.call: the bases with at least min_vf (a fraction) are
+    present, rCRS when its share of the reads (iupac.rcrs_share) reaches min_vf. Several
+    bases other than rCRS give one row with VariantLevel per base ("A 0.293,
+    T 0.051") and Coverage "ref,alt1,alt2". The frequencies reported are Mutect2's;
+    where some reads have no base at the position, Mutect2 counts them toward the
+    substitution, so there its frequency is too high."""
+    deleted = defaultdict(float)
+    for label, level in zip(df["MUTECT2"], df["VariantLevel"]):
+        m = DELETION.match(str(label))
+        if m and m.group(3) in ("-", m.group(1).lower()):
+            deleted[int(m.group(2))] += level
+    groups = defaultdict(list)
+    for i, label in df["MUTECT2"].items():
+        m = SUBSTITUTION.match(str(label))
+        if m:
+            groups[(m.group(1), int(m.group(2)))].append(i)
+    df = df.copy()
+    rows, combined = [], []
+    for (ref, pos), idx in groups.items():
+        alts = {i: iupac.alts(df.at[i, "MUTECT2"][-1], ref) for i in idx}
+        if any(len(a) != 1 for a in alts.values()) or len({next(iter(a)) for a in alts.values()}) != len(idx):
+            continue  # not one record per base other than rCRS: left as it is
+        by_alt = {next(iter(a)): i for i, a in alts.items()}
+        levels = {b: df.at[i, "VariantLevel"] for b, i in by_alt.items()}
+        share = iupac.rcrs_share(df.loc[idx, "Coverage"])
+        if share is None:
+            share = 1 - sum(levels.values()) - deleted[pos]
+        found = iupac.call(ref, {**levels, ref: share}, min_vf)
+        if found is None:
+            continue
+        code, others = found
+        label, kind = f"{ref}{pos}{code}", "SNP" if code in "ACGT" else "PHP"
+        if len(idx) == 1:
+            df.at[idx[0], "MUTECT2"], df.at[idx[0], "Type"] = label, kind
+            continue
+        order = [by_alt[b] for b in others]
+        row = {c: " | ".join(dict.fromkeys(str(df.at[i, c]) for i in order if pd.notna(df.at[i, c]))) or None
+               for c in df.columns}
+        row.update({"MUTECT2": label, "Type": kind, "VariantLevel": iupac.format_values(others, 4),
+                    "Coverage": str(df.at[order[0], "Coverage"]).split(",")[0] + ","
+                                + ",".join(str(df.at[i, "Coverage"]).split(",")[1] for i in order)})
+        rows.append(row)
+        combined += idx
+    if rows:
+        df = pd.concat([df.drop(index=combined), pd.DataFrame(rows)], ignore_index=True)
+        df = df.iloc[sorted(range(len(df)), key=lambda k: notation.label_position(str(df["MUTECT2"].iloc[k])))]
+    return df.reset_index(drop=True)
+
+
 def label_type(label):
     return "INS" if label.startswith("-") else "DEL" if label.endswith("-") else "SNP"
 
@@ -331,6 +387,7 @@ def main():
         df = df[df["Type"] != "BELOW_LH_FLOOR"].reset_index(drop=True)
 
         df = finalize_output_table(df, args.lh_thresh/100)
+        df = position_rows(df, args.min_vf/100)
         df = respell_rows(df, load_reference(args.reference_fasta))
         df = frame_rows(df, load_reference(args.reference_fasta), args.frame)
 

@@ -95,10 +95,14 @@ def test_script_end_to_end(tmp_path, reference_fasta):
     subprocess.run([sys.executable, mt2.__file__, str(table), str(out), str(reference_fasta),
                     "--min_vf", "5", "--lh_thresh", "10"], check=True)
     result = pd.read_csv(out, sep="\t")
-    # two alleles at 756 stay two rows; chrM:21 seen twice becomes one pooled row
-    assert dict(zip(result["MUTECT2"], result["vf_MT2"])) == pytest.approx(
-        {"A21R": 0.85, "C756M": 0.293, "C756Y": 0.051})
+    # two bases other than rCRS at 756 become one row; chrM:21 seen twice one pooled row
+    calls = dict(zip(result["MUTECT2"], result["vf_MT2"]))
+    assert sorted(calls) == ["A21R", "C756H"]
+    assert float(calls["A21R"]) == pytest.approx(0.85)
+    assert calls["C756H"] == "A 0.293, T 0.051"
     assert result.set_index("MUTECT2").loc["A21R", "rd_MT2"] == "30,170"
+    assert result.set_index("MUTECT2").loc["C756H", "rd_MT2"] == "70,29,5"
+    assert result.set_index("MUTECT2").loc["C756H", "Type"] == "PHP"
 
 
 def test_script_writes_major_calls_by_the_general_rule(tmp_path, reference_fasta):
@@ -155,3 +159,34 @@ REFERENCE = str(Path(__file__).resolve().parents[1] / "resources" / "rCRS" / "rC
 ])
 def test_mutect2_major_calls_in_the_frames(labels, which, expected):
     assert frame(labels, which) == pytest.approx(expected)
+
+
+def records(*rows):
+    """Mutect2's table after finalize_output_table: (label, frequency, ref,alt reads)."""
+    return pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": ad, "Type": "?", "Pos": 0}
+                         for l, v, ad in rows])
+
+
+@pytest.mark.parametrize("rows, expected", [
+    # A and G, no C left: the code of A and G only
+    ([("C756M", 0.7, "0,70"), ("C756S", 0.3, "0,30")], {"C756R": "A 0.7, G 0.3"}),
+    # A on 94%, rCRS on 3 of 97 reads, and a deletion: major
+    ([("C756M", 0.94, "3,94"), ("C756c", 0.03, "97,3")], {"C756A": 0.94, "C756c": 0.03}),
+    # one base other than rCRS stays as it is
+    ([("C756M", 0.293, "70,29")], {"C756M": 0.293}),
+])
+def test_one_row_per_position(rows, expected):
+    result = mt2.position_rows(records(*rows), 0.05)
+    assert dict(zip(result["MUTECT2"], result["VariantLevel"])) == expected
+
+
+@pytest.mark.parametrize("rows, expected", [
+    # 100 reads, all G: Mutect2 reports 0.99; its reads show no rCRS A
+    ([("A73R", 0.99, "0,100")], {"A73G": 0.99}),
+    # 50% rCRS, 30% T and 20% deleted (the synthetic test): Mutect2 counts the deleted
+    # reads toward T (0.418), but its reads still give rCRS 300 of 600
+    ([("A7025W", 0.418, "300,300"), ("A7025a", 0.201, "480,120")], {"A7025W": 0.418, "A7025a": 0.201}),
+])
+def test_rcrs_share_from_the_reads(rows, expected):
+    result = mt2.position_rows(records(*rows), 0.01)
+    assert dict(zip(result["MUTECT2"], result["VariantLevel"])) == expected

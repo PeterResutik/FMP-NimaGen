@@ -36,6 +36,20 @@ def call(ref, shares, min_vf):
     return code(present), {b: shares[b] for b in others}
 
 
+def rcrs_share(coverages):
+    """rCRS's share (a fraction) at a position from Mutect2's reads: the reference
+    reads among the reference and alternative reads of the position's records
+    ("ref,alt" or "ref,alt1,alt2" each). Not 1 minus Mutect2's frequencies: for a
+    base on all n reads its frequency is about (n + 1) / (n + 2), which would leave
+    rCRS 1% at 100 reads. None when the reads cannot be read."""
+    try:
+        counts = [[float(x) for x in str(c).split(",")] for c in coverages]
+        total = counts[0][0] + sum(sum(c[1:]) for c in counts)
+        return counts[0][0] / total if total else None
+    except (ValueError, IndexError):
+        return None
+
+
 def alts(label_code, ref):
     """The bases other than rCRS that a label's base or code stands for."""
     return BASES.get(label_code, {label_code}) - {ref}

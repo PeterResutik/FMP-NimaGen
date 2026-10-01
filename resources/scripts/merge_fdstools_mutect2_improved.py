@@ -115,7 +115,10 @@ def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor):
                 n = df.at[i, rd]
             reads[next(iter(bases))] = n
         else:
-            ref_share = 100 - factor * sum(vfs.values()) - deleted.get((ref, pos), 0)
+            reads_share = (iupac.rcrs_share([f"{ref_reads}," + ",".join(str(n) for n in reads.values())])
+                           if ref_reads is not None else None)
+            ref_share = (100 * reads_share if reads_share is not None
+                         else 100 - factor * sum(vfs.values()) - deleted.get((ref, pos), 0))
             present = set(vfs) | ({ref} if ref_share >= min_vf else set())
             row = {c: " | ".join(dict.fromkeys(str(v) for v in df.loc[idx, c].dropna())) or None
                    for c in df.columns}
@@ -330,7 +333,8 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
             # (as a minor call from one caller is reported on its own row), and
             # whether rCRS is still present is decided from the two callers'
             # averaged share of it, as major vs minor is decided for length
-            # variants. A caller whose own label differs is a DISAGREEMENT.
+            # variants (Mutect2's share from its reads, see iupac.rcrs_share). A
+            # caller whose own label differs is a DISAGREEMENT.
             if both_called and not is_length_type:
                 fds_parts = substitution_parts(fmp_fds)
                 mt2_parts = substitution_parts(fmp_mt2)
@@ -341,7 +345,9 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
                                                   iupac.alts(mt2_parts[2], ref))
                     if fds_alts is not None and mt2_alts is not None:
                         ref_fds = 100 - sum(fds_alts.values()) - fds_deleted.get((ref, pos), 0)
-                        ref_mt2 = 100 - sum(mt2_alts.values()) - mt2_deleted.get((ref, pos), 0)
+                        reads = iupac.rcrs_share([row.get("rd_MT2")])
+                        ref_mt2 = (100 * reads if reads is not None
+                                   else 100 - sum(mt2_alts.values()) - mt2_deleted.get((ref, pos), 0))
                         avg_ref = caller_average_pct(row, ref_fds, ref_mt2 / 100, weighted_average)
                         present = set(fds_alts) | set(mt2_alts) | ({ref} if avg_ref >= min_vf else set())
                         fmp = f"{ref}{pos}{iupac.code(present)}"
