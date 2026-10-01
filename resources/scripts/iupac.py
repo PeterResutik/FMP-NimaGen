@@ -23,6 +23,19 @@ def code(present):
     return next(iter(present)) if len(present) == 1 else CODES[present]
 
 
+def call(ref, shares, min_vf):
+    """(code, {base: share}) at one position from the share of every base there
+    ({base: percent}, rCRS included): the bases with at least min_vf are present,
+    and the label carries the base when it is the only one, else their code. The
+    shares of the bases other than rCRS come largest first. None when rCRS is the
+    only base present."""
+    present = {b for b, s in shares.items() if s >= min_vf}
+    others = sorted(present - {ref}, key=lambda b: (-shares[b], b))
+    if not others:
+        return None
+    return code(present), {b: shares[b] for b in others}
+
+
 def alts(label_code, ref):
     """The bases other than rCRS that a label's base or code stands for."""
     return BASES.get(label_code, {label_code}) - {ref}

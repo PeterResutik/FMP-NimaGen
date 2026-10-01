@@ -88,3 +88,20 @@ def test_flank_rows(rcrs):
     rows = frames.flank_rows(sequences, 16094, 16276, R16189, rcrs, coverage=100)
     # 97% T is major; 3% G stays under min_vf; the insertion in 60% is minor
     assert [(label, round(share)) for label, share in rows] == [("C16176T", 97), ("-16179.1c", 60)]
+
+
+def test_flank_rows_one_row_per_position(rcrs):
+    # T 60%, G 30% and rCRS C 10% at 16176: one row with the code of all three
+    sequences = [(amplicon(rcrs, 16094, 16276, {16176: "T"}), 60),
+                 (amplicon(rcrs, 16094, 16276, {16176: "G"}), 30),
+                 (amplicon(rcrs, 16094, 16276, {}), 10)]
+    rows = frames.flank_rows(sequences, 16094, 16276, R16189, rcrs, coverage=100)
+    assert rows == [("C16176B", {"T": 60.0, "G": 30.0})]
+
+
+def test_flank_rows_rcrs_share_leaves_out_deleted_molecules(rcrs):
+    # T 92% and 8% without a base at 16176: no C is left, so T is major
+    sequences = [(amplicon(rcrs, 16094, 16276, {16176: "T"}), 92),
+                 (amplicon(rcrs, 16094, 16276, {16176: ""}), 8)]
+    rows = frames.flank_rows(sequences, 16094, 16276, R16189, rcrs, coverage=100)
+    assert rows == [("C16176T", 92.0)]

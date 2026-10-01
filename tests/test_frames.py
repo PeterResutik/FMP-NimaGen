@@ -23,10 +23,15 @@ def mol(a, c, x=None, c2=None):
 
 
 def report(region, molecules, frame, rcrs):
-    """Rows as the spec writes them: majors plain, minors with their rounded share."""
+    """Rows as the spec writes them: majors plain, minors with their rounded share,
+    per base where a code holds several bases other than rCRS."""
     coverage = sum(reads for _, reads in molecules)
-    return [label if label[-1] in "ACGT-" and share >= 90 else f"{label} {share:.0f}%"
-            for label, share in frames.rows(region, molecules, coverage, frame, rcrs)]
+
+    def shown(label, share):
+        if isinstance(share, dict):
+            return f"{label} " + ", ".join(f"{b} {s:.0f}%" for b, s in share.items())
+        return label if label[-1] in "ACGT-" and share >= 90 else f"{label} {share:.0f}%"
+    return [shown(label, share) for label, share in frames.rows(region, molecules, coverage, frame, rcrs)]
 
 
 # The worked examples of the spec (16180-16193); reads out of 100
@@ -47,10 +52,10 @@ SPEC = [
     (12, [(mol(4, 5, "T", 5), 100)], ["-16193.1C"], ["-16193.1C"]),
     (13, [(mol(4, 5, "T", 4), 60), (mol(4, 10), 25), (mol(4, 11), 10), (mol(4, 12), 5)],
      ["T16189Y 40%", "-16193.1c 15%"], ["T16189Y 40%", "-16193.1c 15%"]),
-    # three bases at 16189: one row per base until the three-base IUPAC code (spec point 9)
+    # three bases at 16189: one row with their code (spec point 9)
     (14, [(mol(4, 5, "T", 4), 40), (mol(4, 10), 30), (mol(3, 6, "A", 4), 10), (mol(4, 11), 10), (mol(4, 5, "T", 5), 10)],
-     ["A16183M 10%", "T16189Y 40%", "T16189W 10%", "-16193.1c 20%"],
-     ["A16183a 10%", "-16188.1c 10%", "T16189Y 40%", "T16189W 10%", "-16193.1c 20%"]),
+     ["A16183M 10%", "T16189H C 40%, A 10%", "-16193.1c 20%"],
+     ["A16183a 10%", "-16188.1c 10%", "T16189H C 40%, A 10%", "-16193.1c 20%"]),
     (15, [("AAACACCCCCCCCC", 63), ("AAACACCCCCCCCCC", 30), ("AAACACCCCCCCCCCC", 4), ("AAACACCCCCCCC", 4)],
      ["A16183C", "C16184A", "T16189C", "-16193.1c 34%"], ["A16183C", "C16184A", "T16189C", "-16193.1c 34%"]),
     (16, [("AAAACCCTCCCCCC", 100)], ["C16187T", "T16189C"], ["C16187T", "T16189C"]),
@@ -157,3 +162,14 @@ def test_labels_give_every_structure_back(reference, name, frame):
         if notation.apply_labels(labels, reference, region.first - 1, region.last) != before + bases:
             wrong.append((bases, labels))
     assert wrong == []
+
+
+@pytest.mark.parametrize("frame", ["shared", "separate"])
+@pytest.mark.parametrize("molecules, expected", [
+    # C and A at 16189, no T: the code of C and A only
+    ([(mol(4, 10), 60), (mol(4, 5, "A", 4), 40)], ["T16189M C 60%, A 40%"]),
+    # C on 94%, T and A under min_vf: major
+    ([(mol(4, 10), 94), (mol(4, 5, "T", 4), 3), (mol(4, 5, "A", 4), 3)], ["T16189C"]),
+])
+def test_rows_one_per_position(rcrs, frame, molecules, expected):
+    assert report(R16189, molecules, frame, rcrs) == expected

@@ -158,6 +158,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   base (`C 40, A 10`); such values no longer turn the column into text, which
   broke the averaging on the other rows. Three- and four-base codes are
   coloured like the two-base ones.
+- FDSTOOLS writes one row per position for substitutions, from its labels and
+  from the frames' rows: the bases with at least `--min_vf_FDS` of the reads
+  are present, rCRS when the reads without another base or a deletion there
+  reach it. One base other than rCRS present is a major call (C756A), two or
+  more give their IUPAC code, three and four bases included (T16189H for T, C
+  and A; T16189M for C and A without T), with vf and reads per base other
+  than rCRS (`C 40, A 10`). Several bases were one row each, coded with rCRS
+  even where rCRS was absent, and a base was major only from 95%: C on 94%
+  of the reads with T and A on 3% each was T16189Y, now T16189C.
 
 ### Added
 - `LICENSE`: MIT, copyright University of Zurich. Third-party material in the

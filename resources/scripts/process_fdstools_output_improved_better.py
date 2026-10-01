@@ -34,7 +34,7 @@ def lh_bounds_pct(threshold_pct):
     with floor <= ceiling."""
     return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
 
-# IUPAC resolution for heteroplasmies
+# Length heteroplasmy: minor insertions and deletions in lowercase
 def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold):
     seq = row['sequence']
 
@@ -47,14 +47,41 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
         if 'DEL' in seq:
             return seq.replace('DEL', '-' if is_major else seq[0].lower())
         return '-' + seq if is_major else '-' + seq[:-1] + seq[-1].lower()
-    if row['variant_frequency'] < 100 - min_variant_frequency_pct:
-        match = re.match(r'([ACGT])(\d+)([ACGT])', seq)
-        if match:
-            ref, pos, alt = match.groups()
-            code = iupac.CODES.get(frozenset([ref, alt]))
-            if code:
-                return f"{ref}{pos}{code}"
     return seq
+
+
+SUBSTITUTION = re.compile(r"^[ACGT]\d+[ACGT]$")
+
+
+def position_rows(final, other_share, min_vf):
+    """One row per position for FDSTOOLS' substitution labels (C756A, C756T), by
+    iupac.call: the bases with at least min_vf are present, rCRS when what
+    other_share[position] (every substitution and deletion there, also those under
+    min_vf) leaves reaches min_vf. Several bases other than rCRS give one row with
+    frequency and reads per base ("A 30, T 10")."""
+    labels, rows, combined = {}, [], []
+    subs = final[final["sequence"].str.match(SUBSTITUTION)]
+    for pos, group in subs.groupby("position"):
+        ref = group["sequence"].iloc[0][0]
+        shares = dict(zip(group["sequence"].str[-1], group["variant_frequency"]))
+        code, others = iupac.call(ref, {**shares, ref: 100 - other_share.get(pos, 0)}, min_vf)
+        label = f"{ref}{int(pos)}{code}"
+        if len(group) == 1:
+            labels[group.index[0]] = label
+            continue
+        reads = dict(zip(group["sequence"].str[-1], group["total"]))
+        first = group.loc[group["variant_frequency"].idxmax()].to_dict()
+        rows.append({**first, "sequence": label, "variant_frequency": iupac.format_values(others),
+                     "total": iupac.format_values({b: reads[b] for b in others}, 0),
+                     "interpolated_total_coverage": group["interpolated_total_coverage"].max(),
+                     "num_markers": group["num_markers"].max()})
+        combined += list(group.index)
+    final = final.copy()
+    for i, label in labels.items():
+        final.at[i, "sequence"] = label
+    if rows:
+        final = pd.concat([final.drop(index=combined), pd.DataFrame(rows)], ignore_index=True)
+    return final
 
 def load_marker_ranges(filepath):
     marker_ranges = {}
@@ -103,8 +130,13 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
             region_rows = frames.rows(region, molecules, coverage, frame, reference, min_vf, lh_thresh)
             flank = frames.flank_rows(sequences, start, end, region, reference, coverage, min_vf, lh_thresh)
             for label, share, note in [r + (f"{frame} frame",) for r in region_rows] + [r + (None,) for r in flank]:
-                rows.append({"sequence": label, "total": round(share * coverage / 100),
-                             "interpolated_total_coverage": coverage, "variant_frequency": round(share, 2),
+                if isinstance(share, dict):  # several bases other than rCRS
+                    total = iupac.format_values({b: s * coverage / 100 for b, s in share.items()}, 0)
+                    share = iupac.format_values(share)
+                else:
+                    total, share = round(share * coverage / 100), round(share, 2)
+                rows.append({"sequence": label, "total": total,
+                             "interpolated_total_coverage": coverage, "variant_frequency": share,
                              "marker": marker, "num_markers": 1, "is_noise_or_low_frq": False,
                              "variant_note": note})
     return pd.DataFrame(rows)
@@ -210,6 +242,11 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     drop_seqs = ["Other", "sequences", "REF", "N3107DEL", "No", "data"]
     final = final[(~final["sequence"].isin(drop_seqs))]
 
+    # Share of the molecules with another base or a deletion at each position, all of
+    # them (also under min_vf): what is left is rCRS
+    changed = final["sequence"].str.match(r"^[ACGT]\d+(?:[ACGT]|DEL)$")
+    other_share = final[changed].groupby("position")["variant_frequency"].sum().to_dict()
+
     final["is_noise_or_low_frq"] = (final["sequence"].isin(["Other sequences"])) | (final["variant_frequency"] < min_variant_frequency_pct)
     final = final[~final["is_noise_or_low_frq"]]
 
@@ -287,6 +324,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         print(f"Output written to {output_file} (no variants)")
         return
     if not final.empty:
+        final = position_rows(final, other_share, min_variant_frequency_pct)
         resolved = final.apply(
             lambda row: resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_threshold),
             axis=1

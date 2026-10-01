@@ -198,17 +198,24 @@ def region_molecules(sequences, start, end, region, reference):
 
 def flank_rows(sequences, start, end, region, reference, coverage, min_vf=5.0, lh_thresh=10.0):
     """Report rows [(label, percent)] for the changes within FLANK bases of the region,
-    summed by reads over an amplicon's sequences [(sequence, reads)]: substitutions from
-    min_vf (minor as IUPAC), insertions and deletions from lh_thresh (minor in lowercase)."""
+    summed by reads over an amplicon's sequences [(sequence, reads)]: substitutions one
+    row per position (iupac.call: bases from min_vf, rCRS what the other bases and the
+    deletions there leave; with several bases other than rCRS the percent is
+    {base: percent}), insertions and deletions from lh_thresh (minor in lowercase)."""
     lh_floor, lh_ceiling = min(lh_thresh, 100 - lh_thresh), max(lh_thresh, 100 - lh_thresh)
     reads = Counter()
     for sequence, n in sequences:
         if sequence and set(sequence) <= set("ACGT"):
             for label in region_and_flank(sequence, start, end, region, reference)[1]:
                 reads[label] += n
-    out = []
+    out, bases_at, deleted_at = [], defaultdict(dict), Counter()
     for label, n in reads.items():
         share = 100 * n / coverage
+        if label.endswith("-"):
+            deleted_at[label[:-1]] += share
+        elif not label.startswith("-"):
+            bases_at[label[:-1]][label[-1]] = share
+            continue
         if label.startswith("-"):
             if share >= lh_ceiling:
                 out.append((label, share))
@@ -219,17 +226,20 @@ def flank_rows(sequences, start, end, region, reference, coverage, min_vf=5.0, l
                 out.append((label, share))
             elif share >= lh_floor:
                 out.append((label[:-1] + label[0].lower(), share))
-        elif share >= 100 - min_vf:
-            out.append((label, share))
-        elif share >= min_vf:
-            out.append((label[:-1] + iupac.CODES[frozenset((label[0], label[-1]))], share))
+    for site, shares in bases_at.items():
+        ref = site[0]
+        found = iupac.call(ref, {**shares, ref: 100 - sum(shares.values()) - deleted_at[site]}, min_vf)
+        if found:
+            code, others = found
+            out.append((site + code, next(iter(others.values())) if len(others) == 1 else others))
     return sorted(out, key=lambda r: notation.label_position(r[0]))
 
 
 def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10.0):
     """Report rows [(label, percent)] for the molecules [(region bases, reads)] of one
     sample, out of `coverage` reads. Substitutions use min_vf, the caller's floor
-    (--min_vf_FDS for FDSTOOLS molecules; minor as IUPAC), length changes lh_thresh
+    (--min_vf_FDS for FDSTOOLS molecules), one row per position (iupac.call; with
+    several bases other than rCRS the percent is {base: percent}), length changes lh_thresh
     (--lh_thresh; minor in lowercase). A boundary shift is a substitution in the
     shared frame and a length change in the separate frame, each with its own
     threshold; setting --min_vf equal to --lh_thresh makes both frames report the
@@ -248,14 +258,10 @@ def rows(region, molecules, coverage, frame, reference, min_vf=5.0, lh_thresh=10
     out = []
     for p in range(region.first, region.last + 1):
         ref = reference[p - 1]
-        shares = {b: 100 * n / coverage for b, n in bases_at[p].items()}
-        for b, share in sorted(shares.items(), key=lambda x: -x[1]):
-            if b == ref:
-                continue
-            if share >= 100 - min_vf:
-                out.append((f"{ref}{p}{b}", share))
-            elif share >= min_vf:
-                out.append((f"{ref}{p}{iupac.CODES[frozenset((ref, b))]}", share))
+        found = iupac.call(ref, {b: 100 * n / coverage for b, n in bases_at[p].items()}, min_vf)
+        if found:
+            code, others = found
+            out.append((f"{ref}{p}{code}", next(iter(others.values())) if len(others) == 1 else others))
         share = 100 * deleted_at[p] / coverage
         if share >= lh_ceiling:
             out.append((f"{ref}{p}-", share))

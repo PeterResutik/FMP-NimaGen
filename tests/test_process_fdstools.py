@@ -102,6 +102,20 @@ def test_substitution_minor_iupac_major_base(tmp_path, with_alt, expected):
     assert calls(report)[expected] == with_alt
 
 
+@pytest.mark.parametrize("rows, expected, reads", [
+    # A, T and rCRS C: one row with the code of all three
+    ([("C756A", 30), ("C756T", 10), ("REF", 60)], {"C756H": "A 30, T 10"}, "A 30, T 10"),
+    # A and G, no C left: the code of A and G only
+    ([("C756A", 70), ("C756G", 30)], {"C756R": "A 70, G 30"}, "A 70, G 30"),
+    # A on 94%, T and G under min_vf: major
+    ([("C756A", 94), ("C756T", 3), ("C756G", 3)], {"C756A": 94.0}, 94),
+])
+def test_one_row_per_position(tmp_path, rows, expected, reads):
+    report = run(tmp_path, [("mtNG_006", s, n) for s, n in rows])
+    assert {k: v for k, v in calls(report).items() if k != "LOW"} == expected
+    assert report.set_index("FDSTOOLS").loc[next(iter(expected)), "rd_FDS"] == reads
+
+
 # --- The frame regions (57-60, 300-315, 16180-16193) come from tssv.csv -------------
 
 def amplicon(reference, start, end, edits):
