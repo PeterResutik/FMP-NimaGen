@@ -116,6 +116,17 @@ def test_one_row_per_position(tmp_path, rows, expected, reads):
     assert report.set_index("FDSTOOLS").loc[next(iter(expected)), "rd_FDS"] == reads
 
 
+@pytest.mark.parametrize("rows, expected", [
+    # A 40%, rCRS C 30%, deleted 30%: the bases present and the minor deletion
+    ([("C756A", 40), ("C756DEL", 30), ("REF", 30)], {"C756M": 40.0, "C756c": 30.0}),
+    # A 70%, deleted 30%: no C left, so A is major
+    ([("C756A", 70), ("C756DEL", 30)], {"C756A": 70.0, "C756c": 30.0}),
+])
+def test_substitution_and_deletion_at_one_position_are_two_rows(tmp_path, rows, expected):
+    report = run(tmp_path, [("mtNG_006", s, n) for s, n in rows])
+    assert {k: v for k, v in calls(report).items() if k != "LOW"} == expected
+
+
 # --- The frame regions (57-60, 300-315, 16180-16193) come from tssv.csv -------------
 
 def amplicon(reference, start, end, edits):

@@ -60,6 +60,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   2.2, `samplestats` reads every allele name back as a sequence and rejects
   `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
   so `p11` failed on a fresh install.
+- Outside the frame regions, FDSTOOLS no longer writes a substitution and a
+  deletion at one position as one lowercase label with their shares added:
+  A on 40% and 30% deleted at 756 gave C756a 70%, A on 70% and 30% deleted
+  C756a 100%. They are two rows, as in the frames: the bases present (C756M
+  40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
 - rtn compares reads with `humans_NimaGen.fa` (built by

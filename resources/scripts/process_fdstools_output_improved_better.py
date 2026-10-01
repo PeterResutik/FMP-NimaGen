@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-import numpy as np
 import re
 import argparse
 import sys
@@ -249,71 +248,6 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     final["is_noise_or_low_frq"] = (final["sequence"].isin(["Other sequences"])) | (final["variant_frequency"] < min_variant_frequency_pct)
     final = final[~final["is_noise_or_low_frq"]]
-
-    # Merge substitutions and deletions at same position
-    merged_rows, used_indices = [], set()
-    for pos, group in final.groupby("position"):
-        if group.shape[0] != 2:
-            continue
-
-        del_row = group[group["sequence"].str.endswith("DEL")]
-        sub_row = group[~group["sequence"].str.endswith("DEL")]
-        if del_row.empty or sub_row.empty:
-            continue
-
-        del_idx, sub_idx = del_row.index[0], sub_row.index[0]
-        if del_idx in used_indices or sub_idx in used_indices:
-            continue
-
-        total = del_row["total"].iloc[0] + sub_row["total"].iloc[0]
-        coverage = del_row["interpolated_total_coverage"].iloc[0]
-        freq = round(total / coverage * 100, 1) if coverage else 0
-
-        # Safe regex matching
-        match = re.match(r'([ACGT])(\d+)([ACGT])', sub_row["sequence"].iloc[0])
-        if not match:
-            print(f"WARNING: Could not parse sequence: {sub_row['sequence'].iloc[0]}")
-            continue
-        ref, pos_str, alt = match.groups()
-
-        # Safe float parsing
-        raw_del_freq = del_row["variant_frequency"].iloc[0]
-        try:
-            del_freq = float(raw_del_freq) if raw_del_freq not in [None, "", "NaN"] else float('nan')
-        except (ValueError, TypeError):
-            del_freq = float('nan')
-        print(f"del_freq: {del_freq}")
-
-        # Use lowercase ALT for low-frequency deletions
-        _, lh_ceiling_merge = lh_bounds_pct(length_heteroplasmy_threshold)
-        if not np.isnan(del_freq) and del_freq < lh_ceiling_merge:
-            merged_seq = f"{ref}{pos_str}{alt.lower()}"
-        else:
-            merged_seq = f"{ref}{pos_str}{alt}"
-
-        freq_annotation = (
-            f"sub:{sub_row['variant_frequency'].iloc[0]} | "
-            f"del:{del_row['variant_frequency'].iloc[0]}"
-        )
-
-        merged_rows.append({
-            "sequence": merged_seq,
-            "total": total,
-            "interpolated_total_coverage": coverage,
-            "is_noise_or_low_frq": False,
-            "num_markers": sub_row['num_markers'].iloc[0],
-            "variant_frequency": freq,
-            "variant_note": freq_annotation,
-            "marker": sub_row["marker"].iloc[0],
-            "position": float(pos)
-        })
-
-        used_indices.update([del_idx, sub_idx])
-
-    # Drop merged original rows from final DataFrame
-    final = final.drop(index=used_indices)
-    if merged_rows:
-        final = pd.concat([final, pd.DataFrame(merged_rows)], ignore_index=True)
 
     # If nothing remains after filtering (e.g., H2O / No data), write empty output and stop
     if final.empty and rows_from_frames.empty:
