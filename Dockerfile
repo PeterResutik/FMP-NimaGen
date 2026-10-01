@@ -33,17 +33,17 @@ RUN conda install -n base -c conda-forge mamba -y
 
 # Create Conda environment with additional packages
 RUN mamba create -n bioinfo -c bioconda -c conda-forge -y \
-    python=3.9 \
-    cutadapt=4.6 \
-    samtools=1.21 \
-    bwa=0.7.18 \
+    python=3.12 \
+    cutadapt=5.2 \
+    samtools=1.24 \
+    bwa=0.7.19 \
     flash=1.2.11 \
     pandas=2.2.3 \
     biopython=1.85 \
     matplotlib=3.9.4 \
     openpyxl=3.1.5 \
     gatk4=4.6.2.0 \
-    bcftools=1.21
+    bcftools=1.24
 
 # Clone RtN repository and build it
 RUN git clone https://github.com/Ahhgust/RtN.git /workspace/RtN 

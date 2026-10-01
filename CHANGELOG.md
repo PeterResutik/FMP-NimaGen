@@ -86,6 +86,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- Python 3.12 (was 3.9, which no longer gets security fixes), samtools and
+  bcftools 1.24 (were 1.21), bwa 0.7.19 (was 0.7.18) and cutadapt 5.2 (was
+  4.6), in `FMP-NimaGen.yml` and the Dockerfile. The reports are the same on
+  the real and simulated samples tested; FDSTOOLS counts a read or two more
+  in a few amplicons.
 - The report is named after its frame, `<sample>_separate_frame.xlsx` or
   `<sample>_shared_frame.xlsx` (was `<sample>_merged_variants.xlsx`), so
   reports in both frames can sit side by side; `variant_note` no longer says
