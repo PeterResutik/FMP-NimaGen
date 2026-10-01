@@ -10,8 +10,8 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
   - [Clone the Repository](#clone-the-repository)  
   - [Organize Input Data](#organize-input-data)  
 - [Running the Pipeline](#running-the-pipeline)  
-  - [Running with Docker (Recommended)](#running-with-docker-recommended)  
-  - [Running Locally with Conda](#running-locally-with-conda)  
+  - [Running Locally with Conda (Recommended)](#running-locally-with-conda-recommended)  
+  - [Running with Docker](#running-with-docker)  
 - [Configuration](#configuration)  
 - [Tests](#tests)  
 - [Known Limitations](#known-limitations)  
@@ -25,11 +25,14 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
 
 The pipeline automates the following steps:
 
-1. **Soft-clip Removal**: Removes soft-clipped bases to improve alignment quality.  
-2. **Read Merging**: Uses FLASH to merge overlapping paired-end reads.  
-3. **Primer Trimming**: Uses Cutadapt to remove primers and unwanted flanking sequences.  
-4. **Variant Calling**: Uses both **GATK Mutect2** and **FDSTools** to call mtDNA variants.  
-5. **Variant Comparison**: Merges and compares outputs from both tools to support interpretation and distinguish true variants from false positives.  
+1. **Mapping and soft-clip removal** (`p02`–`p03`): read pairs are mapped to rCRS with bwa, and soft-clipped bases are removed.  
+2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
+3. **Primer trimming** (`p05`): Cutadapt removes the primers, trims low-quality ends and drops reads without a primer or outside the length limits.  
+4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for Mutect2).  
+5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too.  
+6. **Quality control** (`p10`): FastQC and read depth per amplicon.  
+7. **Variant calling** (`p11`–`p12`): **FDSTOOLS** on the reads with primers and **GATK Mutect2** on the trimmed reads.  
+8. **Report** (`p13`): both callers' calls are written in one notation and merged into one Excel table per sample, which shows where the callers agree and where they do not.  
 
 The workflow is designed for reproducibility and scalability.
 
@@ -73,8 +76,8 @@ nextflow -version
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/PeterResutik/mtDNA-NimaGen.git
-cd mtDNA-NimaGen
+git clone https://github.com/PeterResutik/FMP-NimaGen.git
+cd FMP-NimaGen
 ```
 
 ### Organize Input Data
@@ -87,25 +90,9 @@ cp /path/to/your/FASTQ/*fastq.gz raw_data/
 
 ## Running the Pipeline
 
-### Running with Docker (Recommended)
+### Running Locally with Conda (Recommended)
 
-This is the recommended and most portable way to run the pipeline:
-
-```bash
-nextflow run main.nf -profile docker
-```
-
-To resume a previous run and skip already completed steps:
-
-```bash
-nextflow run main.nf -profile docker -resume
-```
-
-> **Note**: You do **not** need to install Conda or any dependencies if using Docker.
-
-### Running Locally with Conda
-
-If you prefer to run the pipeline with your own local environment:
+This is the way the pipeline is tested:
 
 1. Ensure you have [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Conda](https://docs.conda.io/en/latest/) installed.
 2. Create the environment:
@@ -117,9 +104,21 @@ conda env create -f FMP-NimaGen.yml
 3. Activate the environment and run the pipeline:
 
 ```bash
-conda activate FMP-NimaGen.yml
+conda activate FMP-NimaGen
 nextflow run main.nf -profile local
 ```
+
+To resume a previous run and skip already completed steps, add `-resume`.
+
+### Running with Docker
+
+```bash
+nextflow run main.nf -profile docker
+```
+
+> **Note**: the Docker image (`peterresutik/nimagen-pipeline:latest`) dates from May 2025
+> and has not been tested with this version of the pipeline. Use Conda until a new
+> image is published.
 
 ## Configuration
 
@@ -155,10 +154,10 @@ pytest
 
 ### Remove Cache and Temporary Files
 
-Delete Nextflow's execution cache:
+Delete Nextflow's cache and run history (`-resume` no longer works afterwards):
 
 ```bash
-rm -rf .nextflow.cache
+rm -rf .nextflow
 ```
 
 Clean up intermediate pipeline files:
@@ -188,7 +187,7 @@ Contributions are welcome. Please open an issue or pull request via GitHub if yo
 
 ## Contact
 
-For support or feedback, submit an issue on the [GitHub repository](https://github.com/PeterResutik/mtDNA-NimaGen).
+For support or feedback, submit an issue on the [GitHub repository](https://github.com/PeterResutik/FMP-NimaGen).
 
 ## License
 
