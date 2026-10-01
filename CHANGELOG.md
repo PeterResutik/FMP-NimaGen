@@ -60,6 +60,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   2.2, `samplestats` reads every allele name back as a sequence and rejects
   `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
   so `p11` failed on a fresh install.
+- Every `publishDir` overwrites: with `-resume`, Nextflow left a file already
+  in `--outdir` in place, so after a change of option (e.g. `--frame shared`,
+  then back to `--frame separate`) the folder kept the report of an earlier
+  run although the step had run with the new setting or come from the cache.
 - README: the repository is `FMP-NimaGen` (was `mtDNA-NimaGen`), the conda
   environment is activated as `FMP-NimaGen` (not `FMP-NimaGen.yml`), the
   overview lists the steps in the order the pipeline runs them, with the NUMT
