@@ -82,62 +82,6 @@ params.mutect2_disabled_regions = "none" // none | all | names separated by comm
     // rm -r "$baseDir/results"
     // rm .nextflow.*
 
-log_text = """\
-         m t D N A - N i m a G e n  P I P E L I N E    
-         ==========================================
-         mtDNA reference genome           : ${params.reference}
-         reads                            : ${params.reads}
-         
-         MERGING (with FLASH)
-         --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
-         --max_overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
-         --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
-
-         TRIMMING (with CUTADAPT) 
-         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
-         --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
-         --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
-         --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
-
-         MAPPING (with BWA MEM, p07)
-         --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
-
-         NUMTs REMOVAL (with RTN)
-         --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
-         --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
-
-         VARIANT CALLING (with FDSTOOLS)
-         (tssv)
-         --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
-         --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
-
-         VARIANT CALLING (with MUTECT2)
-         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
-         --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
-         --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
-         --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
-
-         POSTPROCESSING
-         --depth                          : $params.depth # Read depth threshold for low coverage (LOW); Mutect2 records resting on fewer reads are dropped
-         --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
-         --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
-         --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
-         --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
-         --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
-         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all, or names separated by commas (57-60,300-315,16180-16193): complex regions where Mutect2 minor calls are left out
-         --marker_map                     : $params.fdstools_library # Path to marker map file
-
-         OUTPUT DIRECTORY   
-         outdir                           : ${params.outdir}
-         --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir; VCFs, FDSTOOLS files, QC and the merged Excel still are
-         """
-
-log.info(log_text)
-
-assert params.reference, "Missing reference genome path"
-assert params.reads, "Missing input reads"
-assert file(params.humans_index_dir).exists(), "Humans index directory does not exist"
-
 process p00_pipeline_parameters{
     publishDir "$params.outdir",  mode: 'copy', overwrite: true
 
@@ -203,7 +147,7 @@ process p01b_prepare_humans_index {
 
 process p02_map_raw_fastq_p01 {
     tag "p02: bwa mem on $sample_id"
-    publishDir "$params.outdir/p02_mapped_w_scb_bam/${sample_id}", mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p02_mapped_w_scb_bam/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(reads)
@@ -237,7 +181,7 @@ process p02_map_raw_fastq_p01 {
 
 process p03_filter_softclipped_fastq_p01_p02 {
     tag "p03: removing scb from $sample_id"
-    publishDir "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}", mode: 'copy', overwrite: true, pattern: '*sorted.bam*', enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p03_mapped_wo_scb_bam/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*sorted.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(sam_r1), path(sam_r2)
@@ -360,7 +304,7 @@ process p07_map_merged_trimmed_bam_p01_p05 {
 
 process p08_filter_numts_merged_fastq_p06 {
     tag "p08: rtn on $sample_id"
-    publishDir "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}", mode: 'copy', overwrite: true, enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}" }, mode: 'copy', overwrite: true, enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index)
@@ -387,7 +331,7 @@ process p08_filter_numts_merged_fastq_p06 {
 
 process p09_filter_numts_trimmed_merged_bam_p07 {
     tag "p09: rtn on $sample_id"
-    publishDir "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}", mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(read_depth_txt)
@@ -419,7 +363,7 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
 process p10_quality_control_p09 {
     tag "p10: read depth on $sample_id"
-    publishDir "${params.outdir}/p10_quality_control/${sample_id}", mode: 'copy', overwrite: true
+    publishDir { "${params.outdir}/p10_quality_control/${sample_id}" }, mode: 'copy', overwrite: true
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)
@@ -442,7 +386,7 @@ process p10_quality_control_p09 {
 
 process p11_variant_calling_fdstools_sast_p08 {
     tag "p11: fdstools on $sample_id"
-    publishDir "$params.outdir/p11_fdstools/${sample_id}", mode: 'copy', overwrite: true
+    publishDir { "$params.outdir/p11_fdstools/${sample_id}" }, mode: 'copy', overwrite: true
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(rtn_fastq)
@@ -471,8 +415,8 @@ process p11_variant_calling_fdstools_sast_p08 {
 
 process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     tag "p12: mutect2 on $sample_id"
-    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy', overwrite: true, pattern: '*.vcf.gz*'
-    publishDir "$params.outdir/p12_mutect2/${sample_id}", mode: 'copy', overwrite: true, pattern: '*bamout.bam*', enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.vcf.gz*'
+    publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*bamout.bam*', enabled: params.publish_bams.toString().toBoolean()
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts) // the coverages do not need to be passed to mutect2 process
@@ -632,15 +576,71 @@ process p13_merge_variants_p10_p11 {
 }
 
 workflow {
-    Channel
+    log_text = """\
+         m t D N A - N i m a G e n  P I P E L I N E    
+         ==========================================
+         mtDNA reference genome           : ${params.reference}
+         reads                            : ${params.reads}
+         
+         MERGING (with FLASH)
+         --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
+         --max_overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
+         --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
+
+         TRIMMING (with CUTADAPT) 
+         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
+         --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
+         --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
+         --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
+
+         MAPPING (with BWA MEM, p07)
+         --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
+
+         NUMTs REMOVAL (with RTN)
+         --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
+         --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
+
+         VARIANT CALLING (with FDSTOOLS)
+         (tssv)
+         --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
+         --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
+
+         VARIANT CALLING (with MUTECT2)
+         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
+         --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
+         --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
+         --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
+
+         POSTPROCESSING
+         --depth                          : $params.depth # Read depth threshold for low coverage (LOW); Mutect2 records resting on fewer reads are dropped
+         --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
+         --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
+         --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
+         --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
+         --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
+         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all, or names separated by commas (57-60,300-315,16180-16193): complex regions where Mutect2 minor calls are left out
+         --marker_map                     : $params.fdstools_library # Path to marker map file
+
+         OUTPUT DIRECTORY   
+         outdir                           : ${params.outdir}
+         --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir; VCFs, FDSTOOLS files, QC and the merged Excel still are
+         """
+
+    log.info(log_text)
+
+    assert params.reference : "Missing reference genome path"
+    assert params.reads : "Missing input reads"
+    assert file(params.humans_index_dir).exists() : "Humans index directory does not exist"
+
+    channel
         .fromFilePairs(params.reads, checkIfExists: true)
         .set { read_pairs_ch }
 
-    humans_index_ch = Channel.value(file(params.humans_index_dir))
-    numts_index_ch  = Channel.value(file(params.numts_index_dir))
+    humans_index_ch = channel.value(file(params.humans_index_dir))
+    numts_index_ch  = channel.value(file(params.numts_index_dir))
 
-    humans_base_ch = Channel.value(params.humans_index_base)
-    numts_base_ch  = Channel.value(params.numts_index_base)
+    humans_base_ch = channel.value(params.humans_index_base)
+    numts_base_ch  = channel.value(params.numts_index_base)
 
     // ────────────────── LOG PARAMETERS ──────────────────────
     p00_pipeline_parameters(log_text)
@@ -684,7 +684,7 @@ workflow {
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
     // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
-    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, bam, bai, rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
+    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, _bam, _bai, _rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
     p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
     p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))

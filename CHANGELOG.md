@@ -91,6 +91,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- `main.nf` runs on Nextflow 26.04, which reads scripts with its strict syntax
+  and refused the file: the parameter log and the three input checks moved
+  from the top of the file into the workflow block, `assert` takes its message
+  after a colon, a `publishDir` path that names the sample is a closure, and
+  channel factories are called through `channel`. `nextflow.config` names the
+  versions the pipeline is tested with (25.04.6 and 26.04.6). Output is
+  unchanged.
 - Python 3.12 (was 3.9, which no longer gets security fixes), samtools and
   bcftools 1.24 (were 1.21), bwa 0.7.19 (was 0.7.18) and cutadapt 5.2 (was
   4.6), in `FMP-NimaGen.yml` and the Dockerfile. The reports are the same on
