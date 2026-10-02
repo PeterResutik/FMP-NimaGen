@@ -212,7 +212,7 @@ def caller_average_pct(row, vf_fds, vf_mt2, weighted=False):
     Mutect2: ref+alt reads), falling back to the plain average if a depth is missing."""
     if not weighted:
         return (vf_fds + vf_mt2 * 100) / 2
-    d_fds = pd.to_numeric(row.get("interpolated_total_coverage"), errors="coerce")
+    d_fds = pd.to_numeric(row.get("rd_total_FDS"), errors="coerce")
     try:
         d_mt2 = sum(float(x) for x in str(row.get("rd_MT2")).split(","))
     except ValueError:
@@ -525,7 +525,7 @@ def apply_excel_styles(excel_path: str):
 
                 if col_name.endswith("_MUTECT2") or col_name.endswith("_MT2") or col_name in ["MUTECT2", "Filter", "Pos", "Ref", "Variant", "GT", "Type", "MBQ", "Filter" ]:
                     cell.fill = fill_blue
-                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "interp_total", "marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
+                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
                     cell.fill = fill_green
 
 
@@ -590,7 +590,6 @@ if __name__ == "__main__":
             sys.exit(0)
         df_merged.drop(columns=["ID","is_noise_or_low_frq"], errors="ignore", inplace=True)
         df_merged.rename(columns={
-            "interpolated_total_coverage": "interp_total",
             "total_wo_noise_or_low_frq": "total_clean",
             "variant_frequency_wo_noise_or_low_frq": "variant_frequency_clean"
         }, inplace=True)

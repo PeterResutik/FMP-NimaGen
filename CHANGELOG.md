@@ -101,6 +101,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- The report column `interp_total` is now `rd_total_FDS`: all reads FDSTOOLS
+  counted at the position, the number `rd_FDS` is a part of and `vf_FDS` is
+  calculated from. Nothing is interpolated any more; only the name changes.
 - `main.nf` runs on Nextflow 26.04, which reads scripts with its strict syntax
   and refused the file: the parameter log and the three input checks moved
   from the top of the file into the workflow block, `assert` takes its message

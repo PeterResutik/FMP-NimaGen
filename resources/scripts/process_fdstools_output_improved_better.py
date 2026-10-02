@@ -72,7 +72,7 @@ def position_rows(final, other_share, min_vf):
         first = group.loc[group["variant_frequency"].idxmax()].to_dict()
         rows.append({**first, "sequence": label, "variant_frequency": iupac.format_values(others),
                      "total": iupac.format_values({b: reads[b] for b in others}, 0),
-                     "interpolated_total_coverage": group["interpolated_total_coverage"].max(),
+                     "rd_total_FDS": group["rd_total_FDS"].max(),
                      "num_markers": group["num_markers"].max()})
         combined += list(group.index)
     final = final.copy()
@@ -138,7 +138,7 @@ def frame_rows(tssv_path, reference, marker_map, marker_total_reads, frame, min_
                 else:
                     total, share = round(share * coverage / 100), round(share, 2)
                 rows.append({"sequence": label, "total": total,
-                             "interpolated_total_coverage": coverage, "variant_frequency": share,
+                             "rd_total_FDS": coverage, "variant_frequency": share,
                              "marker": marker, "num_markers": 1, "is_noise_or_low_frq": False,
                              "variant_note": None, "dominant_molecule": cell or None})
     return pd.DataFrame(rows)
@@ -215,19 +215,19 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     # Coverage: reads counted per amplicon, excluding "Other sequences" (the same
     # count LOW uses); clipped to 1 to avoid division by zero
-    grouped["interpolated_total_coverage"] = grouped["marker"].map(marker_total_reads).fillna(0).clip(lower=1)
+    grouped["rd_total_FDS"] = grouped["marker"].map(marker_total_reads).fillna(0).clip(lower=1)
 
 
     final = grouped.groupby("sequence", as_index=False).agg(
         marker=("marker", "first"),
         total=("total", "sum"),
-        interpolated_total_coverage=("interpolated_total_coverage", "sum"),
+        rd_total_FDS=("rd_total_FDS", "sum"),
         # is_noise_or_low_frq=("is_noise_or_low_frq", "first"),
         # total_wo_noise_or_low_frq=("total_wo_noise_or_low_frq", "sum"),
         num_markers=("marker", "nunique")
     )
 
-    final["variant_frequency"] = (final["total"] / final["interpolated_total_coverage"] * 100).round(2)
+    final["variant_frequency"] = (final["total"] / final["rd_total_FDS"] * 100).round(2)
     # final["variant_frequency_wo_noise_or_low_frq"] = (final["total"] / final["total_wo_noise_or_low_frq"] * 100).round(2)
     final["position"] = final["sequence"].apply(extract_position)
 
@@ -255,7 +255,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
     # If nothing remains after filtering (e.g., H2O / No data), write empty output and stop
     if final.empty and rows_from_frames.empty:
         pd.DataFrame(columns=[
-            "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
+            "FDSTOOLS", "vf_FDS", "rd_FDS", "rd_total_FDS",
             "variant_note", "marker", "marker_range", "num_markers"
         ]).to_csv(output_file, sep="\t", index=False)
         print(f"Output written to {output_file} (no variants)")
@@ -300,7 +300,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         "FDSTOOLS",
         "vf_FDS",
         "rd_FDS",
-        "interpolated_total_coverage",
+        "rd_total_FDS",
         "variant_note",
         "dominant_molecule",
         "marker",
@@ -312,7 +312,7 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     # if final is None or final.empty:
     #     pd.DataFrame(columns=[
-    #         "FDSTOOLS", "vf_FDS", "rd_FDS", "interpolated_total_coverage",
+    #         "FDSTOOLS", "vf_FDS", "rd_FDS", "rd_total_FDS",
     #         "variant_note", "marker", "marker_range", "num_markers"
     #     ]).to_csv(output_file, sep="\t", index=False)
     #     print(f"Output written to {output_file} (no variants)")

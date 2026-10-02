@@ -18,7 +18,7 @@ def fds(label, vf, depth, marker):
     """A row of the FDSTOOLS report table (vf in percent)."""
     start, end = AMPLICONS[marker]
     return {"FDSTOOLS": label, "vf_FDS": vf, "rd_FDS": round(vf * depth / 100),
-            "interpolated_total_coverage": depth, "marker": marker,
+            "rd_total_FDS": depth, "marker": marker,
             "marker_range": f"{start}-{end}", "num_markers": 1}
 
 
