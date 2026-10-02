@@ -70,6 +70,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   a few reads at the limit of the NUMT filter were then kept in one run and
   dropped in another, so read depths could differ by a few reads. `p04` now
   runs FLASH with `-t 1`.
+- R1 is cut before the poly-C tract at 303-315 (`p02`) only where the whole
+  anchor sequence (chrM:278-302) is found. With cutadapt's default minimum
+  overlap of 3, any R1 read that happened to end like the start of the anchor
+  also lost its last 3 or more bases, and the reads of the amplicon that ends
+  at 296 lost their last 19.
 - `tests/simulation/score_calls.py` checks all mismatches within one C-stretch
   together: A16182C against A16182- -16193.1C (one molecule, two spellings)
   lie 11 bases apart and were checked separately, as a wrong sequence. Its
