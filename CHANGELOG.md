@@ -65,6 +65,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   next run `p01b` ran again, in a new work folder, and `p08`/`p09`, which got
   the folder through it, ran again for every sample. They now take the folder
   directly and only the file name from `p01b`, once the index is ready.
+- Two runs on the same reads give the same reports. FLASH ran with one thread
+  per processor and wrote the merged reads in a different order on every run;
+  a few reads at the limit of the NUMT filter were then kept in one run and
+  dropped in another, so read depths could differ by a few reads. `p04` now
+  runs FLASH with `-t 1`.
 - `tests/simulation/score_calls.py` checks all mismatches within one C-stretch
   together: A16182C against A16182- -16193.1C (one molecule, two spellings)
   lie 11 bases apart and were checked separately, as a wrong sequence. Its
