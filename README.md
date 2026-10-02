@@ -13,6 +13,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
   - [Running Locally with Conda (Recommended)](#running-locally-with-conda-recommended)  
   - [Running with Docker](#running-with-docker)  
 - [Input and Output](#input-and-output)  
+- [Reading the Report](#reading-the-report)  
 - [Main Options](#main-options)  
 - [Configuration](#configuration)  
 - [Tests](#tests)  
@@ -136,6 +137,69 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | `p13_merged_variants_xlsx/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
+
+## Reading the Report
+
+The report has one row per variant, sorted by position. The first column,
+`FMP`, is the pipeline's call. The columns after it show what each caller found.
+
+### Notation
+
+| Example | Meaning |
+|---|---|
+| `A263G` | substitution: rCRS base, position, base found |
+| `A523-` | deletion of the rCRS base at 523 |
+| `-309.1C` | insertion of a C after 309; a second inserted base is `-309.2C` |
+| `T195Y` | point heteroplasmy: two or more bases at 195, written with the IUPAC code (`Y` is C and T) |
+| `-309.2c` | lowercase: a length variant on part of the molecules only (between `--lh_thresh` and 100 minus `--lh_thresh` percent) |
+| `LOW` | not a variant: an amplicon with fewer reads than `--depth`, named in `marker`; no call can be made in `marker_range` |
+
+In 16180–16193 and 300–315 the labels follow `--frame`: `separate` writes
+each run of equal bases by its length, `shared` lays the sequence from the
+left, as mitoLEAF and EMPOP do. Outside these regions a molecule is written
+with the fewest changes from rCRS. That can differ from the spelling of the
+phylogeny: L1c1c and L5b1 are written `G247-` where the phylogeny writes
+`247A 249del`. The molecule is the same.
+
+### Columns
+
+| Column | Meaning |
+|---|---|
+| `FMP` | the call |
+| `FDSTOOLS`, `MUTECT2` | each caller's own label; empty if the caller did not report the variant |
+| `vf_FDS`, `vf_MT2` | share of the reads with the variant, in percent; with several bases at one position, one value per base (`C 40, A 10`) |
+| `rd_FDS`, `rd_total_FDS` | FDSTOOLS: reads with the variant, and all reads at the position |
+| `rd_MT2`, `MBQ` | Mutect2: read counts and median base quality, each for rCRS first, then for the variant (`687,1450`: 687 reads with the rCRS base, 1450 with the variant) |
+| `called_by_FDSTOOLS`, `called_by_MUTECT2` | whether each caller confirms the call (see below) |
+| `variant_note` | remarks, for example which Mutect2 calls were left out |
+| `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
+| `marker`, `marker_range`, `num_markers` | the amplicon of the FDSTOOLS call, its range, and the number of amplicons the call was seen in |
+| `Filter`, `Pos`, `Ref`, `Variant`, `GT` | fields of the Mutect2 VCF record |
+| `Type` | `SNP`, `PHP` (point heteroplasmy), `INS`, `DEL` or `LHP` (length heteroplasmy) |
+
+The two callers show their evidence differently. FDSTOOLS gives the reads and
+the share of the variant only (`rd_FDS`, `vf_FDS`); the reads without it
+follow from `rd_total_FDS`. Mutect2 gives the reads of both the rCRS base and
+the variant (`rd_MT2`), and the share of the variant (`vf_MT2`).
+
+### Flags and colours
+
+`called_by_FDSTOOLS` and `called_by_MUTECT2`:
+
+| Value | Colour | Meaning |
+|---|---|---|
+| `TRUE` | | the caller reports the variant as written in `FMP` |
+| `FALSE` | red | the caller does not report it |
+| `DISAGREEMENT` | amber | the caller reports it on the other side of a threshold, for example as major where the other caller has it as minor; `FMP` follows the averaged frequency (`--disagreement_average`) |
+| `DISABLED` | grey | Mutect2's minor calls are left out in this region (`--mutect2_disabled_regions`) |
+| `LOW`, `OK` | red, none | in a `LOW` row: which caller has too few reads |
+
+The colour of the `FMP` cell shows the kind of row at a glance: red where the
+callers do not agree (`FALSE` or `DISAGREEMENT`), yellow for `LOW`, orange for
+a point heteroplasmy, blue for a lowercase length variant, and green for
+variants both callers report (a lighter green for insertions and deletions).
+Red and yellow rows are the ones to look at. The columns that come from
+FDSTOOLS have a green background, those from Mutect2 a blue one.
 
 ## Main Options
 
