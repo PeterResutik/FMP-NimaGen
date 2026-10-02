@@ -181,7 +181,8 @@ process p01b_prepare_humans_index {
     val humans_base
 
     output:
-    path humans_index_dir, emit: humans_index_ready
+    // the file name, once the index is ready: a value, so rtn's cache does not depend on this task's work folder
+    val humans_base, emit: humans_index_ready
 
     script:
     """
@@ -667,8 +668,9 @@ workflow {
     p07_map_merged_trimmed_bam_p01_p05(p05_trim_merged_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
-    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ready_ch, humans_base_ch, numts_index_ch, numts_base_ch)
-    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ready_ch, humans_base_ch, numts_index_ch, numts_base_ch)
+    // rtn takes the humans folder itself and the file name from p01b once the index is ready
+    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch)
+    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch)
     
     // ────────────────── QUALITY CONTROL ─────────────────────
     p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.python_script_generate_read_depth_plot)

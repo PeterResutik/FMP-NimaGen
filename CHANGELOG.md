@@ -60,6 +60,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   2.2, `samplestats` reads every allele name back as a sequence and rejects
   `N3107DEL`, which FDSTOOLS itself writes for the rCRS placeholder at 3107,
   so `p11` failed on a fresh install.
+- Building the humans index no longer makes rtn rerun. `p01b` writes the index
+  into `--humans_index_dir`, which changes the folder's time stamp; on the
+  next run `p01b` ran again, in a new work folder, and `p08`/`p09`, which got
+  the folder through it, ran again for every sample. They now take the folder
+  directly and only the file name from `p01b`, once the index is ready.
 - `tests/simulation/score_calls.py` checks all mismatches within one C-stretch
   together: A16182C against A16182- -16193.1C (one molecule, two spellings)
   lie 11 bases apart and were checked separately, as a wrong sequence. Its
