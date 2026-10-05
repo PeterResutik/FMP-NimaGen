@@ -24,7 +24,7 @@ params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_be
 // cutadapt
 params.quality_cutoff = 25
 params.minimum_length = 60
-params.maximum_length = 300
+params.maximum_length = 600 // longer than any merged 2x250 read, so products spanning two amplicons are kept
 
 // bwa mem in p07 (primer-trimmed merged reads, used by Mutect2)
 params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5

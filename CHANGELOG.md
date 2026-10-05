@@ -111,6 +111,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- cutadapt's maximum length (`params.maximum_length`) is 600 (was 300),
+  longer than any merged read from 2x250 sequencing. A product spanning two
+  neighbouring amplicons of one primer pool is up to about 390 bases after
+  primer trimming and was discarded before Mutect2. It is a real product of the
+  mtDNA, aligns end to end, and now adds up to a quarter more reads to
+  amplicons 001 to 003 and 5-8% to 098 to 100. FDSTOOLS does not use this
+  limit.
 - The report column `interp_total` is now `rd_total_FDS`: all reads FDSTOOLS
   counted at the position, the number `rd_FDS` is a part of and `vf_FDS` is
   calculated from. Nothing is interpolated any more; only the name changes.
