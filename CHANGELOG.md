@@ -9,6 +9,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- cutadapt (`p05`) accepts a primer that is incomplete at the end of a read.
+  Where the first bases of a primer's oligo carry an error, bwa clips them and
+  `p03` removes them, so the read begins a few bases inside its primer; and
+  quality trimming ran before the primer search and could cut into the right
+  primer. cutadapt required the whole primer at each end and discarded these
+  reads. The primers are now non-internal (`X` instead of `^` and `$`, set in
+  `p05`; the primer files are unchanged): a primer may be incomplete at the
+  read end, with at least `params.primer_min_overlap` (15) of its bases in
+  the read, but is never searched inside the read. Quality trimming runs
+  after the primers are removed. Mutect2 gets about 2% more reads and
+  FDSTOOLS about 1%; no call changes.
 - Read-through past the primers is removed in `p03` even where it matches the
   reference. A read that runs past the end of its amplicon continues into the
   kit's own sequence; `p03` removed that only where it did not align. Where the

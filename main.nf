@@ -25,6 +25,7 @@ params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_be
 params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 600 // longer than any merged 2x250 read, so products spanning two amplicons are kept
+params.primer_min_overlap = 15 // bases of a primer that must be in the read when it is incomplete at the read end
 
 // bwa mem in p07 (primer-trimmed merged reads, used by Mutect2)
 params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5
@@ -252,10 +253,15 @@ process p05_trim_merged_fastq_p04 {
     tuple val(sample_id), path("${sample_id}_wo_scb_merged_trimmed.fastq")
 
     script:
-    """    
-    cutadapt -g file:$left_primers -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left.fastq $fastq_wo_scb_merged  
-    cutadapt -a file:$right_primers -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left_right.fastq ${sample_id}_wo_scb_merged_trimmed_left.fastq    
-    cp ${sample_id}_wo_scb_merged_trimmed_left_right.fastq ${sample_id}_wo_scb_merged_trimmed.fastq
+    """
+    # X instead of ^ and \$ (non-internal): a primer may be incomplete at the read end, as where the first bases of the
+    # oligo carry an error that bwa clips and p03 removes, but never inside the read; at least primer_min_overlap of its bases must be there
+    tr '^\$' XX < $left_primers > left_primers_noninternal.fasta
+    tr '^\$' XX < $right_primers > right_primers_noninternal.fasta
+    cutadapt -g file:left_primers_noninternal.fasta -O $params.primer_min_overlap -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left.fastq $fastq_wo_scb_merged
+    cutadapt -a file:right_primers_noninternal.fasta -O $params.primer_min_overlap -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left_right.fastq ${sample_id}_wo_scb_merged_trimmed_left.fastq
+    # quality trimming after the primers are removed, so that it cannot cut into a primer
+    cutadapt -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length -o ${sample_id}_wo_scb_merged_trimmed.fastq ${sample_id}_wo_scb_merged_trimmed_left_right.fastq
     """
 }
         
@@ -588,7 +594,8 @@ workflow {
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
 
          TRIMMING (with CUTADAPT) 
-         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from 5' and/or 3' ends of each read before adapter removal.
+         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from the end of each read, after primer removal.
+         --overlap                        : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
          --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
          --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
          --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
