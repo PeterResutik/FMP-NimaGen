@@ -308,29 +308,22 @@ process p07_map_merged_trimmed_bam_p01_p05 {
 }
 
 process p08_filter_numts_merged_fastq_p06 {
-    tag "p08: rtn on $sample_id"
+    tag "p08: reads rtn kept on $sample_id"
     publishDir { "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}" }, mode: 'copy', overwrite: true, enabled: params.publish_bams.toString().toBoolean()
 
     input:
-    tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index)
-    path amplicon_middle_positions
-    path humans_index
-    val humans_base
-    path numts_index
-    val numts_base
+    tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index), path(kept_names)
 
     output:
     tuple val(sample_id), path("${bam_wo_scb_merged.baseName}.rtn.bam"), path("${bam_wo_scb_merged.baseName}.rtn.bam.bai"), path("${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq")
 
     script:
-    // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
-    def numt_filter = params.skip_numt_filter.toString().toBoolean() ?
-        "cp ${bam_wo_scb_merged} ${bam_wo_scb_merged.baseName}.rtn.bam && samtools index ${bam_wo_scb_merged.baseName}.rtn.bam" :
-        "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b ${bam_wo_scb_merged}"
+    // the NUMT decision comes from p09, where rtn judges the same reads without their primers: the primers
+    // are the kit's oligos, and where they carry a rare rCRS base (750A, 8860A) every read would differ from almost every genome
     """
-    ${numt_filter}
-    samtools view -h -q $params.mapQ ${bam_wo_scb_merged.baseName}.rtn.bam > ${bam_wo_scb_merged.baseName}.rtn_tmp.bam
-    samtools fastq ${bam_wo_scb_merged.baseName}.rtn_tmp.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
+    samtools view -b -h -q $params.mapQ -N ${kept_names} ${bam_wo_scb_merged} > ${bam_wo_scb_merged.baseName}.rtn.bam
+    samtools index ${bam_wo_scb_merged.baseName}.rtn.bam
+    samtools fastq ${bam_wo_scb_merged.baseName}.rtn.bam > ${bam_wo_scb_merged.baseName}_wo_NUMTs.fastq
     """
 }
 
@@ -348,7 +341,8 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
 
     output:
-    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt")
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt"), emit: bams
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt"), emit: kept_names
 
     script:
     // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
@@ -360,6 +354,7 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
     samtools view -b -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools index ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
+    samtools view ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam | cut -f1 | sort -u > ${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
 
     mv ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam ${bam_wo_scb_merged_trimmed.baseName}.rtn.unfiltered.bam
@@ -673,23 +668,24 @@ workflow {
     p07_map_merged_trimmed_bam_p01_p05(p05_trim_merged_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
+    // rtn runs once, on the primer-trimmed reads (p09); p08 keeps the same reads for FDSTOOLS
     // rtn takes the humans folder itself and the file name from p01b once the index is ready
-    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out, params.amplicon_middle_positions, humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch)
     p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch)
+    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out.join(p09_filter_numts_trimmed_merged_bam_p07.out.kept_names, by: 0))
     
     // ────────────────── QUALITY CONTROL ─────────────────────
-    p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.python_script_generate_read_depth_plot)
+    p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out.bams, params.python_script_generate_read_depth_plot)
     
 
     // ────────────────── VARIANT CALLING ─────────────────────
     p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
-    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out, params.reference, p01_index_ch, p01_index_mutect2_ch, params.force_alleles)
+    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out.bams, params.reference, p01_index_ch, p01_index_mutect2_ch, params.force_alleles)
     p11_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p09.out.mutect2_ch 
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
     // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
-    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.map { sid, _bam, _bai, _rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
+    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.bams.map { sid, _bam, _bai, _rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
     p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
     p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))

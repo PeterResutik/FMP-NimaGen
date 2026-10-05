@@ -111,6 +111,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- rtn runs once, on the primer-trimmed reads (`p09`); `p08` keeps the reads of
+  the FDSTOOLS branch whose names `p09` kept. rtn judged the FDSTOOLS reads
+  with their primers, which are the kit's oligos: where a primer carries a
+  rare rCRS base (750A, 8860A, 14766C) every read differed from almost every
+  genome in the humans file, and a read that bwa aligned only in part was
+  judged on that part. The two rtn runs could decide differently on the same
+  molecule, so FDSTOOLS could miss a molecule Mutect2 saw (e.g. a length
+  variant in 16180-16193). FDSTOOLS now gets the reads Mutect2 gets, with
+  their primers. It no longer counts reads that cutadapt rejects (no complete
+  primer, or shorter than 60 bases), and assigns about 0.7% fewer reads to
+  amplicons.
 - cutadapt's maximum length (`params.maximum_length`) is 600 (was 300),
   longer than any merged read from 2x250 sequencing. A product spanning two
   neighbouring amplicons of one primer pool is up to about 390 bases after
