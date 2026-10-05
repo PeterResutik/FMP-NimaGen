@@ -189,6 +189,8 @@ process p03_filter_softclipped_fastq_p01_p02 {
     path python_script_remove_scb
     path reference
     path index_files
+    path left_primers
+    path right_primers
 
     output:
     tuple val(sample_id), path("${sample_id}_R1_wo_scb.bam"), path("${sample_id}_R2_wo_scb.bam")
@@ -199,8 +201,9 @@ process p03_filter_softclipped_fastq_p01_p02 {
 
     script:
     """ 
-    python $python_script_remove_scb ${sam_r1} ${sample_id}_R1_wo_scb.sam
-    python $python_script_remove_scb ${sam_r2} ${sample_id}_R2_wo_scb.sam
+    # soft-clipped bases go, and so do the few bases a read reaches past a primer boundary (read-through)
+    python $python_script_remove_scb ${sam_r1} ${sample_id}_R1_wo_scb.sam ${reference} ${left_primers} ${right_primers}
+    python $python_script_remove_scb ${sam_r2} ${sample_id}_R2_wo_scb.sam ${reference} ${left_primers} ${right_primers}
 
     samtools view -Sb ${sample_id}_R1_wo_scb.sam > ${sample_id}_R1_wo_scb.bam
     samtools view -Sb ${sample_id}_R2_wo_scb.sam > ${sample_id}_R2_wo_scb.bam
@@ -658,7 +661,7 @@ workflow {
 
     // ─────────── RAW READ MAPPING & FILTERING ───────────────
     p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
-    p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch)
+    p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch, params.left_primers, params.right_primers_rc)
     // p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
 
     // ──────────────── MERGING & TRIMMING ────────────────────

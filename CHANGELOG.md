@@ -9,6 +9,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- Read-through past the primers is removed in `p03` even where it matches the
+  reference. A read that runs past the end of its amplicon continues into the
+  kit's own sequence; `p03` removed that only where it did not align. Where the
+  first bases happened to equal the mtDNA next to the primer, they stayed, and
+  merged reads began up to a few bases before the left primer: cutadapt then
+  did not find the primer and discarded the read (16% of amplicon 049's
+  reads, 5% of 075's). `p03` now cuts a read back to the nearest primer
+  boundary it passes by at most 5 bases; the boundaries come from the primer
+  files cutadapt uses. A product spanning two amplicons begins and ends at
+  primer boundaries and stays whole.
 - `rCRS_NimaGen.fasta` trimmed from 16623 to 16622 bp, so the appended copy of
   chrM:1-53 ends where the origin-spanning amplicon's primer does.
 - The humans-reference BWA index is built once, in a new
