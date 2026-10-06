@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- The primer BED (for IGV) matches the primer files and the reads. Amplicon
+  045's left primer starts at 7086, not 7087; 046's second left oligo
+  (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
+  the appended copy (16603-16622), where its reads align, instead of at 1-20.
 - The library's flank length for amplicon 001's left flank is 18, the length
   of the flank (it said 18-23; FDSTOOLS used 18 either way). A comment says
   why the flank, like the primer file, begins at position 1 although the
