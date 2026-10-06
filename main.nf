@@ -31,7 +31,7 @@ params.primer_min_overlap = 15 // bases of a primer that must be in the read whe
 params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5
 
 params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
-params.humans_index_base = "humans_NimaGen.fa" // built by resources/rtn_files/humans/build/ from rtn's humans.fa
+params.humans_index_base = "humans_NimaGen_2026-10.fa" // built by resources/rtn_files/humans/build/ from public sources
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"

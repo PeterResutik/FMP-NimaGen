@@ -160,14 +160,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   reports in both frames can sit side by side; `variant_note` no longer says
   "separate frame" or "shared frame" on every row of the C-stretches.
   `tests/simulation/score_calls.py` takes `--frame`.
-- rtn compares reads with `humans_NimaGen.fa` (built by
-  `resources/rtn_files/humans/build/`) instead of rtn's `humans.fa`. NUMT
-  reads that one of the removed genomes let through in the control region are
-  now filtered, reads of rare lineages are no longer dropped in amplicons no
-  genome matched, and the file and its bwa index are half the size. `p01b`
-  unpacks the archive named by `--humans_index_base` (it always unpacked
-  `humans.fa.bz2`), and only if it is not unpacked yet; the first run after
-  the update builds the new index once.
+- rtn compares reads with `humans_NimaGen_2026-10.fa` (built by
+  `resources/rtn_files/humans/build/` from public sources) instead of rtn's
+  `humans.fa`: the mitoLEAF haplogroups, the GenBank genomes on mitoLEAF's
+  list and the re-called 1000 Genomes and HGDP people, without genomes that
+  carry NUMT-like stretches or errors. Fewer reads of rare lineages are taken
+  for NUMTs, and no more NUMT reads pass. `p01b` unpacks the archive named by
+  `--humans_index_base` (it always unpacked `humans.fa.bz2`), and only if it
+  is not unpacked yet; the new name makes the first run after the update build
+  the new index once.
 - Mutect2's major calls in 57-60, 300-315 and 16180-16193 and within 12 bases
   of them are written as FDSTOOLS' molecules are: rebuilt into one molecule,
   placed by the same alignment, and written in the frame chosen with `--frame`
@@ -332,12 +333,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   both callers' spellings, DISAGREEMENT kept apart from a missed call, the plain
   and depth-weighted averages, LOW rows per amplicon for both callers, and the
   colours of these flags in the Excel file.
-- `resources/rtn_files/humans/build/`: scripts and lists that build
-  `humans_NimaGen.fa`, rtn's human mitogenomes for NimaGen, from rtn's
-  `humans.fa`: four genomes left out (two containing NUMT sequence, two not
-  modern human), 580 mitoLEAF haplogroups added where no genome matched a
-  NimaGen amplicon exactly, and each genome written once plus its first 100
-  bases instead of twice.
+- `resources/rtn_files/humans/build/`: the scripts, lists and calls table
+  that build `humans_NimaGen_2026-10.fa`, rtn's human mitogenomes for NimaGen
+  (`build.sh`; sources, versions, screening rules and licences in its
+  README). Each genome is written once, plus its first 100 bases.
 - `--disagreement_average` (`plain` by default, or `depth_weighted`): how the
   two callers' frequencies are averaged when they disagree on major vs minor.
   `depth_weighted` weights each caller by its read depth for the call, so a
