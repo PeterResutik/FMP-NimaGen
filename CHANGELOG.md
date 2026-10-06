@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- FDSTOOLS reads amplicon 100 up to position 33, where its right primer
+  begins, with the two primers as flanks, as for every other amplicon. The
+  library ended 100 at 31 and had its flanks commented out, so FDSTOOLS took
+  16 reference bases on each side as flanks and counted 32-33 as flank.
 - Amplicon 045's left primer ends at 7112. The primer file gave it as 46 bases
   (7086-7131), so `p05` cut 7113-7130 from every 045 read along with the
   primer, and Mutect2 saw those positions only in amplicon 044. The primer of
