@@ -278,6 +278,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `resources/rtn_files/positions/`: the 50 positions that change most often in
+  human mtDNA (16519, 16182 and 16183, then mitoLEAF 1.6.1's tree by number of
+  branches with a substitution), for rtn to count at base quality 2. The number
+  was chosen by a rule fixed in advance on a leave-out of the humans file
+  (`curve.tsv`); the README gives the rule, the results and how to rebuild the
+  list with `rank_positions.py`.
 - `p00_parameters.txt` names the human mitogenomes and NUMT sequences rtn
   compares reads with (`--humans_index_dir`, `--humans_index_base`,
   `--numts_index_dir`, `--numts_index_base`), so every run records which
