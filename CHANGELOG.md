@@ -9,6 +9,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- Amplicon 045's left primer ends at 7112. The primer file gave it as 46 bases
+  (7086-7131), so `p05` cut 7113-7130 from every 045 read along with the
+  primer, and Mutect2 saw those positions only in amplicon 044. The primer of
+  the earlier chemistry (7107-7130, `045_pA_7132-7310_l_short`) stays, so data
+  made with it are trimmed as before. FDSTOOLS keeps 045 from 7131, where that
+  primer ends, so it can read both chemistries; a comment in the library says
+  so.
 - cutadapt (`p05`) accepts a primer that is incomplete at the end of a read.
   Where the first bases of a primer's oligo carry an error, bwa clips them and
   `p03` removes them, so the read begins a few bases inside its primer; and

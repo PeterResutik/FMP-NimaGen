@@ -44,6 +44,8 @@ mtNG_041 = chrM, 6446, 6648
 mtNG_042 = chrM, 6632, 6808
 mtNG_043 = chrM, 6773, 6975
 mtNG_044 = chrM, 6941, 7138
+; mtNG_045 begins after the left primer of the earlier chemistry (7107-7130), so that FDSTOOLS reads both;
+; the current left primer ends at 7112
 mtNG_045 = chrM, 7131, 7309
 mtNG_046 = chrM, 7298, 7496
 mtNG_047 = chrM, 7491, 7688
