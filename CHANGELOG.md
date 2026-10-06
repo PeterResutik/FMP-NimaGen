@@ -278,6 +278,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `p00_parameters.txt` names the human mitogenomes and NUMT sequences rtn
+  compares reads with (`--humans_index_dir`, `--humans_index_base`,
+  `--numts_index_dir`, `--numts_index_base`), so every run records which
+  humans file it used.
 - README: Input and Output (file names, the results folders) and Main Options.
 - README: Reading the Report (notation, columns, flags and colours).
 - `resources/amplicon_bed/NimaGen_primers.bed`: the panel's 200 primer binding

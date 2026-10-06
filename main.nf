@@ -604,6 +604,10 @@ workflow {
          --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
 
          NUMTs REMOVAL (with RTN)
+         --humans_index_dir               : $params.humans_index_dir # Folder of the human mitogenomes rtn compares reads with
+         --humans_index_base              : $params.humans_index_base # Human mitogenomes (resources/rtn_files/humans/build/README.md), unpacked and indexed on the first run
+         --numts_index_dir                : $params.numts_index_dir # Folder of the NUMT sequences rtn compares reads with
+         --numts_index_base               : $params.numts_index_base # NUMT sequences (from rtn)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
          --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
 
