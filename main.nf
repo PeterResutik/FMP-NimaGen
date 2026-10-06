@@ -24,7 +24,7 @@ params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_be
 // cutadapt
 params.quality_cutoff = 25
 params.minimum_length = 60
-params.maximum_length = 600 // longer than any merged 2x250 read, so products spanning two amplicons are kept
+params.maximum_length = 600 // longer than any merged 2x226 read, so products spanning two amplicons are kept
 params.primer_min_overlap = 15 // bases of a primer that must be in the read when it is incomplete at the read end
 
 // bwa mem in p07 (primer-trimmed merged reads, used by Mutect2)

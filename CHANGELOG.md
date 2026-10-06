@@ -134,7 +134,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   primer, or shorter than 60 bases), and assigns about 0.7% fewer reads to
   amplicons.
 - cutadapt's maximum length (`params.maximum_length`) is 600 (was 300),
-  longer than any merged read from 2x250 sequencing. A product spanning two
+  longer than any merged read from 2x226 sequencing. A product spanning two
   neighbouring amplicons of one primer pool is up to about 390 bases after
   primer trimming and was discarded before Mutect2. It is a real product of the
   mtDNA, aligns end to end, and now adds up to a quarter more reads to
