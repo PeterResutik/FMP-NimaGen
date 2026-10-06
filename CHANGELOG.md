@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- The library's flank length for amplicon 001's left flank is 18, the length
+  of the flank (it said 18-23; FDSTOOLS used 18 either way). A comment says
+  why the flank, like the primer file, begins at position 1 although the
+  oligo begins 5 bases earlier.
 - FDSTOOLS reads amplicon 100 up to position 33, where its right primer
   begins, with the two primers as flanks, as for every other amplicon. The
   library ended 100 at 31 and had its flanks commented out, so FDSTOOLS took
