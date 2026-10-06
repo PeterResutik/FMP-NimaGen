@@ -35,6 +35,7 @@ params.humans_index_base = "humans_NimaGen_2026-10.fa" // built by resources/rtn
 
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
+params.rtn_positions = "$baseDir/resources/rtn_files/positions/recurrent_positions.tsv" // rtn sees these positions at base quality 2; none = off
 
 // params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 // params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt" 
@@ -69,6 +70,7 @@ params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/gene
 params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved_better.py"
 params.python_script_process_mutect2_vcfgz = "$baseDir/resources/scripts/process_mutect2_output_improved.py"
 params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_fdstools_mutect2_improved.py"
+params.python_script_rtn_qualities = "$baseDir/resources/scripts/rtn_qualities.py"
 
 // merging
 params.depth = 10
@@ -344,6 +346,8 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
     val humans_base
     path numts_index
     val numts_base
+    val rtn_lowq
+    path python_script_rtn_qualities
 
 
     output:
@@ -352,9 +356,20 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
 
     script:
     // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    def base = bam_wo_scb_merged_trimmed.baseName
+    def rtn = "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b"
+    // rtn_lowq: rtn evaluates a copy of the reads with base quality 2 at these positions; its decision
+    // (MAPQ, tags) is kept and the reads get their own qualities back, so Mutect2 sees the original ones
     def numt_filter = params.skip_numt_filter.toString().toBoolean() ?
-        "cp ${bam_wo_scb_merged_trimmed} ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam && samtools index ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam" :
-        "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b ${bam_wo_scb_merged_trimmed}"
+        "cp ${bam_wo_scb_merged_trimmed} ${base}.rtn.bam && samtools index ${base}.rtn.bam" :
+        rtn_lowq == 'none' ? "${rtn} ${bam_wo_scb_merged_trimmed}" :
+        """set -o pipefail
+    samtools view -h ${bam_wo_scb_merged_trimmed} | python ${python_script_rtn_qualities} lower ${rtn_lowq} > ${base}.lowq.sam
+    samtools view -b -o ${base}.lowq.bam ${base}.lowq.sam && samtools index ${base}.lowq.bam
+    ${rtn} ${base}.lowq.bam
+    samtools view -h ${base}.lowq.rtn.bam | python ${python_script_rtn_qualities} restore ${bam_wo_scb_merged_trimmed} > ${base}.restored.sam
+    samtools view -b -o ${base}.rtn.bam ${base}.restored.sam && samtools index ${base}.rtn.bam
+    rm -f ${base}.lowq.* ${base}.restored.sam"""
     """
     ${numt_filter}
 
@@ -608,6 +623,7 @@ workflow {
          --humans_index_base              : $params.humans_index_base # Human mitogenomes (resources/rtn_files/humans/build/README.md), unpacked and indexed on the first run
          --numts_index_dir                : $params.numts_index_dir # Folder of the NUMT sequences rtn compares reads with
          --numts_index_base               : $params.numts_index_base # NUMT sequences (from rtn)
+         --rtn_positions                  : $params.rtn_positions # rtn sees these positions at base quality 2 (none = off); only an rtn that uses base qualities counts them less
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
          --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
 
@@ -642,6 +658,7 @@ workflow {
     assert params.reference : "Missing reference genome path"
     assert params.reads : "Missing input reads"
     assert file(params.humans_index_dir).exists() : "Humans index directory does not exist"
+    assert params.rtn_positions.toString() == 'none' || file(params.rtn_positions).exists() : "rtn positions file does not exist"
 
     channel
         .fromFilePairs(params.reads, checkIfExists: true)
@@ -650,6 +667,9 @@ workflow {
     humans_index_ch = channel.value(file(params.humans_index_dir))
     numts_index_ch  = channel.value(file(params.numts_index_dir))
 
+    // positions rtn sees at base quality 2 (resources/rtn_files/positions/README.md), comma-separated
+    def rtn_lowq = params.rtn_positions.toString() == 'none' ? 'none' :
+        file(params.rtn_positions).readLines().drop(1).collect { line -> line.split('\t')[1] }.join(',')
     humans_base_ch = channel.value(params.humans_index_base)
     numts_base_ch  = channel.value(params.numts_index_base)
 
@@ -681,7 +701,8 @@ workflow {
     // ────────────────── NUMTs FILTERING ─────────────────────
     // rtn runs once, on the primer-trimmed reads (p09); p08 keeps the same reads for FDSTOOLS
     // rtn takes the humans folder itself and the file name from p01b once the index is ready
-    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch)
+    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch,
+                                            rtn_lowq, params.python_script_rtn_qualities)
     p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out.join(p09_filter_numts_trimmed_merged_bam_p07.out.kept_names, by: 0))
     
     // ────────────────── QUALITY CONTROL ─────────────────────

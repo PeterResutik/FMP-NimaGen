@@ -32,7 +32,7 @@ The pipeline automates the following steps:
 2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
 3. **Primer trimming** (`p05`): Cutadapt removes the primers, trims low-quality ends and drops reads without a primer or outside the length limits.  
 4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for Mutect2).  
-5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS.  
+5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; the callers keep the original qualities.  
 6. **Quality control** (`p10`): read depth per amplicon.  
 7. **Variant calling** (`p11`–`p12`): **FDSTOOLS** on the reads with primers and **GATK Mutect2** on the trimmed reads.  
 8. **Report** (`p13`): both callers' calls are written in one notation and merged into one Excel table per sample, which shows where the callers agree and where they do not.  
@@ -215,6 +215,7 @@ FDSTOOLS have a green background, those from Mutect2 a blue one.
 | `--disagreement_average` | `plain` | how the two callers' frequencies are averaged when they disagree: `plain` or `depth_weighted` |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
+| `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
 
 All options and their values are printed at the start of each run and saved in

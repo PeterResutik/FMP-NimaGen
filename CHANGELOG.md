@@ -278,6 +278,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `--rtn_positions` (by default the 50 positions in
+  `resources/rtn_files/positions/`, `none` to switch it off): `p09` gives rtn a
+  copy of the reads with base quality 2 at these positions, keeps rtn's decision
+  and gives the reads their own qualities back, so Mutect2 sees the original
+  ones (`resources/scripts/rtn_qualities.py`). With an rtn that uses base
+  qualities, a difference at these positions counts about a tenth of a full
+  mismatch; rtn as released ignores qualities, and nothing changes.
 - `resources/rtn_files/positions/`: the 50 positions that change most often in
   human mtDNA (16519, 16182 and 16183, then mitoLEAF 1.6.1's tree by number of
   branches with a substitution), for rtn to count at base quality 2. The number
