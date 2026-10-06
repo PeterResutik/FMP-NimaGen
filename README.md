@@ -83,6 +83,28 @@ git clone https://github.com/PeterResutik/FMP-NimaGen.git
 cd FMP-NimaGen
 ```
 
+### Install rtn
+
+The NUMT filter runs [rtn](https://github.com/Ahhgust/RtN), which is not part of the
+conda environment. Build it from the fork with three fixes to how rtn scores reads
+(it uses base qualities, which `--rtn_positions` needs, and no longer drops reads
+with length variants in the C-stretches); this is tested on Linux:
+
+```bash
+git clone -b fixes https://github.com/PeterResutik/RtN.git
+cd RtN
+conda create -n rtn-build -c conda-forge jsoncpp
+conda activate rtn-build
+PREFIX=$CONDA_PREFIX ./build.sh
+cp rtn /usr/local/bin/   # or any directory in your PATH
+```
+
+`build.sh` also needs git, make, autoconf, automake, a C/C++ compiler and the
+development files of zlib, bzip2 and xz. It does not yet build on Apple Silicon.
+rtn as released also runs with the pipeline, but without the fixes: it ignores base
+qualities, so `--rtn_positions` has no effect, and it drops some reads with length
+variants.
+
 ### Organize Input Data
 
 Place your raw sequencing files into the expected directory:

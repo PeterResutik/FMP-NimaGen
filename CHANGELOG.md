@@ -278,6 +278,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- README: Install rtn, from the fork at <https://github.com/PeterResutik/RtN>
+  (branch `fixes`: base qualities used, a tie between hits broken by the
+  likelihood rtn decides on, inserted bases counted as aligned with `-i`) with
+  its `build.sh`.
 - `--rtn_positions` (by default the 50 positions in
   `resources/rtn_files/positions/`, `none` to switch it off): `p09` gives rtn a
   copy of the reads with base quality 2 at these positions, keeps rtn's decision
