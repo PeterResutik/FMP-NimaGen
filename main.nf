@@ -567,7 +567,7 @@ process p13_merge_variants_p10_p11 {
                 ${vcf_file.baseName}.filtered.txt \
                 ${vcf_file.baseName}.filtered.empop.txt \
                 $reference \
-                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh --frame $params.frame
+                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh --frame $params.frame --min_reads $params.minimum
         else
             printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${vcf_file.baseName}.filtered.empop.txt
         fi
@@ -629,7 +629,7 @@ workflow {
 
          VARIANT CALLING (with FDSTOOLS)
          (tssv)
-         --minimum                        : $params.minimum # report only sequences with this minimum number of reads (default: 2) 
+         --minimum                        : $params.minimum # reads a sequence (FDSTOOLS) or a base or length variant in a call (MUTECT2, rCRS included) needs (default: 2)
          --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
 
          VARIANT CALLING (with MUTECT2)

@@ -141,6 +141,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- Every base in a Mutect2 call, rCRS included, and every Mutect2 length
+  variant needs at least `--minimum` reads (default 2), as FDSTOOLS needs for
+  every sequence it reports. A base on fewer reads does not count: a minor
+  base on one read is no call, and a single rCRS read no longer turns a
+  homoplasmic call into a heteroplasmy.
 - rtn runs once, on the primer-trimmed reads (`p09`); `p08` keeps the reads of
   the FDSTOOLS branch whose names `p09` kept. rtn judged the FDSTOOLS reads
   with their primers, which are the kit's oligos: where a primer carries a

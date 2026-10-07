@@ -190,3 +190,30 @@ def test_one_row_per_position(rows, expected):
 def test_rcrs_share_from_the_reads(rows, expected):
     result = mt2.position_rows(records(*rows), 0.01)
     assert dict(zip(result["MUTECT2"], result["VariantLevel"])) == expected
+
+
+@pytest.mark.parametrize("rows, expected", [
+    # A on 1 of 39 reads: not a call at all
+    ([("C756M", 0.03, "38,1")], {}),
+    # A on 2 of 40 reads: a heteroplasmy
+    ([("C756M", 0.05, "38,2")], {"C756M": 0.05}),
+    # rCRS on 1 of 40 reads (2.5%): the A is homoplasmic
+    ([("C756M", 0.975, "1,39")], {"C756A": 0.975}),
+    # A and G on many reads, rCRS on 1: the code of A and G only
+    ([("C756M", 0.7, "1,70"), ("C756S", 0.29, "1,29")], {"C756R": "A 0.7, G 0.29"}),
+    # G on 1 read next to A on 70: only A, and rCRS still present
+    ([("C756M", 0.7, "29,70"), ("C756S", 0.01, "29,1")], {"C756M": 0.7}),
+])
+def test_a_base_needs_min_reads(rows, expected):
+    result = mt2.position_rows(records(*rows), 0.01, 2)
+    assert dict(zip(result["MUTECT2"], result["VariantLevel"])) == expected
+
+
+@pytest.mark.parametrize("coverage, expected", [
+    ("9,1", (None, "TOO_FEW_READS")),
+    ("8,2", ("-309.1c", "LHP")),
+])
+def test_a_length_variant_needs_min_reads(reference, coverage, expected):
+    row = pd.Series({"Pos": 302, "Ref": "A", "Variant": "AC", "Type": "INDEL", "VariantLevel": 0.2,
+                     "Coverage": coverage})
+    assert mt2.format_variant(row, reference, 0.02, 0.10, 2) == expected

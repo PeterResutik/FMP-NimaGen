@@ -153,7 +153,16 @@ def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_thre
     updated_type = "DEL" if is_major else "LHP"
     return " ".join(variant_parts), updated_type
 
-def format_variant(row, reference, min_variant_frequency, length_heteroplasmy_threshold):
+def allele_reads(coverage):
+    """(rCRS reads, variant reads) of a record's "ref,alt"; None when unreadable."""
+    try:
+        ref_n, alt_n = (float(x) for x in str(coverage).split(",")[:2])
+        return ref_n, alt_n
+    except ValueError:
+        return None
+
+
+def format_variant(row, reference, min_variant_frequency, length_heteroplasmy_threshold, min_reads=1):
     pos = int(row["Pos"])
     ref = row["Ref"]
     var = row["Variant"]
@@ -163,6 +172,9 @@ def format_variant(row, reference, min_variant_frequency, length_heteroplasmy_th
     if var_type == "SNP":
         return apply_snp(pos, ref, var, var_level, reference, min_variant_frequency)
     elif var_type == "INDEL":
+        reads = allele_reads(row.get("Coverage"))
+        if reads is not None and reads[1] < min_reads:
+            return None, "TOO_FEW_READS"
         if len(ref) < len(var):
             return apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold)
         elif len(ref) > len(var):
@@ -251,14 +263,15 @@ SUBSTITUTION = re.compile(r"^([ACGT])(\d+)([ACGTRYMKSW])$")
 DELETION = re.compile(r"^([ACGT])(\d+)(-|[acgt])$")
 
 
-def position_rows(df, min_vf):
+def position_rows(df, min_vf, min_reads=1):
     """One row per position for Mutect2's substitutions (one record per base other
-    than rCRS), by iupac.call: the bases with at least min_vf (a fraction) are
-    present, rCRS when its share of the reads (iupac.rcrs_share) reaches min_vf. Several
-    bases other than rCRS give one row with VariantLevel per base ("A 0.293,
-    T 0.051") and Coverage "ref,alt1,alt2". The frequencies reported are Mutect2's;
-    where some reads have no base at the position, Mutect2 counts them toward the
-    substitution, so there its frequency is too high."""
+    than rCRS), by iupac.call: the bases with at least min_vf (a fraction) and at least
+    min_reads reads are present, rCRS when its share of the reads (iupac.rcrs_share)
+    reaches min_vf and it has min_reads reads. A position where no base other than
+    rCRS is present is left out. Several bases other than rCRS give one row with
+    VariantLevel per base ("A 0.293, T 0.051") and Coverage "ref,alt1,alt2". The
+    frequencies reported are Mutect2's; where some reads have no base at the position,
+    Mutect2 counts them toward the substitution, so there its frequency is too high."""
     deleted = defaultdict(float)
     for label, level in zip(df["MUTECT2"], df["VariantLevel"]):
         m = DELETION.match(str(label))
@@ -270,7 +283,7 @@ def position_rows(df, min_vf):
         if m:
             groups[(m.group(1), int(m.group(2)))].append(i)
     df = df.copy()
-    rows, combined = [], []
+    rows, combined, absent = [], [], []
     for (ref, pos), idx in groups.items():
         alts = {i: iupac.alts(df.at[i, "MUTECT2"][-1], ref) for i in idx}
         if any(len(a) != 1 for a in alts.values()) or len({next(iter(a)) for a in alts.values()}) != len(idx):
@@ -280,8 +293,15 @@ def position_rows(df, min_vf):
         share = iupac.rcrs_share(df.loc[idx, "Coverage"])
         if share is None:
             share = 1 - sum(levels.values()) - deleted[pos]
+        # a base on fewer than min_reads reads is not present, rCRS included
+        reads = {b: allele_reads(df.at[i, "Coverage"]) for b, i in by_alt.items()}
+        levels = {b: (0.0 if reads[b] is not None and reads[b][1] < min_reads else v) for b, v in levels.items()}
+        first = next(iter(reads.values()))
+        if first is not None and first[0] < min_reads:
+            share = 0.0
         found = iupac.call(ref, {**levels, ref: share}, min_vf)
         if found is None:
+            absent += idx
             continue
         code, others = found
         label, kind = f"{ref}{pos}{code}", "SNP" if code in "ACGT" else "PHP"
@@ -296,6 +316,7 @@ def position_rows(df, min_vf):
                                 + ",".join(str(df.at[i, "Coverage"]).split(",")[1] for i in order)})
         rows.append(row)
         combined += idx
+    df = df.drop(index=absent)
     if rows:
         df = pd.concat([df.drop(index=combined), pd.DataFrame(rows)], ignore_index=True)
         df = df.iloc[sorted(range(len(df)), key=lambda k: notation.label_position(str(df["MUTECT2"].iloc[k])))]
@@ -364,6 +385,7 @@ def main():
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold")
     parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold (floor and, via 1-threshold, ceiling), e.g. 10.0 -> report only 10-90%%, lowercase in between, major above 90%%")
     parser.add_argument("--frame", choices=["separate", "shared"], default="separate", help="Frame for 16180-16193 and 300-315, as for FDSTOOLS")
+    parser.add_argument("--min_reads", type=int, default=2, help="Reads a base or length variant needs to count, rCRS included (as FDSTOOLS needs for a sequence)")
 
     args = parser.parse_args()
 
@@ -376,18 +398,18 @@ def main():
         types = []
         for idx in reversed(df.index):
             row = df.loc[idx]
-            variant, updated_type = format_variant(row, reference, args.min_vf/100, args.lh_thresh/100)
+            variant, updated_type = format_variant(row, reference, args.min_vf/100, args.lh_thresh/100, args.min_reads)
             results.append(variant)
             types.append(updated_type)
 
         df["MUTECT2"] = results[::-1]
         df["Type"] = types[::-1]
 
-        # Drop length variants below the symmetric length-heteroplasmy floor entirely
-        df = df[df["Type"] != "BELOW_LH_FLOOR"].reset_index(drop=True)
+        # Drop length variants below the symmetric length-heteroplasmy floor or on too few reads
+        df = df[~df["Type"].isin(["BELOW_LH_FLOOR", "TOO_FEW_READS"])].reset_index(drop=True)
 
         df = finalize_output_table(df, args.lh_thresh/100)
-        df = position_rows(df, args.min_vf/100)
+        df = position_rows(df, args.min_vf/100, args.min_reads)
         df = respell_rows(df, load_reference(args.reference_fasta))
         df = frame_rows(df, load_reference(args.reference_fasta), args.frame)
 
