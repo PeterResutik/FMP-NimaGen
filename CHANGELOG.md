@@ -297,6 +297,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- `resources/primers/README.md`: which file describes the primers for which
+  step, how their ends were checked against the reads, what happens to reads
+  from a primer bound at a wrong site, what the wobble codes mean, and why
+  amplicons 001, 045, 046 and 100 need a note.
 - README: Install rtn, from the fork at <https://github.com/PeterResutik/RtN>
   (branch `fixes`: base qualities used, a tie between hits broken by the
   likelihood rtn decides on, inserted bases counted as aligned with `-i`) with

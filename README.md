@@ -30,7 +30,7 @@ The pipeline automates the following steps:
 
 1. **Mapping and soft-clip removal** (`p02`–`p03`): read pairs are mapped to rCRS with bwa, and soft-clipped bases are removed.  
 2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
-3. **Primer trimming** (`p05`): Cutadapt removes the primers, trims low-quality ends and drops reads without a primer or outside the length limits.  
+3. **Primer trimming** (`p05`): Cutadapt removes the primers, trims low-quality ends and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
 4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for Mutect2).  
 5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; the callers keep the original qualities.  
 6. **Quality control** (`p10`): read depth per amplicon.  
