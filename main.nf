@@ -508,15 +508,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         -o ${bam_file.baseName}.norm.vcf.gz -Oz \
         ${bam_file.baseName}.vcf.gz 
 
-    detection_limit=\$(echo "${params.min_vf_MT2} / 100" | bc -l)
+    # every record goes on: --min_vf_MT2 and the length floor apply in p13, after the
+    # records of one change (the alleles of a length variant) are added up
+    mv ${bam_file.baseName}.norm.vcf.gz ${bam_file.baseName}.vcf.gz
 
-    # drop records resting on fewer than --depth reads (FORMAT/DP): the merge would weigh
-    # a frequency from one or two reads like an FDSTOOLS frequency from many
-    bcftools view \
-    -i "FORMAT/AF>=\$detection_limit && FORMAT/DP>=${params.depth}" \\
-    -o ${bam_file.baseName}.vcf.gz -Oz \
-    ${bam_file.baseName}.norm.vcf.gz 
-    
     tabix -f ${bam_file.baseName}.vcf.gz 
     """
 }
@@ -639,7 +634,7 @@ workflow {
          --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
 
          POSTPROCESSING
-         --depth                          : $params.depth # Read depth threshold for low coverage (LOW); Mutect2 records resting on fewer reads are dropped
+         --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there
          --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)

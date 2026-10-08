@@ -174,7 +174,7 @@ The report has one row per variant, sorted by position. The first column,
 | `-309.1C` | insertion of a C after 309; a second inserted base is `-309.2C` |
 | `T195Y` | point heteroplasmy: two or more bases at 195, written with the IUPAC code (`Y` is C and T) |
 | `-309.2c` | lowercase: a length variant on part of the molecules only (between `--lh_thresh` and 100 minus `--lh_thresh` percent) |
-| `LOW` | not a variant: an amplicon with fewer reads than `--depth`, named in `marker`; no call can be made in `marker_range` |
+| `LOW` | not a variant: an amplicon with fewer reads than `--depth`, named in `marker`; calls in `marker_range` rest on few reads |
 
 In 16180–16193 and 300–315 the labels follow `--frame`: `separate` writes
 each run of equal bases by its length, `shared` lays the sequence from the

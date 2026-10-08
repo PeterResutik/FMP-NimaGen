@@ -40,6 +40,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   C16193c. A rule for 16188 alone counted one base instead of two (C16193c),
   and elsewhere rCRS's letters were placed: with T310C, two Cs deleted after
   309 came out as T308t C309c instead of C314c C315c.
+- Mutect2's records are no longer filtered in p12. p12 kept a record only if
+  its frequency reached `--min_vf_MT2`, one record at a time, so the alleles
+  of a length variant were filtered before they were added up: an allele with
+  two extra Cs in the C-run 303-309 on 4.7% was missing from 309.1C.
+  `--min_vf_MT2` now applies in the post-processing, after adding up, as for
+  FDSTOOLS.
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
@@ -263,11 +269,6 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   clusters, next to C-stretches and close to amplicon ends. Only bases of at
   least `--baseQ` count (Mutect2's default is 12), and the proper-pair check is
   off because merged reads are unpaired and would all be rejected.
-- Mutect2 records resting on fewer than `--depth` reads (FORMAT/DP) are
-  dropped. In the merge, a Mutect2 frequency from one or two reads counted as
-  much as an FDSTOOLS call from many (a 1-read 67% turned a 22-read 100%
-  `T16189C` into `T16189Y`). The amplicon's LOW row still flags the low
-  coverage.
 - Mutect2 reports each substituted position as its own record
   (`--max-mnp-distance 0`). By default it merged substitutions on neighbouring
   positions carried by the same reads into one multi-base record, which split
