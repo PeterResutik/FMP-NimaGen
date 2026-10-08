@@ -99,11 +99,18 @@ def shift_deletion_right(reference, pos, segment):
             break
     return pos, segment
 
-def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency):
+def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency, own_base=None):
+    """The label of a substitution record. Its base goes into `reference`, the working copy
+    in which the insertions and deletions further left are placed, only when it is the
+    sample's own base (own_base; by default when the call is major): a minor base belongs
+    to some molecules only and must not move the others' insertions and deletions."""
+    if own_base is None:
+        own_base = var_level >= 1 - min_variant_frequency
     formatted = []
     for i, (r, v) in enumerate(zip(ref, var)):
         sub_pos = pos + i
-        reference[sub_pos - 1] = v
+        if own_base:
+            reference[sub_pos - 1] = v
         label_pos = wrap_circular_position(sub_pos)
         if var_level >= 1 - min_variant_frequency:
             formatted.append(f"{r}{label_pos}{v}")
@@ -170,7 +177,13 @@ def format_variant(row, reference, min_variant_frequency, length_heteroplasmy_th
     var_level = row["VariantLevel"]
 
     if var_type == "SNP":
-        return apply_snp(pos, ref, var, var_level, reference, min_variant_frequency)
+        # the sample's own base: rCRS not present by the same rule as the labels (share
+        # under min_variant_frequency or fewer than min_reads reads), on min_reads reads
+        reads = allele_reads(row.get("Coverage"))
+        own_base = var_level >= 1 - min_variant_frequency or (reads is not None and reads[0] < min_reads)
+        if reads is not None and reads[1] < min_reads:
+            own_base = False
+        return apply_snp(pos, ref, var, var_level, reference, min_variant_frequency, own_base)
     elif var_type == "INDEL":
         reads = allele_reads(row.get("Coverage"))
         if reads is not None and reads[1] < min_reads:

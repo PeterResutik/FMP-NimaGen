@@ -231,3 +231,33 @@ def test_a_table_whose_records_all_go_gives_an_empty_table(tmp_path, reference_f
                     "--min_vf", "2", "--lh_thresh", "10", "--min_reads", "2"], check=True)
     result = pd.read_csv(out, sep="\t")
     assert result.empty and result.columns[0] == "MUTECT2"
+
+
+def labels_right_to_left(records, reference, min_vf=0.02, lh=0.10, min_reads=2):
+    """The labels main() gives Mutect2's records, which it reads from the right."""
+    df = pd.DataFrame(records)
+    out = {}
+    for idx in reversed(df.index):
+        out[idx] = mt2.format_variant(df.loc[idx], reference, min_vf, lh, min_reads)[0]
+    return [out[i] for i in df.index]
+
+
+def test_a_minor_substitution_does_not_move_other_insertions(reference):
+    # T310C on 4 of 40 reads must not join the C-runs 303-309 and 311-315 for the
+    # insertion the other molecules carry after 302 (309.1C, not 315.1C)
+    records = [dict(Pos=302, Ref="A", Variant="AC", VariantLevel=0.95, Coverage="2,40", Type="INDEL"),
+               dict(Pos=310, Ref="T", Variant="C", VariantLevel=0.10, Coverage="36,4", Type="SNP")]
+    assert labels_right_to_left(records, reference) == ["-309.1C", "T310Y"]
+
+
+def test_a_substitution_on_one_read_does_not_move_insertions(reference):
+    records = [dict(Pos=302, Ref="A", Variant="AC", VariantLevel=0.95, Coverage="2,40", Type="INDEL"),
+               dict(Pos=310, Ref="T", Variant="C", VariantLevel=0.30, Coverage="0,1", Type="SNP")]
+    assert labels_right_to_left(records, reference)[0] == "-309.1C"
+
+
+def test_the_sample_own_substitution_still_joins_the_runs(reference):
+    # T310C on every read: one C-run 303-315, the inserted C at its right end
+    records = [dict(Pos=302, Ref="A", Variant="AC", VariantLevel=0.95, Coverage="2,40", Type="INDEL"),
+               dict(Pos=310, Ref="T", Variant="C", VariantLevel=1.0, Coverage="0,42", Type="SNP")]
+    assert labels_right_to_left(records, reference) == ["-315.1C", "T310C"]

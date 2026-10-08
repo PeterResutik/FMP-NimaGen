@@ -13,6 +13,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   only record is a length variant under the length-heteroplasmy floor or on
   too few reads, for one) gets an empty Mutect2 table. The step stopped with
   an error and halted the run.
+- Mutect2's insertions and deletions are placed using only the substitutions
+  the whole sample carries. To place an insertion or deletion at the end of
+  its run, the post-processing writes the sample's substitutions into a copy
+  of rCRS. It wrote every substitution, even one on a single read: one read
+  with T310C then joined the C-runs 303-309 and 311-315, and the C inserted
+  after 302 in the other molecules was placed at 315.1C instead of 309.1C (and
+  added to the real 315.1C, above 100%).
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
