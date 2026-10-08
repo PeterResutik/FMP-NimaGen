@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- A sample whose Mutect2 records are all dropped (a negative control whose
+  only record is a length variant under the length-heteroplasmy floor or on
+  too few reads, for one) gets an empty Mutect2 table. The step stopped with
+  an error and halted the run.
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on

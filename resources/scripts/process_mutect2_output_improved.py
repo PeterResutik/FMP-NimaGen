@@ -408,10 +408,12 @@ def main():
         # Drop length variants below the symmetric length-heteroplasmy floor or on too few reads
         df = df[~df["Type"].isin(["BELOW_LH_FLOOR", "TOO_FEW_READS"])].reset_index(drop=True)
 
-        df = finalize_output_table(df, args.lh_thresh/100)
-        df = position_rows(df, args.min_vf/100, args.min_reads)
-        df = respell_rows(df, load_reference(args.reference_fasta))
-        df = frame_rows(df, load_reference(args.reference_fasta), args.frame)
+        # every record dropped (a negative control, for one): an empty table, as for no records
+        if not df.empty:
+            df = finalize_output_table(df, args.lh_thresh/100)
+            df = position_rows(df, args.min_vf/100, args.min_reads)
+            df = respell_rows(df, load_reference(args.reference_fasta))
+            df = frame_rows(df, load_reference(args.reference_fasta), args.frame)
 
         # Rename selected columns
         df = df.rename(columns={

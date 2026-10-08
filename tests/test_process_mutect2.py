@@ -217,3 +217,17 @@ def test_a_length_variant_needs_min_reads(reference, coverage, expected):
     row = pd.Series({"Pos": 302, "Ref": "A", "Variant": "AC", "Type": "INDEL", "VariantLevel": 0.2,
                      "Coverage": coverage})
     assert mt2.format_variant(row, reference, 0.02, 0.10, 2) == expected
+
+
+@pytest.mark.parametrize("level, coverage", [(0.05, "95,5"), (0.5, "1,1")])
+def test_a_table_whose_records_all_go_gives_an_empty_table(tmp_path, reference_fasta, level, coverage):
+    # a negative control: its only record is an insertion under the floor, or on one read
+    columns = ["ID", "Filter", "Pos", "Ref", "Variant", "VariantLevel", "MeanBaseQuality", "Coverage", "GT", "Type"]
+    table = tmp_path / "mutect2.txt"
+    pd.DataFrame([["s.bam", "PASS", 302, "A", "AC", level, "35,35", coverage, "0/1", "INDEL"]],
+                 columns=columns).to_csv(table, sep="\t", index=False)
+    out = tmp_path / "mutect2.empop.txt"
+    subprocess.run([sys.executable, mt2.__file__, str(table), str(out), str(reference_fasta),
+                    "--min_vf", "2", "--lh_thresh", "10", "--min_reads", "2"], check=True)
+    result = pd.read_csv(out, sep="\t")
+    assert result.empty and result.columns[0] == "MUTECT2"
