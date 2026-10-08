@@ -277,3 +277,15 @@ def test_the_sample_own_substitution_still_joins_the_runs(reference):
     records = [dict(Pos=302, Ref="A", Variant="AC", VariantLevel=0.95, Coverage="2,40", Type="INDEL"),
                dict(Pos=310, Ref="T", Variant="C", VariantLevel=1.0, Coverage="0,42", Type="SNP")]
     assert labels_right_to_left(records, reference) == ["-315.1C", "T310C"]
+
+
+def test_alleles_added_up_to_a_major_are_major():
+    # one AC unit deleted on 85%, two on 10%: 523-524 are deleted on 95%, a major deletion
+    # as one allele on 95% would be; one C inserted on 85% and two on 8% likewise
+    df = pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": ad, "MeanBaseQuality": "35,35", "Type": "LHP"}
+                       for l, v, ad in (("A523a C524c", 0.85, "15,85"), ("A521a C522c A523a C524c", 0.10, "90,10"),
+                                        ("-309.1c", 0.85, "15,85"), ("-309.1c -309.2c", 0.08, "92,8"))])
+    out = mt2.finalize_output_table(df, 0.10, 2).set_index("MUTECT2")
+    assert out["Type"].to_dict() == {"-309.1C": "INS", "A521a": "LHP", "C522c": "LHP", "A523-": "DEL", "C524-": "DEL"}
+    assert out["VariantLevel"].to_dict() == pytest.approx({"-309.1C": 0.93, "A521a": 0.1, "C522c": 0.1,
+                                                          "A523-": 0.95, "C524-": 0.95})

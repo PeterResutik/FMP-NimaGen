@@ -257,12 +257,21 @@ def finalize_output_table(df, length_heteroplasmy_threshold, min_reads=1):
 
     _, lh_ceiling = lh_bounds(length_heteroplasmy_threshold)
 
-    def correct_length_het_case(row):
-        if "." in row["MUTECT2"] and row["VariantLevel"] >= lh_ceiling:
-            return row["MUTECT2"][:-1] + row["MUTECT2"][-1].upper()
-        return row["MUTECT2"]
+    def correct_length_het_case(label, level, kind):
+        """A length variant whose alleles add up to the ceiling or above is major (309.1C,
+        A523-), whatever each allele was."""
+        if level < lh_ceiling:
+            return label, kind
+        if "." in label:
+            return label[:-1] + label[-1].upper(), "INS"
+        m = DELETION.match(label)
+        if m:
+            return f"{m.group(1)}{m.group(2)}-", "DEL"
+        return label, kind
 
-    grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
+    corrected = [correct_length_het_case(*row) for row in zip(grouped["MUTECT2"], grouped["VariantLevel"], grouped["Type"])]
+    grouped["MUTECT2"] = [label for label, _ in corrected]
+    grouped["Type"] = [kind for _, kind in corrected]
 
     # A length variant counts with all its alleles added up (309.1C on AC and on ACC), as
     # FDSTOOLS adds up its sequences: the floor and min_reads apply to the sums

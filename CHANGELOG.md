@@ -27,6 +27,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   `--minimum` reads were dropped one at a time, before adding up: a record
   with three extra Cs on 5.5% was missing from 309.1C (94.3% instead of
   99.8%) and from 309.2C. Now each label's total is checked, as for FDSTOOLS.
+- A Mutect2 deletion whose records add up to the length-heteroplasmy ceiling
+  (90%) is major (A523-), as an insertion already was (309.1C). One AC unit
+  deleted on 85% of the reads and two on 10% is a deletion of 523-524 on 95%;
+  the report wrote A523a C524c (minor). The Type column now says DEL or INS
+  for a major length variant; it kept the Type of the first record (LHP).
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
