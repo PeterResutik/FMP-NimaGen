@@ -50,21 +50,19 @@ def test_lh_bounds_same_for_either_side(threshold):
 
 
 @pytest.mark.parametrize("level, expected", [
-    (0.05, (None, "BELOW_LH_FLOOR")),
     (0.50, ("-309.1c", "LHP")),
     (0.95, ("-309.1C", "INS")),
 ])
-def test_insertion_floor_minor_major(reference, level, expected):
+def test_insertion_minor_major(reference, level, expected):
     # a C inserted in the 303-309 C-run, left-aligned by Mutect2 after A302
     assert mt2.apply_insertion(302, "A", "AC", level, reference, 0.10) == expected
 
 
 @pytest.mark.parametrize("level, expected", [
-    (0.05, (None, "BELOW_LH_FLOOR")),
     (0.50, ("A523a C524c", "LHP")),
     (1.00, ("A523- C524-", "DEL")),
 ])
-def test_deletion_floor_minor_major(reference, level, expected):
+def test_deletion_minor_major(reference, level, expected):
     # one AC unit of the 514-524 repeat, left-aligned by Mutect2 after G513
     assert mt2.apply_deletion(513, "GCA", "G", level, reference, 0.10) == expected
 
@@ -209,14 +207,32 @@ def test_a_base_needs_min_reads(rows, expected):
     assert dict(zip(result["MUTECT2"], result["VariantLevel"])) == expected
 
 
-@pytest.mark.parametrize("coverage, expected", [
-    ("9,1", (None, "TOO_FEW_READS")),
-    ("8,2", ("-309.1c", "LHP")),
+def added_up(*rows):
+    """finalize_output_table on Mutect2's labelled records: (labels, frequency, ref,alt reads)."""
+    df = pd.DataFrame([{"MUTECT2": l, "VariantLevel": v, "Coverage": ad, "MeanBaseQuality": "35,35",
+                        "Type": "INDEL"} for l, v, ad in rows])
+    out = mt2.finalize_output_table(df, 0.10, 2)
+    return dict(zip(out["MUTECT2"], out["VariantLevel"]))
+
+
+@pytest.mark.parametrize("rows, expected", [
+    # a length variant on 1 read is not a call; on 2 it is
+    ([("-309.1c", 0.1, "9,1")], {}),
+    ([("-309.1c", 0.2, "8,2")], {"-309.1c": 0.2}),
+    # under the floor (10%)
+    ([("-309.1c", 0.05, "95,5")], {}),
+    # one C inserted on 85%, two on 8%: 309.1C is on 93%, 309.2C under the floor
+    ([("-309.1c", 0.85, "15,85"), ("-309.1c -309.2c", 0.08, "92,8")], {"-309.1C": 0.93}),
+    # on one read each: 309.1C is on two reads, 309.2C on one
+    ([("-309.1c", 0.25, "2,1"), ("-309.1c -309.2c", 0.25, "2,1")], {"-309.1c": 0.5}),
+    # one AC unit deleted on 6%, two on 6%: 523-524 are deleted on 12%, 521-522 on 6%
+    ([("A523a C524c", 0.06, "94,6"), ("A521a C522c A523a C524c", 0.06, "94,6")],
+     {"A523a": 0.12, "C524c": 0.12}),
+    # the floor is for length variants only
+    ([("C756M", 0.03, "97,3")], {"C756M": 0.03}),
 ])
-def test_a_length_variant_needs_min_reads(reference, coverage, expected):
-    row = pd.Series({"Pos": 302, "Ref": "A", "Variant": "AC", "Type": "INDEL", "VariantLevel": 0.2,
-                     "Coverage": coverage})
-    assert mt2.format_variant(row, reference, 0.02, 0.10, 2) == expected
+def test_length_floor_and_min_reads_apply_to_the_alleles_added_up(rows, expected):
+    assert added_up(*rows) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("level, coverage", [(0.05, "95,5"), (0.5, "1,1")])

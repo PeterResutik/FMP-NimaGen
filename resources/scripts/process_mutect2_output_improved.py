@@ -125,9 +125,7 @@ def apply_snp(pos, ref, var, var_level, reference, min_variant_frequency, own_ba
         return " ".join(formatted), "PHP"
 
 def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
-    floor, ceiling = lh_bounds(length_heteroplasmy_threshold)
-    if var_level < floor:
-        return None, "BELOW_LH_FLOOR"
+    _, ceiling = lh_bounds(length_heteroplasmy_threshold)
     inserted_segment = var[len(ref):]
     pos, segment = shift_insertion_right(reference, pos, inserted_segment)
     pos = wrap_circular_position(pos)
@@ -140,9 +138,7 @@ def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_thr
     return " ".join(variant_parts), updated_type
 
 def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
-    floor, ceiling = lh_bounds(length_heteroplasmy_threshold)
-    if var_level < floor:
-        return None, "BELOW_LH_FLOOR"
+    _, ceiling = lh_bounds(length_heteroplasmy_threshold)
     deleted_segment = ref[len(var):]
     if pos == 16188 and reference[pos]=="C":
         deleted_segment = "".join(reference[pos:pos+len(var)])
@@ -185,9 +181,6 @@ def format_variant(row, reference, min_variant_frequency, length_heteroplasmy_th
             own_base = False
         return apply_snp(pos, ref, var, var_level, reference, min_variant_frequency, own_base)
     elif var_type == "INDEL":
-        reads = allele_reads(row.get("Coverage"))
-        if reads is not None and reads[1] < min_reads:
-            return None, "TOO_FEW_READS"
         if len(ref) < len(var):
             return apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold)
         elif len(ref) > len(var):
@@ -203,7 +196,7 @@ def extract_float_position(variant):
     match = re.search(r"(-?\d+\.?\d*)", str(variant))
     return float(match.group(1)) if match else float('inf')
 
-def finalize_output_table(df, length_heteroplasmy_threshold):
+def finalize_output_table(df, length_heteroplasmy_threshold, min_reads=1):
     df["MUTECT2"] = df["MUTECT2"].astype(str).str.split()
     df = df.explode("MUTECT2").reset_index(drop=True)
     df["VariantLevel"] = pd.to_numeric(df["VariantLevel"], errors="coerce")
@@ -270,7 +263,14 @@ def finalize_output_table(df, length_heteroplasmy_threshold):
         return row["MUTECT2"]
 
     grouped["MUTECT2"] = grouped.apply(correct_length_het_case, axis=1)
-    return grouped
+
+    # A length variant counts with all its alleles added up (309.1C on AC and on ACC), as
+    # FDSTOOLS adds up its sequences: the floor and min_reads apply to the sums
+    floor, _ = lh_bounds(length_heteroplasmy_threshold)
+    length = grouped["MUTECT2"].apply(lambda label: "." in label or bool(DELETION.match(label)))
+    reads = grouped["Coverage"].apply(allele_reads)
+    too_few = reads.apply(lambda r: r is not None and r[1] < min_reads)
+    return grouped[~(length & ((grouped["VariantLevel"] < floor) | too_few))]
 
 SUBSTITUTION = re.compile(r"^([ACGT])(\d+)([ACGTRYMKSW])$")
 DELETION = re.compile(r"^([ACGT])(\d+)(-|[acgt])$")
@@ -418,12 +418,10 @@ def main():
         df["MUTECT2"] = results[::-1]
         df["Type"] = types[::-1]
 
-        # Drop length variants below the symmetric length-heteroplasmy floor or on too few reads
-        df = df[~df["Type"].isin(["BELOW_LH_FLOOR", "TOO_FEW_READS"])].reset_index(drop=True)
+        df = finalize_output_table(df, args.lh_thresh/100, args.min_reads)
 
-        # every record dropped (a negative control, for one): an empty table, as for no records
+        # every row dropped (a negative control, for one): an empty table, as for no records
         if not df.empty:
-            df = finalize_output_table(df, args.lh_thresh/100)
             df = position_rows(df, args.min_vf/100, args.min_reads)
             df = respell_rows(df, load_reference(args.reference_fasta))
             df = frame_rows(df, load_reference(args.reference_fasta), args.frame)

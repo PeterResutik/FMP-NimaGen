@@ -20,6 +20,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   with T310C then joined the C-runs 303-309 and 311-315, and the C inserted
   after 302 in the other molecules was placed at 315.1C instead of 309.1C (and
   added to the real 315.1C, above 100%).
+- Mutect2's length variants are added up before the length-heteroplasmy floor
+  and the read minimum apply. Mutect2 writes one record per length of a run
+  (one, two or three extra Cs), and a report label such as 309.1C is the sum
+  of every record that carries it. Records under the floor or on fewer than
+  `--minimum` reads were dropped one at a time, before adding up: a record
+  with three extra Cs on 5.5% was missing from 309.1C (94.3% instead of
+  99.8%) and from 309.2C. Now each label's total is checked, as for FDSTOOLS.
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
