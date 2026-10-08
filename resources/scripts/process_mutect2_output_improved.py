@@ -139,9 +139,9 @@ def apply_insertion(pos, ref, var, var_level, reference, length_heteroplasmy_thr
 
 def apply_deletion(pos, ref, var, var_level, reference, length_heteroplasmy_threshold):
     _, ceiling = lh_bounds(length_heteroplasmy_threshold)
-    deleted_segment = ref[len(var):]
-    if pos == 16188 and reference[pos]=="C":
-        deleted_segment = "".join(reference[pos:pos+len(var)])
+    # the deleted bases as the sample has them: the working copy carries its own bases
+    # further right (T16189C makes CTC>C at 16188 a deletion of CC, not TC)
+    deleted_segment = "".join(reference[pos - 1 + len(var): pos - 1 + len(ref)])
     pos, segment = shift_deletion_right(reference, pos, deleted_segment)
 
     is_major = var_level >= ceiling

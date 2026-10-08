@@ -289,3 +289,15 @@ def test_alleles_added_up_to_a_major_are_major():
     assert out["Type"].to_dict() == {"-309.1C": "INS", "A521a": "LHP", "C522c": "LHP", "A523-": "DEL", "C524-": "DEL"}
     assert out["VariantLevel"].to_dict() == pytest.approx({"-309.1C": 0.93, "A521a": 0.1, "C522c": 0.1,
                                                           "A523-": 0.95, "C524-": 0.95})
+
+
+@pytest.mark.parametrize("deletion, substitution, expected", [
+    # TC deleted after 16188 in a sample with T16189C: two Cs of the C-run 16184-16193
+    (dict(Pos=16188, Ref="CTC", Variant="C"), dict(Pos=16189, Ref="T", Variant="C"), "C16192c C16193c"),
+    # TC deleted after 309 in a sample with T310C: two Cs of the C-run 303-315
+    (dict(Pos=309, Ref="CTC", Variant="C"), dict(Pos=310, Ref="T", Variant="C"), "C314c C315c"),
+])
+def test_a_deletion_takes_the_sample_own_bases(reference, deletion, substitution, expected):
+    records = [dict(**deletion, VariantLevel=0.3, Coverage="70,30", Type="INDEL"),
+               dict(**substitution, VariantLevel=1.0, Coverage="0,100", Type="SNP")]
+    assert labels_right_to_left(records, reference)[0] == expected

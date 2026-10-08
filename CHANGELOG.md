@@ -32,6 +32,14 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   deleted on 85% of the reads and two on 10% is a deletion of 523-524 on 95%;
   the report wrote A523a C524c (minor). The Type column now says DEL or INS
   for a major length variant; it kept the Type of the first record (LHP).
+- Mutect2's deletions are placed by the sample's own bases. Mutect2 writes
+  the rCRS bases a deletion removes, and the post-processing took those
+  letters to place the deletion at the end of its run. Where the sample has
+  its own base in the deleted stretch, that is wrong: with T16189C, TC deleted
+  after 16188 removes two Cs from a run of ten, so the deletion is C16192c
+  C16193c. A rule for 16188 alone counted one base instead of two (C16193c),
+  and elsewhere rCRS's letters were placed: with T310C, two Cs deleted after
+  309 came out as T308t C309c instead of C314c C315c.
 - The primer BED (for IGV) matches the primer files and the reads. Amplicon
   045's left primer starts at 7086, not 7087; 046's second left oligo
   (7272-7297, T at 7274) is added; 100's right primer is drawn at 34-53 on
