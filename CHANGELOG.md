@@ -178,6 +178,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- A base counts as present from 2% of the reads by default (`--min_vf_FDS`
+  and `--min_vf_MT2`; before 5%), so that low-level point heteroplasmies are
+  detected. A base still needs at least `--minimum` reads (2), so where an
+  amplicon has few reads, a single read cannot make a call.
 - Every base in a Mutect2 call, rCRS included, and every Mutect2 length
   variant needs at least `--minimum` reads (default 2), as FDSTOOLS needs for
   every sequence it reports. A base on fewer reads does not count: a minor

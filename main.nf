@@ -74,8 +74,8 @@ params.python_script_rtn_qualities = "$baseDir/resources/scripts/rtn_qualities.p
 
 // merging
 params.depth = 10
-params.min_vf_MT2 = 5
-params.min_vf_FDS = 5
+params.min_vf_MT2 = 2
+params.min_vf_FDS = 2
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
 params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
 params.frame = "separate" // separate | shared: how 16180-16193 and 300-315 are written (resources/scripts/frames.py)
