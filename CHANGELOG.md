@@ -9,6 +9,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- Mutect2 no longer reports C3106c, a deletion no molecule carries. 3107 is
+  rCRS's placeholder N, a base no molecule has. A read can be aligned with its
+  gap at 3106 instead and its C on the N; Mutect2 then records the C at 3106
+  as deleted, and once a few reads are aligned that way the report showed
+  C3106c at about 50%. That deletion is now dropped from Mutect2's records,
+  as FDSTOOLS' N3107DEL is; no mitoLEAF haplogroup deletes 3106.
 - A sample whose Mutect2 records are all dropped (a negative control whose
   only record is a length variant under the length-heteroplasmy floor or on
   too few reads, for one) gets an empty Mutect2 table. The step stopped with

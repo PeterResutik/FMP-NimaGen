@@ -281,6 +281,11 @@ def finalize_output_table(df, length_heteroplasmy_threshold, min_reads=1):
     too_few = reads.apply(lambda r: r is not None and r[1] < min_reads)
     return grouped[~(length & ((grouped["VariantLevel"] < floor) | too_few))]
 
+# 3107 is rCRS's placeholder N, a base no molecule has. A read can be aligned with its gap at
+# 3106 instead and its C on the N; Mutect2 then records the C at 3106 as deleted, but the
+# molecule is rCRS (no mitoLEAF haplogroup deletes 3106). Dropped, as FDSTOOLS' N3107DEL is.
+PLACEHOLDER_GAP = {"C3106-", "C3106c"}
+
 SUBSTITUTION = re.compile(r"^([ACGT])(\d+)([ACGTRYMKSW])$")
 DELETION = re.compile(r"^([ACGT])(\d+)(-|[acgt])$")
 
@@ -426,10 +431,11 @@ def main():
 
         df["MUTECT2"] = results[::-1]
         df["Type"] = types[::-1]
+        df = df[~df["MUTECT2"].isin(PLACEHOLDER_GAP)].reset_index(drop=True)
 
-        df = finalize_output_table(df, args.lh_thresh/100, args.min_reads)
-
-        # every row dropped (a negative control, for one): an empty table, as for no records
+        # every record or row dropped (a negative control, for one): an empty table, as for no records
+        if not df.empty:
+            df = finalize_output_table(df, args.lh_thresh/100, args.min_reads)
         if not df.empty:
             df = position_rows(df, args.min_vf/100, args.min_reads)
             df = respell_rows(df, load_reference(args.reference_fasta))

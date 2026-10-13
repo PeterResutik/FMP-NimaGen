@@ -301,3 +301,26 @@ def test_a_deletion_takes_the_sample_own_bases(reference, deletion, substitution
     records = [dict(**deletion, VariantLevel=0.3, Coverage="70,30", Type="INDEL"),
                dict(**substitution, VariantLevel=1.0, Coverage="0,100", Type="SNP")]
     assert labels_right_to_left(records, reference)[0] == expected
+
+
+def script_labels(tmp_path, reference_fasta, rows):
+    """The labels the whole script writes for Mutect2 records (Pos, Ref, Variant, AF, reads, Type)."""
+    columns = ["ID", "Filter", "Pos", "Ref", "Variant", "VariantLevel", "MeanBaseQuality", "Coverage", "GT", "Type"]
+    table = tmp_path / "mutect2.txt"
+    pd.DataFrame([["s.bam", "PASS", p, r, v, af, "35,35", ad, "0/1", t] for p, r, v, af, ad, t in rows],
+                 columns=columns).to_csv(table, sep="\t", index=False)
+    out = tmp_path / "mutect2.empop.txt"
+    subprocess.run([sys.executable, mt2.__file__, str(table), str(out), str(reference_fasta),
+                    "--min_vf", "2", "--lh_thresh", "10", "--min_reads", "2"], check=True)
+    return list(pd.read_csv(out, sep="\t")["MUTECT2"])
+
+
+def test_a_gap_at_3106_next_to_the_placeholder_is_not_a_variant(tmp_path, reference_fasta):
+    # the C at 3106 "deleted" on 2 reads is rCRS aligned with its gap beside the N at 3107;
+    # the substitution at 3105 stays
+    rows = [(3105, "A", "G", 0.999, "1,1999", "SNP"), (3105, "AC", "A", 0.5, "0,2", "INDEL")]
+    assert script_labels(tmp_path, reference_fasta, rows) == ["A3105G"]
+
+
+def test_a_sample_whose_only_record_is_the_gap_at_3106_gets_an_empty_table(tmp_path, reference_fasta):
+    assert script_labels(tmp_path, reference_fasta, [(3105, "AC", "A", 0.5, "0,2", "INDEL")]) == []
