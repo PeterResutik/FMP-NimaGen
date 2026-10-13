@@ -178,10 +178,12 @@ The report has one row per variant, sorted by position. The first column,
 
 In 16180–16193 and 300–315 the labels follow `--frame`: `separate` writes
 each run of equal bases by its length, `shared` lays the sequence from the
-left, as mitoLEAF and EMPOP do. Outside these regions a molecule is written
-with the fewest changes from rCRS. That can differ from the spelling of the
-phylogeny: L1c1c and L5b1 are written `G247-` where the phylogeny writes
-`247A 249del`. The molecule is the same.
+left, as mitoLEAF and EMPOP do. In both frames, one base inside an A-run that
+has all its A's is an insertion: AAACA at 16180 is `-16182.1C`, where mitoLEAF
+writes 16184A. Outside these regions a molecule is written with the fewest
+changes from rCRS. That can differ from the spelling of the phylogeny: L1c1c
+and L5b1 are written `G247-` where the phylogeny writes `247A 249del`. The
+molecule is the same.
 
 ### Columns
 

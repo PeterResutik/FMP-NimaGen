@@ -191,6 +191,18 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- In 16180-16193 and 300-315, one base inside an A-run that still has all its
+  A's is written as an insertion, in both frames. AAACA at 16180 (four A's
+  with a C between the third and the fourth) was A16183C C16184A and is now
+  -16182.1C; the rest of the molecule is read as a full A-run and its C's.
+  FDSTOOLS and Mutect2 align the C as an insertion, but Mutect2's main calls
+  were rewritten in the old spelling: where the C-run varies in length, its
+  length variants matched neither its main calls nor FDSTOOLS' rows
+  (-16193.1C at 99.9% from Mutect2, -16193.1c at 34% from FDSTOOLS, for the
+  same molecules). Both callers now give the same rows. M73a, M73a1 and A2g2
+  are written the same way (AACAA: -16181.1C C16188-), so for them the shared
+  frame no longer matches mitoLEAF, which writes 16184A. An A-run that has
+  lost one of its own A's (AACAC) stays A16182C.
 - Amplicons with fewer than 20 reads are marked LOW by default (`--depth`;
   before 10), the recommended minimum read depth. The calls in such an
   amplicon stay in the report; LOW only warns that they rest on few reads.

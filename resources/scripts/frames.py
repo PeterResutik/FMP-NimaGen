@@ -19,7 +19,12 @@ as run lengths instead. A's missing from the leading run are deletions at its
 end (A16183-), extra A's an insertion after it, and the C's are laid from the
 first C position. A shift at the boundary (A16183C) thus becomes a shorter
 leading run plus a longer C-run (A16183- -16193.1C). A leading run broken by
-another base (AAACA...) keeps its shared-frame reading.
+another base (AACAC: A16182C) keeps its shared-frame reading.
+
+In both frames, one other base inside a leading run that keeps all its bases
+(AAACA at 16180) is an insertion after the bases before it (-16182.1C), as
+FDSTOOLS and Mutect2 align it; the rest of the molecule is then read as a
+full run.
 """
 import re
 from collections import Counter, defaultdict
@@ -43,6 +48,18 @@ REGIONS = {
     "300-315": Region(300, 315, "A", 302, 310),              # A3 C7 T C5
     "57-60": Region(57, 60),                                 # T4, laid from the left
 }
+
+
+def _lead_insertion(region, bases):
+    """(anchor, base, bases without it) when one base sits inside the region's leading run
+    and the run keeps all its bases around it, else None."""
+    if not region.lead:
+        return None
+    m = re.match(rf"({region.lead}+)([^{region.lead}])({region.lead}+)", bases)
+    if not m or len(m.group(1)) + len(m.group(3)) != region.lead_end - region.first + 1:
+        return None
+    i = len(m.group(1))
+    return region.first + i - 1, m.group(2), bases[:i] + bases[i + 1:]
 
 
 def _lay(bases, first, n):
@@ -131,6 +148,11 @@ def layout(region, bases, frame, reference):
     """(placed {pos: base}, deleted [pos], inserted {anchor: bases}) of one molecule's
     region bases in the 'shared' or 'separate' frame."""
     read = _separate if frame == "separate" else _layout_from_left
+    inside = _lead_insertion(region, bases)
+    if inside:
+        anchor, base, rest = inside
+        placed, deleted, inserted = read(region, rest, _anchor(region, rest, reference, read))
+        return placed, deleted, {**inserted, anchor: base + inserted.get(anchor, "")}
     return read(region, bases, _anchor(region, bases, reference, read))
 
 

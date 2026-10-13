@@ -46,7 +46,7 @@ SPEC = [
     (8, [(mol(2, 10), 10), (mol(3, 10), 20), (mol(3, 11), 30), (mol(2, 12), 20), (mol(3, 12), 10), (mol(3, 13), 10)],
      ["A16182M 30%", "A16183C", "T16189C", "C16192c 10%", "C16193c 30%", "-16193.1c 20%", "-16193.2c 10%"],
      ["A16182a 30%", "A16183-", "T16189C", "-16193.1c 70%", "-16193.2c 40%", "-16193.3c 10%"]),
-    (9, [("AAACA" + "CCCCCTCCCC", 100)], ["A16183C", "C16184A", "-16188.1C"], ["A16183C", "C16184A", "-16188.1C"]),
+    (9, [("AAACA" + "CCCCCTCCCC", 100)], ["-16182.1C"], ["-16182.1C"]),
     (10, [(mol(3, 6, "T", 4), 100)], ["A16183C"], ["A16183-", "-16188.1C"]),
     (11, [(mol(3, 5, "T", 4), 100)], ["A16183C", "C16188-"], ["A16183-"]),
     (12, [(mol(4, 5, "T", 5), 100)], ["-16193.1C"], ["-16193.1C"]),
@@ -57,7 +57,7 @@ SPEC = [
      ["A16183M 10%", "T16189H C 40%, A 10%", "-16193.1c 20%"],
      ["A16183a 10%", "-16188.1c 10%", "T16189H C 40%, A 10%", "-16193.1c 20%"]),
     (15, [("AAACACCCCCCCCC", 63), ("AAACACCCCCCCCCC", 30), ("AAACACCCCCCCCCCC", 4), ("AAACACCCCCCCC", 4)],
-     ["A16183C", "C16184A", "T16189C", "-16193.1c 34%"], ["A16183C", "C16184A", "T16189C", "-16193.1c 34%"]),
+     ["-16182.1C", "T16189C", "C16193c 66%"], ["-16182.1C", "T16189C", "C16193c 66%"]),
     (16, [("AAAACCCTCCCCCC", 100)], ["C16187T", "T16189C"], ["C16187T", "T16189C"]),
 ]
 
@@ -66,6 +66,22 @@ SPEC = [
 def test_spec_examples(rcrs, example, molecules, shared, separate):
     assert report(R16189, molecules, "shared", rcrs) == shared
     assert report(R16189, molecules, "separate", rcrs) == separate
+
+
+@pytest.mark.parametrize("region, molecule, expected", [
+    # one base inside a leading run that keeps all its bases: an insertion
+    (R16189, "AAACACCCCCCCCC", ["-16182.1C", "T16189C", "C16193-"]),   # D1f3a
+    (R16189, "AACAACCCCTCCCC", ["-16181.1C", "C16188-"]),              # M73a
+    (R16189, "ACAAACCCCTCCCC", ["-16180.1C", "C16188-"]),              # M73a1
+    (R16189, "AAAGACCCCCTCCCC", ["-16182.1G"]),
+    (R310, "AACACCCCCCCTCCCCC", ["-301.1C"]),
+    # a leading run that has lost a base of its own: a substitution
+    (R16189, "AACACCCCCTCCCC", ["A16182C"]),                           # L2a1
+    (R16189, "ACACACCCCCCCCC", ["A16181C", "A16183C", "C16184A", "T16189C"]),  # B4c2
+])
+def test_base_inside_the_leading_run(rcrs, region, molecule, expected):
+    assert frames.labels(region, molecule, "shared", rcrs) == expected
+    assert frames.labels(region, molecule, "separate", rcrs) == expected
 
 
 @pytest.mark.parametrize("molecule, shared, separate", [
@@ -134,7 +150,8 @@ def test_s26_02989(rcrs):
 def test_mitoleaf_molecules(rcrs, case):
     """Every distinct molecule the mitoLEAF haplogroups have in these regions. The
     shared frame equals mitoLEAF's labels except for L5a (mitoLEAF writes A16183-),
-    U2e3a (a tie read the other way) and M39 in 57-60."""
+    U2e3a (a tie read the other way), M39 in 57-60, and D1f3a, M73a, M73a1 and A2g2,
+    where a C inside the full A-run is an insertion (mitoLEAF writes C16184A)."""
     region = frames.REGIONS[case["region"]]
     assert frames.labels(region, case["molecule"], "shared", rcrs) == case["shared"]
     assert frames.labels(region, case["molecule"], "separate", rcrs) == case["separate"]
@@ -142,11 +159,15 @@ def test_mitoleaf_molecules(rcrs, case):
 
 def structures(region):
     """Every run structure of a region: for the C-stretches a leading A-run of 1-6, a
-    C-run of 1-12, the interrupt T, missing, A or G, and a second C-run of 1-10; for
-    57-60 T-runs of 1-8."""
+    C-run of 1-12, the interrupt T, missing, A or G, and a second C-run of 1-10, also
+    with a C, G or T inside the leading run; for 57-60 T-runs of 1-8."""
     if region.lead:
-        return sorted({"A" * a + "C" * c + x + "C" * c2 for a, c, x, c2 in
-                       itertools.product(range(1, 7), range(1, 13), ("T", "", "A", "G"), range(1, 11))})
+        runs = {"A" * a + "C" * c + x + "C" * c2 for a, c, x, c2 in
+                itertools.product(range(1, 7), range(1, 13), ("T", "", "A", "G"), range(1, 11))}
+        # a base inside the leading run (AAACA..., AACAA...)
+        broken = {"A" * i + y + "A" * j + "C" * c + x + "C" * c2 for i, j, y, c, x, c2 in
+                  itertools.product(range(1, 5), range(1, 5), "CGT", range(1, 13), ("T", ""), range(1, 10))}
+        return sorted(runs | broken)
     return ["T" * n for n in range(1, 9)]
 
 
