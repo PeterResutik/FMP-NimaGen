@@ -9,6 +9,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- R1 keeps the anchor sequence before the poly-C tract (chrM:278-302) and is
+  cut after it (`p02`); before, the anchor was cut off too. 278-302 was then
+  read by R2 alone, right after it had read the poly-C tract, where its
+  quality drops: a low-quality error at 297 (C instead of A, in up to 5% of
+  the reads) reached the report as A297M from FDSTOOLS. Now FLASH has R1's
+  base there as well and keeps the one with the higher quality; the error is
+  under 1% in every sample. R1 still stops before the poly-C tract.
 - In the merge, rCRS on fewer than `--minimum` reads in Mutect2's counts no
   longer counts. Where the two callers' substitution labels differ, the merge
   averages their rCRS shares to decide whether rCRS is still present, and

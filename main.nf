@@ -13,7 +13,7 @@ params.publish_dir_mode = "symlink"
 params.outdir = "results"
 params.publish_bams = true // false: BAM/FASTQ intermediates are not copied to outdir (e.g. simulations); VCFs, FDSTOOLS files, QC and the merged Excel still are
 
-params.adapter = 'ATCATAACAAAAAATTTCCACCAAA' // chrM:278-302, just before the poly-C tract at 303-315: R1 is cut from here on (p02)
+params.adapter = 'ATCATAACAAAAAATTTCCACCAAA' // chrM:278-302, just before the poly-C tract at 303-315: R1 is cut after it (p02)
 
 params.left_primers = "$baseDir/resources/primers/left_primers.fasta"
 // params.left_primers_rc = "$baseDir/resources/primers/left_primers_rc.fasta"
@@ -166,7 +166,8 @@ process p02_map_raw_fastq_p01 {
     """
     mv ${reads[0]} tmp.fastq.gz
     # -O: only the whole sequence counts; by default 3 matching bases at the end of any read are cut off
-    cutadapt -a ${params.adapter} -O ${params.adapter.size()} -o ${reads[0]}  tmp.fastq.gz 
+    # --action=retain: the anchor stays in R1, only the bases after it go
+    cutadapt -a ${params.adapter} -O ${params.adapter.size()} --action=retain -o ${reads[0]}  tmp.fastq.gz 
 
     bwa mem ${reference} ${reads[0]} > ${sample_id}_R1.sam 
     bwa mem ${reference} ${reads[1]} > ${sample_id}_R2.sam 
