@@ -231,7 +231,7 @@ FDSTOOLS have a green background, those from Mutect2 a blue one.
 | `--outdir` | `results` | output folder |
 | `--min_vf_FDS`, `--min_vf_MT2` | 2 | a base counts as present from this share (%), per caller |
 | `--lh_thresh` | 10 | length variants: under 10% not reported, 10–90% minor (lowercase), above 90% major |
-| `--depth` | 10 | amplicons with fewer reads are marked LOW |
+| `--depth` | 20 | amplicons with fewer reads are marked LOW |
 | `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
 | `--mutect2_disabled_regions` | `none` | complex regions where Mutect2's minor calls are left out: `none`, `all`, or e.g. `300-315,16180-16193` |
 | `--disagreement_average` | `plain` | how the two callers' frequencies are averaged when they disagree: `plain` or `depth_weighted` |

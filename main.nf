@@ -73,7 +73,7 @@ params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_
 params.python_script_rtn_qualities = "$baseDir/resources/scripts/rtn_qualities.py"
 
 // merging
-params.depth = 10
+params.depth = 20
 params.min_vf_MT2 = 2
 params.min_vf_FDS = 2
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)

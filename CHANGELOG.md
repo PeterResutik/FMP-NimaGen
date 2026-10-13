@@ -178,6 +178,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   40%, or C756A 70%) and the deletion (C756c 30%).
 
 ### Changed
+- Amplicons with fewer than 20 reads are marked LOW by default (`--depth`;
+  before 10), the recommended minimum read depth. The calls in such an
+  amplicon stay in the report; LOW only warns that they rest on few reads.
 - A base counts as present from 2% of the reads by default (`--min_vf_FDS`
   and `--min_vf_MT2`; before 5%), so that low-level point heteroplasmies are
   detected. A base still needs at least `--minimum` reads (2), so where an
