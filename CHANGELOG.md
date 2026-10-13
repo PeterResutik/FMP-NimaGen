@@ -366,6 +366,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- README, Known Limitations: where Mutect2's rows in 16180-16193 differ from
+  FDSTOOLS' (an A-run one A short with C-runs of different lengths; leave
+  Mutect2 out there with `--mutect2_disabled_regions`), and that `vf_MT2` is
+  Mutect2's own estimate, not the share of its reads.
 - `resources/primers/README.md`: which file describes the primers for which
   step, how their ends were checked against the reads, what happens to reads
   from a primer bound at a wrong site, what the wobble codes mean, and why

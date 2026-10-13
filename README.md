@@ -274,6 +274,20 @@ pytest
   rCRS instead. FDSTOOLS counts each molecule once and is not affected. In the
   C-stretches, where this is most frequent, Mutect2 can be left out with
   `--mutect2_disabled_regions`.
+- In 16180–16193, Mutect2 reports single changes, not whole molecules, and the
+  report rebuilds molecules from its major calls only. Where the A-run is one
+  A short and the C-run differs in length between molecules (A3 C10 to
+  A3 C13), Mutect2 writes most of them as a C at 16183 and puts the extra Cs
+  after 16182: A16183M, A16183a, -16182.1c and -16182.2c, in either frame.
+  FDSTOOLS reads each molecule whole: A16183-, -16193.1c, -16193.2c and
+  -16193.3c (separate frame), or A16183C, C16193c, -16193.1c and -16193.2c
+  (shared frame). Each of these rows then comes from one caller only. For such
+  a sample, leave Mutect2 out there with
+  `--mutect2_disabled_regions 16180-16193`; its major calls are still reported.
+- `vf_MT2` is Mutect2's own estimate of the frequency, not the share of its
+  reads. For a base on all n reads it is about (n + 1) / (n + 2), so 21 of 21
+  reads give 95.7%; this matters mainly in amplicons with few reads. Whether
+  rCRS is still present is decided from Mutect2's read counts.
 
 ## Cleaning Up
 
