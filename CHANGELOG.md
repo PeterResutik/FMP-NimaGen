@@ -9,6 +9,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- In the merge, rCRS on fewer than `--minimum` reads in Mutect2's counts no
+  longer counts. Where the two callers' substitution labels differ, the merge
+  averages their rCRS shares to decide whether rCRS is still present, and
+  takes Mutect2's share from its read counts, where a single rCRS read
+  counted although Mutect2's own processing ignores it: FDSTOOLS with rCRS
+  on 2.5% and Mutect2 with 1 rCRS read of 21 averaged to 3.6% and gave
+  T16189Y. Now that read counts as 0, as everywhere else.
 - Mutect2 no longer reports C3106c, a deletion no molecule carries. 3107 is
   rCRS's placeholder N, a base no molecule has. A read can be aligned with its
   gap at 3106 instead and its C on the N; Mutect2 then records the C at 3106

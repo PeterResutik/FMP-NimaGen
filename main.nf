@@ -580,7 +580,7 @@ process p13_merge_variants_p10_p11 {
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
             --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
             --disagreement_average $params.disagreement_average \
-            --mutect2_disabled_regions $params.mutect2_disabled_regions
+            --mutect2_disabled_regions $params.mutect2_disabled_regions --min_reads $params.minimum
 
 
 

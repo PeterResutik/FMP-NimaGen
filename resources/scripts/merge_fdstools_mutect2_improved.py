@@ -85,7 +85,18 @@ def as_number(value):
         return value
 
 
-def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor):
+def mutect2_rcrs_share(coverages, min_reads):
+    """rCRS's share (a fraction) from Mutect2's reads (iupac.rcrs_share). rCRS on fewer than
+    min_reads reads does not count, as in Mutect2's own processing. None when unreadable."""
+    try:
+        if float(str(coverages[0]).split(",")[0]) < min_reads:
+            return 0.0
+    except ValueError:
+        return None
+    return iupac.rcrs_share(coverages)
+
+
+def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor, min_reads=1):
     """A caller's substitution rows at one position as one row, for a caller that
     writes one row per base other than rCRS: T16189Y (C 40%) and T16189W (A 10%)
     become T16189H with vf "C 40, A 10". rCRS counts as present when what is left
@@ -115,7 +126,8 @@ def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor):
                 n = df.at[i, rd]
             reads[next(iter(bases))] = n
         else:
-            reads_share = (iupac.rcrs_share([f"{ref_reads}," + ",".join(str(n) for n in reads.values())])
+            reads_share = (mutect2_rcrs_share([f"{ref_reads}," + ",".join(str(n) for n in reads.values())],
+                                              min_reads)
                            if ref_reads is not None else None)
             ref_share = (100 * reads_share if reads_share is not None
                          else 100 - factor * sum(vfs.values()) - deleted.get((ref, pos), 0))
@@ -249,7 +261,8 @@ def region_of(label, names):
 def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
                           min_vf: float = 5.0, mutect2_depth_file: str = None,
                           marker_map: str = None, depth_threshold: int = 10,
-                          weighted_average: bool = False, mutect2_disabled=()) -> pd.DataFrame:
+                          weighted_average: bool = False, mutect2_disabled=(),
+                          min_reads: int = 1) -> pd.DataFrame:
     try:
         df1 = pd.read_csv(file_fdstools, sep="\t")
         df2 = pd.read_csv(file_mutect2, sep="\t")
@@ -290,7 +303,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
         mt2_deleted = deletion_shares(df2["MUTECT2"], df2["vf_MT2"], 100) if not df2.empty else {}
         df1 = one_row_per_position(df1, "FDSTOOLS", "vf_FDS", "rd_FDS", min_vf, fds_deleted, 1)
         if not df2.empty:
-            df2 = one_row_per_position(df2, "MUTECT2", "vf_MT2", "rd_MT2", min_vf, mt2_deleted, 100)
+            df2 = one_row_per_position(df2, "MUTECT2", "vf_MT2", "rd_MT2", min_vf, mt2_deleted, 100, min_reads)
 
         # Rename original variant columns before merge to avoid conflict
         df1["FMP"] = df1["FDSTOOLS"]
@@ -345,7 +358,7 @@ def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: floa
                                                   iupac.alts(mt2_parts[2], ref))
                     if fds_alts is not None and mt2_alts is not None:
                         ref_fds = 100 - sum(fds_alts.values()) - fds_deleted.get((ref, pos), 0)
-                        reads = iupac.rcrs_share([row.get("rd_MT2")])
+                        reads = mutect2_rcrs_share([row.get("rd_MT2")], min_reads)
                         ref_mt2 = (100 * reads if reads is not None
                                    else 100 - sum(mt2_alts.values()) - mt2_deleted.get((ref, pos), 0))
                         avg_ref = caller_average_pct(row, ref_fds, ref_mt2 / 100, weighted_average)
@@ -575,6 +588,7 @@ if __name__ == "__main__":
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
     parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
     parser.add_argument("--disagreement_average", choices=["plain", "depth_weighted"], default="plain", help="How the two callers' frequencies are averaged when they disagree on major vs minor: plain average, or weighted by each caller's read depth")
+    parser.add_argument("--min_reads", type=int, default=2, help="Reads rCRS needs in Mutect2's counts to count where the callers' substitution labels differ, as in Mutect2's own processing")
     parser.add_argument("--mutect2_disabled_regions", type=disabled_regions, default="none", help="Complex regions where only Mutect2's major calls count (its minor calls are listed in the note of the region's rows): none, all, or names separated by commas, e.g. 300-315,16180-16193")
 
     args = parser.parse_args()
@@ -583,7 +597,7 @@ if __name__ == "__main__":
         df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
                                           args.mutect2_depth, args.marker_map, args.depth,
                                           args.disagreement_average == "depth_weighted",
-                                          args.mutect2_disabled_regions)
+                                          args.mutect2_disabled_regions, args.min_reads)
         if df_merged.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")

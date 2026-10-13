@@ -309,3 +309,18 @@ def test_script_disables_mutect2_in_a_region(tmp_path):
     assert fill(rows["-16193.1c"][col["called_by_MUTECT2"]]) == "D9D9D9"   # disabled: grey, not a miss
     assert fill(rows["-16193.1c"][col["FMP"]]) != "F50003"
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"
+
+
+@pytest.mark.parametrize("min_reads, reported", [
+    (2, "T16189C"),   # Mutect2's 1 rCRS read does not count: (2.5 + 0) / 2 = 1.25%, rCRS absent
+    (1, "T16189Y"),   # counted, it tips the plain average: (2.5 + 4.8) / 2 = 3.6%, rCRS present
+])
+def test_a_single_mutect2_rcrs_read_does_not_count_in_the_merge(tmp_path, min_reads, reported):
+    # FDSTOOLS: rCRS T on 2.5%; Mutect2: C on all but 1 of 21 reads, which its own processing ignores
+    fds_file, mt2_file, depth_file, library = write_inputs(
+        tmp_path, [fds("T16189Y", 97.5, 1000, "mtNG_097")],
+        [mt2("T16189C", 0.95, "1,20", 16189, "T", "C", "SNP")], {})
+    report = calls(merge.merge_variant_callers(str(fds_file), str(mt2_file), lh_thresh=10.0, min_vf=2.0,
+                                               mutect2_depth_file=str(depth_file), marker_map=str(library),
+                                               min_reads=min_reads))
+    assert list(report.index) == [reported]
