@@ -380,6 +380,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- README, Reading the Report: Mutect2 also uses reads that span two
+  neighbouring amplicons of one primer pool, which FDSTOOLS cannot assign, so
+  its depth is higher there.
 - `--variant_note false` leaves the `variant_note` column out of the report;
   by default it stays.
 - README, Known Limitations: recurring low-quality sequencing errors can

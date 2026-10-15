@@ -204,7 +204,12 @@ molecule is the same.
 The two callers show their evidence differently. FDSTOOLS gives the reads and
 the share of the variant only (`rd_FDS`, `vf_FDS`); the reads without it
 follow from `rd_total_FDS`. Mutect2 gives the reads of both the rCRS base and
-the variant (`rd_MT2`), and the share of the variant (`vf_MT2`).
+the variant (`rd_MT2`), and the share of the variant (`vf_MT2`). Mutect2
+also uses reads that run from one amplicon's left primer to the right primer
+of the next amplicon in the same primer pool (001 to 003, 002 to 004, 098 to
+100). They are whole mtDNA molecules, but FDSTOOLS cannot assign them to one
+amplicon, so in these amplicons Mutect2's depth is higher than FDSTOOLS', by
+up to about a quarter.
 
 ### Flags and colours
 
