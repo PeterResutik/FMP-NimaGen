@@ -590,6 +590,7 @@ if __name__ == "__main__":
     parser.add_argument("--disagreement_average", choices=["plain", "depth_weighted"], default="plain", help="How the two callers' frequencies are averaged when they disagree on major vs minor: plain average, or weighted by each caller's read depth")
     parser.add_argument("--min_reads", type=int, default=2, help="Reads rCRS needs in Mutect2's counts to count where the callers' substitution labels differ, as in Mutect2's own processing")
     parser.add_argument("--mutect2_disabled_regions", type=disabled_regions, default="none", help="Complex regions where only Mutect2's major calls count (its minor calls are listed in the note of the region's rows): none, all, or names separated by commas, e.g. 300-315,16180-16193")
+    parser.add_argument("--variant_note", choices=["true", "false"], default="true", help="false: the report has no variant_note column")
 
     args = parser.parse_args()
 
@@ -611,6 +612,8 @@ if __name__ == "__main__":
             number = pd.to_numeric(df_merged["vf_MT2"], errors="coerce")
             df_merged["vf_MT2"] = (number * 100).round(2).where(
                 number.notna(), df_merged["vf_MT2"].map(lambda v: iupac.scale_values(v, 100)))
+        if args.variant_note == "false":
+            df_merged = df_merged.drop(columns=["variant_note"], errors="ignore")
         df_merged.to_excel(args.output_file, index=False, engine="openpyxl")
         print(f"Merged Excel file saved to: {args.output_file}")
     except Exception:

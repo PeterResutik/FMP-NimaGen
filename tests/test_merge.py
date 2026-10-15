@@ -311,6 +311,18 @@ def test_script_disables_mutect2_in_a_region(tmp_path):
     assert fill(rows["A263G"][col["called_by_MUTECT2"]]) == "FFC7CE"
 
 
+
+@pytest.mark.parametrize("variant_note, written", [("true", True), ("false", False)])
+def test_script_leaves_out_the_variant_note(tmp_path, variant_note, written):
+    fds_file, mt2_file, depth_file, library = write_inputs(tmp_path, C_STRETCH_FDS, C_STRETCH_MT2, {})
+    xlsx = tmp_path / "merged.xlsx"
+    subprocess.run([sys.executable, merge.__file__, str(fds_file), str(mt2_file), str(xlsx),
+                    "--mutect2_depth", str(depth_file), "--marker_map", str(library),
+                    "--mutect2_disabled_regions", "16180-16193", "--variant_note", variant_note], check=True)
+    header = [c.value for c in load_workbook(xlsx).active[1]]
+    assert ("variant_note" in header) == written
+    assert "called_by_MUTECT2" in header
+
 @pytest.mark.parametrize("min_reads, reported", [
     (2, "T16189C"),   # Mutect2's 1 rCRS read does not count: (2.5 + 0) / 2 = 1.25%, rCRS absent
     (1, "T16189Y"),   # counted, it tips the plain average: (2.5 + 4.8) / 2 = 3.6%, rCRS present

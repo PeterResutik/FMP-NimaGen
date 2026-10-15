@@ -80,6 +80,7 @@ params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor
 params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
 params.frame = "separate" // separate | shared: how 16180-16193 and 300-315 are written (resources/scripts/frames.py)
 params.mutect2_disabled_regions = "none" // none | all | names separated by commas (57-60,300-315,16180-16193): complex regions where only Mutect2's major calls count
+params.variant_note = true // false: the report has no variant_note column
 
     // rm -r "$baseDir/work"
     // rm -r "$baseDir/results"
@@ -581,7 +582,8 @@ process p13_merge_variants_p10_p11 {
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
             --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
             --disagreement_average $params.disagreement_average \
-            --mutect2_disabled_regions $params.mutect2_disabled_regions --min_reads $params.minimum
+            --mutect2_disabled_regions $params.mutect2_disabled_regions --min_reads $params.minimum \
+            --variant_note $params.variant_note
 
 
 
@@ -642,6 +644,7 @@ workflow {
          --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
          --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all, or names separated by commas (57-60,300-315,16180-16193): complex regions where Mutect2 minor calls are left out
+         --variant_note                   : $params.variant_note # false: the report has no variant_note column
          --marker_map                     : $params.fdstools_library # Path to marker map file
 
          OUTPUT DIRECTORY   

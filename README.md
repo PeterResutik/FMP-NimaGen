@@ -195,7 +195,7 @@ molecule is the same.
 | `rd_FDS`, `rd_total_FDS` | FDSTOOLS: reads with the variant, and all reads at the position |
 | `rd_MT2`, `MBQ` | Mutect2: read counts and median base quality, each for rCRS first, then for the variant (`687,1450`: 687 reads with the rCRS base, 1450 with the variant) |
 | `called_by_FDSTOOLS`, `called_by_MUTECT2` | whether each caller confirms the call (see below) |
-| `variant_note` | remarks, for example which Mutect2 calls were left out |
+| `variant_note` | remarks, for example which Mutect2 calls were left out; not written with `--variant_note false` |
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
 | `marker`, `marker_range`, `num_markers` | the amplicon of the FDSTOOLS call, its range, and the number of amplicons the call was seen in |
 | `Filter`, `Pos`, `Ref`, `Variant`, `GT` | fields of the Mutect2 VCF record |
@@ -237,6 +237,7 @@ FDSTOOLS have a green background, those from Mutect2 a blue one.
 | `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
 | `--mutect2_disabled_regions` | `none` | complex regions where Mutect2's minor calls are left out: `none`, `all`, or e.g. `300-315,16180-16193` |
 | `--disagreement_average` | `plain` | how the two callers' frequencies are averaged when they disagree: `plain` or `depth_weighted` |
+| `--variant_note` | `true` | `false` leaves the `variant_note` column out of the report |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
 | `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
