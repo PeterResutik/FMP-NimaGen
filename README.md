@@ -197,7 +197,7 @@ molecule is the same.
 | `called_by_FDSTOOLS`, `called_by_MUTECT2` | whether each caller confirms the call (see below) |
 | `variant_note` | remarks, for example which Mutect2 calls were left out; not written with `--variant_note false` |
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
-| `marker`, `marker_range`, `num_markers` | the amplicon of the FDSTOOLS call, its range, and the number of amplicons the call was seen in |
+| `marker`, `marker_range`, `num_markers` | the amplicons FDSTOOLS' depth and frequency come from (every amplicon with reads covering the position), their ranges, and their number |
 | `Filter`, `Pos`, `Ref`, `Variant`, `GT` | fields of the Mutect2 VCF record |
 | `Type` | `SNP`, `PHP` (point heteroplasmy), `INS`, `DEL` or `LHP` (length heteroplasmy) |
 

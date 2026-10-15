@@ -101,6 +101,35 @@ def load_marker_ranges(filepath):
                     marker_ranges[marker.strip()] = f"{start}-{end}"
     return marker_ranges
 
+
+def load_marker_segments(filepath):
+    """{marker: [(start, end), ...]}: every part of each amplicon's range in the library
+    (mtNG_100 has two, 16471-16569 and 1-33, across the origin)."""
+    segments = {}
+    with open(filepath) as f:
+        in_block = False
+        for line in f:
+            line = line.strip()
+            if line.startswith("[genome_position]"):
+                in_block = True
+                continue
+            if line.startswith("[") and in_block:
+                break
+            if in_block and "=" in line:
+                marker, values = line.split("=")
+                numbers = [int(v) for v in values.split(",")[1:]]
+                segments[marker.strip()] = list(zip(numbers[0::2], numbers[1::2]))
+    return segments
+
+
+def covering_markers(position, segments, marker_total_reads):
+    """Amplicons with reads whose range holds the position."""
+    if position == float("inf"):
+        return []
+    return [m for m, parts in segments.items()
+            if marker_total_reads.get(m, 0) > 0 and any(a <= int(position) <= b for a, b in parts)]
+
+
 def in_window(label, region):
     """Whether an FDSTOOLS label (A16183C, T16189DEL, 16193.1C) lies in a frame region or
     within frames.FLANK bases of it, where the rows come from the frames' alignment."""
@@ -213,19 +242,17 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
         total_mp_sum=("total_mp_sum", "sum"),
     )
 
-    # Coverage: reads counted per amplicon, excluding "Other sequences" (the same
-    # count LOW uses); clipped to 1 to avoid division by zero
-    grouped["rd_total_FDS"] = grouped["marker"].map(marker_total_reads).fillna(0).clip(lower=1)
-
-
-    final = grouped.groupby("sequence", as_index=False).agg(
-        marker=("marker", "first"),
-        total=("total", "sum"),
-        rd_total_FDS=("rd_total_FDS", "sum"),
-        # is_noise_or_low_frq=("is_noise_or_low_frq", "first"),
-        # total_wo_noise_or_low_frq=("total_wo_noise_or_low_frq", "sum"),
-        num_markers=("marker", "nunique")
-    )
+    # Depth and frequency come from every amplicon whose range holds the label's position,
+    # also where only one of them lists the label (FDSTOOLS lists a sequence from
+    # --minimum reads on). An amplicon's reads exclude "Other sequences", as for LOW.
+    final = grouped.groupby("sequence", as_index=False).agg(total=("total", "sum"))
+    segments = load_marker_segments(marker_map_path)
+    carriers = grouped.groupby("sequence")["marker"].apply(set)
+    markers = final["sequence"].map(lambda label: sorted(
+        set(covering_markers(extract_position(label), segments, marker_total_reads)) | carriers[label]))
+    final["marker"] = markers.map(", ".join)
+    final["num_markers"] = markers.map(len)
+    final["rd_total_FDS"] = markers.map(lambda ms: max(sum(marker_total_reads.get(m, 0) for m in ms), 1))
 
     final["variant_frequency"] = (final["total"] / final["rd_total_FDS"] * 100).round(2)
     # final["variant_frequency_wo_noise_or_low_frq"] = (final["total"] / final["total_wo_noise_or_low_frq"] * 100).round(2)
@@ -283,7 +310,8 @@ def process_fdstools_sast(file_path, marker_map_path, output_file, min_variant_f
 
     final = pd.concat([final, rows_from_frames, single_low_coverage], ignore_index=True)
 
-    final["marker_range"] = final["marker"].map(marker_map)
+    final["marker_range"] = final["marker"].map(
+        lambda markers: ", ".join(marker_map[m] for m in str(markers).split(", ") if m in marker_map) or None)
     final["position"] = final["marker"].apply(extract_position)
     final["position"] = final["position"].apply(adjust_circular_position)
     final = final.sort_values(by="position").drop(columns=["position"])

@@ -9,6 +9,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- FDSTOOLS' depth and frequency at a position covered by two amplicons count
+  the reads of both. They counted only the amplicons that list the label, so a
+  label one amplicon lists and the other does not was measured against one
+  amplicon alone: a sequencing error on 2.8% of the reads of amplicon 053 at
+  8541 is under 1% of all reads there, as Mutect2 counts it. `marker` and
+  `marker_range` now name every amplicon counted, `num_markers` gives their
+  number.
 - R1 keeps the anchor sequence before the poly-C tract (chrM:278-302) and is
   cut after it (`p02`); before, the anchor was cut off too. 278-302 was then
   read by R2 alone, right after it had read the poly-C tract, where its

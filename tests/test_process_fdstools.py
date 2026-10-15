@@ -17,11 +17,11 @@ mtNG_097 = chrM, 16094, 16276
 """
 
 
-def run(tmp_path, rows, depth=10, tssv=None, reference_fasta=None, frame="separate"):
+def run(tmp_path, rows, depth=10, tssv=None, reference_fasta=None, frame="separate", library_text=LIBRARY):
     """rows: (marker, sequence, reads) as in a sast.csv; tssv: (marker, sequence, reads)
     as in a tssv.csv, which switches the frames on. Returns the report table."""
     library = tmp_path / "library.txt"
-    library.write_text(LIBRARY)
+    library.write_text(library_text)
     sast = tmp_path / "sample.sast.csv"
     pd.DataFrame([{"marker": m, "sequence": s, "flags": "", "total": n, "total_mp_sum": 0}
                   for m, s, n in rows]).to_csv(sast, sep="\t", index=False)
@@ -47,6 +47,41 @@ def low_amplicons(report):
     low = report[report["FDSTOOLS"] == "LOW"]
     return dict(zip(low["marker"], low["rd_FDS"]))
 
+
+
+def row_of(report, label):
+    return report[report["FDSTOOLS"] == label].iloc[0]
+
+
+def test_a_label_one_of_two_amplicons_lists_counts_the_reads_of_both(tmp_path):
+    # 262 lies in 002 (133-267) and 003 (259-367); only 003 lists the T: 60 of 2,000 reads
+    report = run(tmp_path, [("mtNG_002", "REF", 1000), ("mtNG_003", "REF", 940), ("mtNG_003", "C262T", 60)])
+    assert "C262Y" not in calls(report)
+
+
+def test_a_label_both_amplicons_list_names_both(tmp_path):
+    report = run(tmp_path, [("mtNG_002", "REF", 940), ("mtNG_002", "C262T", 60),
+                            ("mtNG_003", "REF", 940), ("mtNG_003", "C262T", 60)])
+    row = row_of(report, "C262Y")
+    assert row["vf_FDS"] == 6.0 and row["rd_FDS"] == 120 and row["rd_total_FDS"] == 2000
+    assert row["marker"] == "mtNG_002, mtNG_003"
+    assert row["marker_range"] == "133-267, 259-367"
+    assert row["num_markers"] == 2
+
+
+def test_an_amplicon_without_reads_does_not_count(tmp_path):
+    # 002 has no reads (it is LOW): 262 rests on 003 alone
+    report = run(tmp_path, [("mtNG_003", "REF", 940), ("mtNG_003", "C262T", 60)])
+    row = row_of(report, "C262Y")
+    assert row["vf_FDS"] == 6.0 and row["marker"] == "mtNG_003" and row["num_markers"] == 1
+
+
+def test_amplicon_100_covers_both_sides_of_the_origin(tmp_path):
+    library = "[genome_position]\nmtNG_001 = chrM, 19, 155\nmtNG_100 = chrM, 16471, 16569, 1, 33\n[flanks]\n"
+    report = run(tmp_path, [("mtNG_001", "REF", 900), ("mtNG_100", "REF", 800), ("mtNG_100", "T25C", 100)],
+                 library_text=library)
+    row = row_of(report, "T25Y")
+    assert row["rd_total_FDS"] == 1800 and row["marker"] == "mtNG_001, mtNG_100" and row["num_markers"] == 2
 
 @pytest.mark.parametrize("threshold", [10, 90])
 def test_lh_bounds_same_for_either_side(threshold):
