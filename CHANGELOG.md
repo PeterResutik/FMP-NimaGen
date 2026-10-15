@@ -373,6 +373,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (README, Known Limitations).
 
 ### Added
+- README, Known Limitations: recurring low-quality sequencing errors can
+  appear as rows from FDSTOOLS only, which does not use base qualities; a
+  higher detection threshold leaves them out.
 - README, Known Limitations: where Mutect2's rows in 16180-16193 differ from
   FDSTOOLS' (an A-run one A short with C-runs of different lengths; leave
   Mutect2 out there with `--mutect2_disabled_regions`), and that `vf_MT2` is

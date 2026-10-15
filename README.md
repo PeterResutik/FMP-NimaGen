@@ -288,6 +288,14 @@ pytest
   reads. For a base on all n reads it is about (n + 1) / (n + 2), so 21 of 21
   reads give 95.7%; this matters mainly in amplicons with few reads. Whether
   rCRS is still present is decided from Mutect2's read counts.
+- FDSTOOLS does not use base qualities. A sequencing error that comes back at
+  the same position in many samples can reach `--min_vf_FDS` and appear as a
+  row from FDSTOOLS only, while Mutect2, which ignores bases under Q30, does
+  not call it. In the samples tested this happened at 3407, 3413 and 3460
+  (amplicon 023, whose R2 loses quality after its first cycles), at 8541
+  (amplicon 053) and at 10231 and 10266 (amplicon 063), at up to 4%. These
+  rows show `called_by_MUTECT2` false. A higher detection threshold
+  (`--min_vf_FDS`, `--min_vf_MT2`) leaves them out.
 
 ## Cleaning Up
 
