@@ -612,7 +612,7 @@ workflow {
     log_text = """\
          m t D N A - N i m a G e n  P I P E L I N E    
          ==========================================
-         mtDNA reference genome           : ${relativePath(params.reference)}
+         --reference                      : ${relativePath(params.reference)} # mtDNA reference genome
          --reads                          : ${relativePath(params.reads)}
          
          MERGING (with FLASH)
@@ -645,6 +645,7 @@ workflow {
          --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)
 
          VARIANT CALLING (with FDSTOOLS)
+         --fdstools_library               : ${relativePath(params.fdstools_library)} # Position and flanks of each amplicon (p11; amplicon ranges p13)
          (tssv)
          --minimum                        : $params.minimum # Reads a sequence (FDSTOOLS) or a base (MUTECT2, rCRS included) needs
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
@@ -673,7 +674,6 @@ workflow {
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left) for 16180-16193 and 300-315
          --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all or e.g. 300-315,16180-16193: Mutect2 minor calls left out there
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
-         --marker_map                     : ${relativePath(params.fdstools_library)} # Path to marker map file
 
          OUTPUT DIRECTORY   
          --outdir                         : ${params.outdir}

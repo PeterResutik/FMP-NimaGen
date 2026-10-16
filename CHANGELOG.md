@@ -13,6 +13,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   under the names they are set with (`--quality_cutoff`,
   `--primer_min_overlap`, `--minimum_length`, `--maximum_length`); it showed
   cutadapt's own option names, which the pipeline does not take.
+- The parameter log lists `--reference` and `--fdstools_library` under these
+  names. It showed them as `mtDNA reference genome` and `--marker_map`, a
+  name the pipeline does not take. `--fdstools_library` is now listed under
+  FDSTOOLS, which reads it first.
 - An interrupted first run no longer leaves an incomplete humans index that
   later runs take as complete. `p01b` checked for the first file bwa index
   writes (`.amb`); it now checks for the last (`.sa`), and unpacks the archive
