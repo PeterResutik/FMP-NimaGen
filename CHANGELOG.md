@@ -8,6 +8,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-10-16
+
 ### Fixed
 - The parameter log lists the trimming parameters, `--reads` and `--outdir`
   under the names they are set with (`--quality_cutoff`,

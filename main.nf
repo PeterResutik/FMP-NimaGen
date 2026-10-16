@@ -612,6 +612,7 @@ workflow {
     log_text = """\
          m t D N A - N i m a G e n  P I P E L I N E    
          ==========================================
+         pipeline version                 : ${workflow.manifest.version}
          --reference                      : ${relativePath(params.reference)} # mtDNA reference genome
          --reads                          : ${relativePath(params.reads)}
          
