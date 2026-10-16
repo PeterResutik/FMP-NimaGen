@@ -9,6 +9,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- rtn and Mutect2 tasks reserve memory (`--rtn_memory`, `--mutect2_memory`,
+  4 GB each), so Nextflow starts no more of them than the computer's memory
+  holds. On a laptop one rtn task per core started at once, each holding the
+  humans index (about 2 GB), and the run ran out of memory. Mutect2's Java
+  memory follows `--mutect2_memory` (it was fixed at 16 GB); its calls are the
+  same.
+- FDSTOOLS tasks reserve as many cores as they use threads (`--num_threads`, 6,
+  at most as many as the computer has), so Nextflow does not start more of
+  them than the computer has cores.
+  Mutect2's pair HMM runs on 1 thread (`--native_pair_hmm_threads`, was 4):
+  more threads saved almost no time on mtDNA, and the calls are the same.
 - FDSTOOLS' depth and frequency at a position covered by two amplicons count
   the reads of both. They counted only the amplicons that list the label, so a
   label one amplicon lists and the other does not was measured against one

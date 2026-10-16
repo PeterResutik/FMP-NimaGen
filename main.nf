@@ -36,6 +36,7 @@ params.humans_index_base = "humans_NimaGen_2026-10.fa" // built by resources/rtn
 params.numts_index_dir = "$baseDir/resources/rtn_files/numts"
 params.numts_index_base = "Calabrese_Dayama_Smart_Numts_modified.fa"
 params.rtn_positions = "$baseDir/resources/rtn_files/positions/recurrent_positions.tsv" // rtn sees these positions at base quality 2; none = off
+params.rtn_memory = "4 GB" // memory per rtn task (p09), which holds the humans index (about 2 GB): Nextflow starts no more tasks than the computer's memory holds
 
 // params.mtdna_database = "$baseDir/HelixMTdb_20200327_short.vcf.gz"
 // params.fdstools_library = "$baseDir/resources/fdstools/mtNG_lib2_v211-flank.txt" 
@@ -47,7 +48,7 @@ params.skip_numt_filter = false // true skips rtn, e.g. for simulated reads, whi
 
 // fdstools
 params.minimum = 2
-params.num_threads = 6 
+params.num_threads = 6 // threads of FDSTOOLS tssv (p11), which reserves as many cores (at most the computer's); no faster beyond 6
 params.min_abs = 2 
 params.min_pct_of_max = 0 
 params.min_pct_of_sum = 3 
@@ -60,8 +61,9 @@ params.baseQ = 30
 params.callable_depth = 6
 params.initial_tumor_lod = 0
 params.tumor_lod_to_emit = 0
-params.native_pair_hmm_threads = 4
+params.native_pair_hmm_threads = 1 // threads of Mutect2's pair HMM: more save almost no time on mtDNA
 params.max_reads_per_alignment_start = 0
+params.mutect2_memory = "4 GB" // memory per Mutect2 task (p12); Java may use 80% of it
 params.force_alleles = "$baseDir/resources/mutect2/force_alleles.vcf" // alleles Mutect2 always evaluates (--alleles)
 params.min_reads_per_strand = 0 // disables StrictStrandBiasFilter — this pipeline's RC-PCR + FLASH-merged reads are always single-orientation, so any nonzero value guarantees FILTER=strict_strand on every call regardless of true variant quality
 
@@ -339,6 +341,7 @@ process p08_filter_numts_merged_fastq_p06 {
 
 process p09_filter_numts_trimmed_merged_bam_p07 {
     tag "p09: rtn on $sample_id"
+    memory params.rtn_memory
     publishDir { "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
@@ -409,6 +412,7 @@ process p10_quality_control_p09 {
 
 process p11_variant_calling_fdstools_sast_p08 {
     tag "p11: fdstools on $sample_id"
+    cpus { Math.min(params.num_threads as int, Runtime.runtime.availableProcessors()) }  // never more cores than the computer has
     publishDir { "$params.outdir/p11_fdstools/${sample_id}" }, mode: 'copy', overwrite: true
     
     input:
@@ -423,7 +427,7 @@ process p11_variant_calling_fdstools_sast_p08 {
     if [ -s "${rtn_fastq}" ]; then
 
     
-        fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads $params.num_threads --report ${sample_id}.report.txt
+        fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         fdstools samplestats ${sample_id}.sc.csv ${sample_id}.sast.csv
         fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
@@ -438,6 +442,7 @@ process p11_variant_calling_fdstools_sast_p08 {
 
 process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     tag "p12: mutect2 on $sample_id"
+    memory params.mutect2_memory
     publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.vcf.gz*'
     publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*bamout.bam*', enabled: params.publish_bams.toString().toBoolean()
     
@@ -470,7 +475,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
     # pileup detection: candidates also from the aligned reads, not only from assembly;
     # proper-pair check off (merged reads are unpaired), same base quality as calling
-    gatk --java-options "-Xmx16G" \
+    gatk --java-options "-Xmx${avail_mem}m" \
         Mutect2 \
         -R ${reference} \
         -L 'chrM' \
@@ -496,7 +501,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
     samtools index ${bam_file.baseName}_sorted.bamout.bam 
 
-    gatk  --java-options "-Xmx16G" \
+    gatk  --java-options "-Xmx${avail_mem}m" \
         FilterMutectCalls \
         -R ${reference} \
         --min-reads-per-strand "${params.min_reads_per_strand}" \
@@ -624,17 +629,20 @@ workflow {
          --rtn_positions                  : $params.rtn_positions # rtn sees these positions at base quality 2 (none = off); only an rtn that uses base qualities counts them less
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
          --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
+         --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)
 
          VARIANT CALLING (with FDSTOOLS)
          (tssv)
          --minimum                        : $params.minimum # reads a sequence (FDSTOOLS) or a base or length variant in a call (MUTECT2, rCRS included) needs (default: 2)
-         --num_threads                    : $params.num_threads # number of worker threads to use (default: 1)
+         --num_threads                    : $params.num_threads # threads FDSTOOLS tssv uses, at most the cores of the computer; Nextflow reserves as many cores for each task
 
          VARIANT CALLING (with MUTECT2)
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
          --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
+         --native_pair_hmm_threads        : $params.native_pair_hmm_threads # threads of the Mutect2 pair HMM; more save almost no time on mtDNA
+         --mutect2_memory                 : $params.mutect2_memory # memory per Mutect2 task; Java may use 80 percent of it
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there

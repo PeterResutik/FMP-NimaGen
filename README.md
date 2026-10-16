@@ -134,6 +134,8 @@ nextflow run main.nf -profile local
 ```
 
 To resume a previous run and skip already completed steps, add `-resume`.
+Nextflow runs as many tasks at once as the computer has cores; to keep the
+computer responsive during a run, limit them with `-qs`, e.g. `-qs 4`.
 
 ### Running with Docker
 
@@ -246,6 +248,10 @@ FDSTOOLS have a green background, those from Mutect2 a blue one.
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
 | `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
+| `--rtn_memory` | `4 GB` | memory per rtn task (`p09`), which holds the humans index (about 2 GB); Nextflow starts no more tasks than the computer's memory holds |
+| `--mutect2_memory` | `4 GB` | memory per Mutect2 task (`p12`); Java may use 80% of it |
+| `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p11`); Nextflow reserves as many cores for each task, at most as many as the computer has |
+| `--native_pair_hmm_threads` | 1 | threads of Mutect2's pair HMM; more save almost no time on mtDNA |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
 
 All options and their values are printed at the start of each run and saved in
