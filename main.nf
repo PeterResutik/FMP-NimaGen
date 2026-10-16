@@ -603,12 +603,17 @@ process p13_merge_variants_p10_p11 {
     """
 }
 
+// A path inside the pipeline folder, written relative to it, so the parameter log stays short
+def relativePath(path) {
+    return path.toString().replace("${projectDir}/", "")
+}
+
 workflow {
     log_text = """\
          m t D N A - N i m a G e n  P I P E L I N E    
          ==========================================
-         mtDNA reference genome           : ${params.reference}
-         reads                            : ${params.reads}
+         mtDNA reference genome           : ${relativePath(params.reference)}
+         reads                            : ${relativePath(params.reads)}
          
          MERGING (with FLASH)
          --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
@@ -616,35 +621,35 @@ workflow {
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
 
          TRIMMING (with CUTADAPT) 
-         --quality-cutoff                 : $params.quality_cutoff # Trim low-quality bases from the end of each read, after primer removal.
-         --overlap                        : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
-         --minimum-length                 : $params.minimum_length # Discard reads shorter than LEN. Default: 0
-         --maximum-length                 : $params.maximum_length # Discard reads longer than LEN. Default: no limit
+         --quality_cutoff                 : $params.quality_cutoff # Trim low-quality bases from the end of each read, after primer removal.
+         --primer_min_overlap             : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
+         --minimum_length                 : $params.minimum_length # Reads shorter than this are discarded
+         --maximum_length                 : $params.maximum_length # Reads longer than this are discarded
          --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
 
          MAPPING (with BWA MEM, p07)
          --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
 
          NUMTs REMOVAL (with RTN)
-         --humans_index_dir               : $params.humans_index_dir # Folder of the human mitogenomes rtn compares reads with
-         --humans_index_base              : $params.humans_index_base # Human mitogenomes (resources/rtn_files/humans/build/README.md), unpacked and indexed on the first run
-         --numts_index_dir                : $params.numts_index_dir # Folder of the NUMT sequences rtn compares reads with
+         --humans_index_dir               : ${relativePath(params.humans_index_dir)} # Folder of the human mitogenomes rtn compares reads with
+         --humans_index_base              : $params.humans_index_base # Human mitogenomes, unpacked and indexed on the first run
+         --numts_index_dir                : ${relativePath(params.numts_index_dir)} # Folder of the NUMT sequences rtn compares reads with
          --numts_index_base               : $params.numts_index_base # NUMT sequences (from rtn)
-         --rtn_positions                  : $params.rtn_positions # rtn sees these positions at base quality 2 (none = off); only an rtn that uses base qualities counts them less
+         --rtn_positions                  : ${relativePath(params.rtn_positions)} # positions rtn sees at quality 2 (none = off)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
          --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
          --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)
 
          VARIANT CALLING (with FDSTOOLS)
          (tssv)
-         --minimum                        : $params.minimum # reads a sequence (FDSTOOLS) or a base or length variant in a call (MUTECT2, rCRS included) needs (default: 2)
-         --num_threads                    : $params.num_threads # threads FDSTOOLS tssv uses, at most the cores of the computer; Nextflow reserves as many cores for each task
+         --minimum                        : $params.minimum # Reads a sequence (FDSTOOLS) or a base (MUTECT2, rCRS included) needs
+         --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
 
          VARIANT CALLING (with MUTECT2)
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
-         --force_alleles                  : $params.force_alleles # VCF of alleles Mutect2 always evaluates, whether or not it finds them itself
+         --force_alleles                  : ${relativePath(params.force_alleles)} # VCF of alleles Mutect2 always evaluates
          --native_pair_hmm_threads        : $params.native_pair_hmm_threads # threads of the Mutect2 pair HMM; more save almost no time on mtDNA
          --mutect2_memory                 : $params.mutect2_memory # memory per Mutect2 task; Java may use 80 percent of it
 
@@ -652,16 +657,16 @@ workflow {
          --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there
          --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
-         --lh_thresh                      : $params.lh_thresh # Symmetric length-heteroplasmy threshold: below it, not reported; between it and (1-it), reported as LHP (lowercase); above (1-it), reported as major (uppercase)
-         --disagreement_average           : $params.disagreement_average # plain or depth_weighted: how both callers frequencies are averaged when they disagree on major vs minor
-         --frame                          : $params.frame # separate (run lengths) or shared (laid from the left, as mitoLEAF and EMPOP) for 16180-16193 and 300-315
-         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all, or names separated by commas (57-60,300-315,16180-16193): complex regions where Mutect2 minor calls are left out
+         --lh_thresh                      : $params.lh_thresh # Length variants: under it not reported, up to 100 minus it lowercase, above uppercase
+         --disagreement_average           : $params.disagreement_average # plain or depth_weighted average when the callers disagree on major vs minor
+         --frame                          : $params.frame # separate (run lengths) or shared (laid from the left) for 16180-16193 and 300-315
+         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all or e.g. 300-315,16180-16193: Mutect2 minor calls left out there
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
-         --marker_map                     : $params.fdstools_library # Path to marker map file
+         --marker_map                     : ${relativePath(params.fdstools_library)} # Path to marker map file
 
          OUTPUT DIRECTORY   
          outdir                           : ${params.outdir}
-         --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir; VCFs, FDSTOOLS files, QC and the merged Excel still are
+         --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir
          """
 
     log.info(log_text)
