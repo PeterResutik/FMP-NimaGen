@@ -9,10 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
-- The parameter log lists the trimming parameters under the names they are
-  set with (`--quality_cutoff`, `--primer_min_overlap`, `--minimum_length`,
-  `--maximum_length`); it showed cutadapt's own option names, which the
-  pipeline does not take.
+- The parameter log lists the trimming parameters, `--reads` and `--outdir`
+  under the names they are set with (`--quality_cutoff`,
+  `--primer_min_overlap`, `--minimum_length`, `--maximum_length`); it showed
+  cutadapt's own option names, which the pipeline does not take.
 - An interrupted first run no longer leaves an incomplete humans index that
   later runs take as complete. `p01b` checked for the first file bwa index
   writes (`.amb`); it now checks for the last (`.sa`), and unpacks the archive
@@ -226,7 +226,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ### Changed
 - The parameter log (`p00_parameters.txt`) has shorter lines: paths inside
   the pipeline folder are written relative to it, and the longest
-  explanations are shorter.
+  explanations are shorter. It also lists the anchor before the poly-C tract
+  (`--adapter`), the primer files and the amplicon positions file.
 - In 16180-16193 and 300-315, one base inside an A-run that still has all its
   A's is written as an insertion, in both frames. AAACA at 16180 (four A's
   with a C between the third and the fourth) was A16183C C16184A and is now

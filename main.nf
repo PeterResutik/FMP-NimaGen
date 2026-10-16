@@ -613,7 +613,7 @@ workflow {
          m t D N A - N i m a G e n  P I P E L I N E    
          ==========================================
          mtDNA reference genome           : ${relativePath(params.reference)}
-         reads                            : ${relativePath(params.reads)}
+         --reads                          : ${relativePath(params.reads)}
          
          MERGING (with FLASH)
          --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
@@ -621,6 +621,9 @@ workflow {
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
 
          TRIMMING (with CUTADAPT) 
+         --adapter                        : $params.adapter # Anchor before the poly-C tract (278-302); R1 is cut after it (p02)
+         --left_primers                   : ${relativePath(params.left_primers)} # Left primers (soft clips p03, trimming p05)
+         --right_primers_rc               : ${relativePath(params.right_primers_rc)} # Right primers, reverse complement (p03, p05)
          --quality_cutoff                 : $params.quality_cutoff # Trim low-quality bases from the end of each read, after primer removal.
          --primer_min_overlap             : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
          --minimum_length                 : $params.minimum_length # Reads shorter than this are discarded
@@ -629,6 +632,7 @@ workflow {
 
          MAPPING (with BWA MEM, p07)
          --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
+         --amplicon_middle_positions      : ${relativePath(params.amplicon_middle_positions)} # Middle position of each amplicon, for its read depth
 
          NUMTs REMOVAL (with RTN)
          --humans_index_dir               : ${relativePath(params.humans_index_dir)} # Folder of the human mitogenomes rtn compares reads with
@@ -665,7 +669,7 @@ workflow {
          --marker_map                     : ${relativePath(params.fdstools_library)} # Path to marker map file
 
          OUTPUT DIRECTORY   
-         outdir                           : ${params.outdir}
+         --outdir                         : ${params.outdir}
          --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir
          """
 
