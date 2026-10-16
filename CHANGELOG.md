@@ -512,6 +512,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   in the merge, so with `-resume` only `p13` reruns.
 
 ### Removed
+- `--initial_tumor_lod`, `--tumor_lod_to_emit`, `--max_reads_per_alignment_start`
+  and `--min_reads_per_strand`: their value (0) is fixed in `p12`, since other
+  values skew or block the calls for these amplicon reads. The parameter log
+  lists them with Mutect2's other fixed options.
 - rtn's `humans.fa.bz2`: unused since rtn compares reads with
   `humans_NimaGen_2026-10.fa`; it stays in the repository's history.
 - `--detection_limit`: unused since the mutserve-based setup was replaced; the

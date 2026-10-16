@@ -59,13 +59,9 @@ params.allele_min_pct_of_sum = 3
 // mutect2
 params.baseQ = 30
 params.callable_depth = 6
-params.initial_tumor_lod = 0
-params.tumor_lod_to_emit = 0
 params.native_pair_hmm_threads = 1 // threads of Mutect2's pair HMM: more save almost no time on mtDNA
-params.max_reads_per_alignment_start = 0
 params.mutect2_memory = "4 GB" // memory per Mutect2 task (p12); Java may use 80% of it
 params.force_alleles = "$baseDir/resources/mutect2/force_alleles.vcf" // alleles Mutect2 always evaluates (--alleles)
-params.min_reads_per_strand = 0 // disables StrictStrandBiasFilter — this pipeline's RC-PCR + FLASH-merged reads are always single-orientation, so any nonzero value guarantees FILTER=strict_strand on every call regardless of true variant quality
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
@@ -476,6 +472,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     bcftools view -Oz -o forced_alleles.vcf.gz ${force_alleles}
     tabix -p vcf forced_alleles.vcf.gz
 
+    # Fixed, not parameters: --initial-tumor-lod 0 and --tumor-lod-to-emit 0 write every candidate, and
+    # --min_vf_MT2 and --minimum decide later; --max-reads-per-alignment-start 0 keeps all reads, as every
+    # read of an amplicon starts at the same position; --min-reads-per-strand 0 (FilterMutectCalls), as
+    # the merged reads all point one way and any other value filters every call
     # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
     # pileup detection: candidates also from the aligned reads, not only from assembly;
     # proper-pair check off (merged reads are unpaired), same base quality as calling
@@ -487,10 +487,10 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
         --callable-depth $params.callable_depth \
         --linked-de-bruijn-graph true \
         --recover-all-dangling-branches true \
-        --initial-tumor-lod "${params.initial_tumor_lod}" \
-        --tumor-lod-to-emit "${params.tumor_lod_to_emit}"  \
+        --initial-tumor-lod 0 \
+        --tumor-lod-to-emit 0 \
         --native-pair-hmm-threads "${params.native_pair_hmm_threads}"  \
-        --max-reads-per-alignment-start "${params.max_reads_per_alignment_start}" \
+        --max-reads-per-alignment-start 0 \
         --max-mnp-distance 0 \
         --pileup-detection true \
         --pileup-detection-enable-indel-pileup-calling true \
@@ -508,7 +508,7 @@ process p12_variant_calling_mutect2_vcfgz_p01_p09 {
     gatk  --java-options "-Xmx${avail_mem}m" \
         FilterMutectCalls \
         -R ${reference} \
-        --min-reads-per-strand "${params.min_reads_per_strand}" \
+        --min-reads-per-strand 0 \
         -V raw.vcf.gz \
         --tmp-dir . \
         -O ${bam_file.baseName}.vcf.gz
@@ -652,10 +652,17 @@ workflow {
          VARIANT CALLING (with MUTECT2)
          --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
-         --min_reads_per_strand           : $params.min_reads_per_strand # Minimum alt reads required on both forward and reverse strands
          --force_alleles                  : ${relativePath(params.force_alleles)} # VCF of alleles Mutect2 always evaluates
          --native_pair_hmm_threads        : $params.native_pair_hmm_threads # threads of the Mutect2 pair HMM; more save almost no time on mtDNA
          --mutect2_memory                 : $params.mutect2_memory # memory per Mutect2 task; Java may use 80 percent of it
+         --initial-tumor-lod              : 0 (hard coded) # every candidate is written; --min_vf_MT2 and --minimum decide
+         --tumor-lod-to-emit              : 0 (hard coded)
+         --max-reads-per-alignment-start  : 0 (hard coded) # all reads kept: every read of an amplicon starts at one position
+         --min-reads-per-strand           : 0 (hard coded) # merged reads all point one way (FilterMutectCalls)
+         --linked-de-bruijn-graph         : true (hard coded)
+         --recover-all-dangling-branches  : true (hard coded)
+         --pileup-detection               : true (hard coded) # also for indels
+         --max-mnp-distance               : 0 (hard coded) # one record per substituted position
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there
