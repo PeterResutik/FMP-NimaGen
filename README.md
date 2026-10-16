@@ -358,8 +358,7 @@ Third-party material in this repository keeps its own terms:
   [mitoLEAF](https://github.com/forensicgenomics/mitoLeaf) (Mozilla Public
   License 2.0), GenBank, and the 1000 Genomes Project and HGDP data (see
   `resources/rtn_files/humans/build/README.md`).
-- `resources/rtn_files/humans/humans.fa.bz2` and `resources/rtn_files/numts/`
-  come from [RtN](https://github.com/Ahhgust/RtN).
+- `resources/rtn_files/numts/` comes from [RtN](https://github.com/Ahhgust/RtN).
 
 The tools the pipeline runs (FDSTOOLS, GATK, bwa, samtools, rtn and others) are
 not part of this repository and are covered by their own licences.

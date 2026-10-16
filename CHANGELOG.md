@@ -504,6 +504,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   in the merge, so with `-resume` only `p13` reruns.
 
 ### Removed
+- rtn's `humans.fa.bz2`: unused since rtn compares reads with
+  `humans_NimaGen_2026-10.fa`; it stays in the repository's history.
 - `--detection_limit`: unused since the mutserve-based setup was replaced; the
   Mutect2 frequency floor is `--min_vf_MT2`.
 - `--min_reads_filt`: only passed to `fdstools samplestats`, where it has no
