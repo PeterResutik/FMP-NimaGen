@@ -136,10 +136,14 @@ process p01b_prepare_humans_index {
 
     script:
     """
-    # Check if BWA index for humans reference exists (one of the .amb/.bwt/.ann/.pac/.sa files)
-    if [[ ! -f "${humans_index_dir}/${humans_base}.amb" ]]; then
+    # The index is complete once .sa exists, the last file bwa index writes; an interrupted
+    # unpacking or indexing leaves no complete-looking file behind and is redone
+    if [[ ! -f "${humans_index_dir}/${humans_base}.sa" ]]; then
         echo "BWA index for human reference not found. Preparing it now..."
-        [[ -f "${humans_index_dir}/${humans_base}" ]] || bunzip2 -k "${humans_index_dir}/${humans_base}.bz2"
+        if [[ ! -f "${humans_index_dir}/${humans_base}" ]]; then
+            bunzip2 -c "${humans_index_dir}/${humans_base}.bz2" > "${humans_index_dir}/${humans_base}.tmp"
+            mv "${humans_index_dir}/${humans_base}.tmp" "${humans_index_dir}/${humans_base}"
+        fi
         bwa index "${humans_index_dir}/${humans_base}"
     else
         echo "BWA index found for human reference."

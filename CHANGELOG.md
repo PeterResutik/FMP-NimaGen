@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Fixed
+- An interrupted first run no longer leaves an incomplete humans index that
+  later runs take as complete. `p01b` checked for the first file bwa index
+  writes (`.amb`); it now checks for the last (`.sa`), and unpacks the archive
+  under a temporary name, so a cut-off unpacking is redone as well.
 - rtn and Mutect2 tasks reserve memory (`--rtn_memory`, `--mutect2_memory`,
   4 GB each), so Nextflow starts no more of them than the computer's memory
   holds. On a laptop one rtn task per core started at once, each holding the
