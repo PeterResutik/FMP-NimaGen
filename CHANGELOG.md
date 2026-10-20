@@ -8,6 +8,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.2.1] – 2026-10-20
+
 ### Changed
 - FLASH counts the mismatches over the whole overlap of a read pair
   (`--max_overlap` 226, the read length; was 140). FLASH also merges overlaps
