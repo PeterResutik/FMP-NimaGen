@@ -20,6 +20,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   amplicon 023; its recurring errors reported by FDSTOOLS alone rise by a few
   tenths of a percent.
 
+### Removed
+- The quality trimming of the merged reads in `p05` (`--quality_cutoff`, Q25
+  from the 3' end, after the primers were removed). A merged read ends with the
+  first, best cycles of R2, and in the overlap FLASH keeps the higher quality of
+  the two reads, so the step removed about 0.01% of the bases; the bases of low
+  quality lie inside the reads, where trimming from the end cannot reach them.
+  Mutect2 ignores bases under Q30 one by one, and FDSTOOLS gets the reads
+  without this trimming anyway.
+
 ## [0.2.0] – 2026-10-16
 
 ### Fixed

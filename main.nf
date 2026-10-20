@@ -22,7 +22,6 @@ params.amplicon_middle_positions = "$baseDir/resources/amplicon_bed/amplicons_be
 // params.force_sites = "$baseDir/force_sites.vcf.gz"
 
 // cutadapt
-params.quality_cutoff = 25
 params.minimum_length = 60
 params.maximum_length = 600 // longer than any merged 2x226 read, so products spanning two amplicons are kept
 params.primer_min_overlap = 15 // bases of a primer that must be in the read when it is incomplete at the read end
@@ -265,9 +264,7 @@ process p05_trim_merged_fastq_p04 {
     tr '^\$' XX < $left_primers > left_primers_noninternal.fasta
     tr '^\$' XX < $right_primers > right_primers_noninternal.fasta
     cutadapt -g file:left_primers_noninternal.fasta -O $params.primer_min_overlap -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left.fastq $fastq_wo_scb_merged
-    cutadapt -a file:right_primers_noninternal.fasta -O $params.primer_min_overlap -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed_left_right.fastq ${sample_id}_wo_scb_merged_trimmed_left.fastq
-    # quality trimming after the primers are removed, so that it cannot cut into a primer
-    cutadapt -q $params.quality_cutoff -m $params.minimum_length -M $params.maximum_length -o ${sample_id}_wo_scb_merged_trimmed.fastq ${sample_id}_wo_scb_merged_trimmed_left_right.fastq
+    cutadapt -a file:right_primers_noninternal.fasta -O $params.primer_min_overlap -m $params.minimum_length -M $params.maximum_length --discard-untrimmed -o ${sample_id}_wo_scb_merged_trimmed.fastq ${sample_id}_wo_scb_merged_trimmed_left.fastq
     """
 }
         
@@ -625,7 +622,6 @@ workflow {
          --adapter                        : $params.adapter # Anchor before the poly-C tract (278-302); R1 is cut after it (p02)
          --left_primers                   : ${relativePath(params.left_primers)} # Left primers (soft clips p03, trimming p05)
          --right_primers_rc               : ${relativePath(params.right_primers_rc)} # Right primers, reverse complement (p03, p05)
-         --quality_cutoff                 : $params.quality_cutoff # Trim low-quality bases from the end of each read, after primer removal.
          --primer_min_overlap             : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
          --minimum_length                 : $params.minimum_length # Reads shorter than this are discarded
          --maximum_length                 : $params.maximum_length # Reads longer than this are discarded
