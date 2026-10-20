@@ -5,7 +5,7 @@ params.reference = "$baseDir/resources/rCRS/rCRS_NimaGen.fasta"
 
 // flash
 params.min_overlap = 10 // default in FLASH is 10
-params.max_overlap = 140 // default in FLASH is 65
+params.max_overlap = 226 // the read length: FLASH counts mismatches over at most this many overlap bases (default 65), and no overlap is longer than a read
 params.max_mismatch_density = 0.25 //default in FLASH is 0.25
 
 // params.multiqc = "$baseDir/multiqc"
@@ -618,7 +618,7 @@ workflow {
          
          MERGING (with FLASH)
          --min_overlap                    : $params.min_overlap # The minimum required overlap length between two reads to provide a confident overlap (default: 10bp) 
-         --max_overlap                    : $params.max_overlap # Maximum overlap length expected in approximately 90% of read pairs. 
+         --max_overlap                    : $params.max_overlap # Mismatches counted over at most this many overlap bases; set to the read length
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
 
          TRIMMING (with CUTADAPT) 

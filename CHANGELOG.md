@@ -8,6 +8,18 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- FLASH counts the mismatches over the whole overlap of a read pair
+  (`--max_overlap` 226, the read length; was 140). FLASH also merges overlaps
+  longer than `--max_overlap`, but counted their mismatches over the first
+  `--max_overlap` bases only; with 2x226 reads nearly every overlap was longer
+  than 140, and FLASH warned about it in every run. No overlap is longer than a
+  read, so with the read length the whole overlap counts; with longer reads,
+  set `--max_overlap` to their length. A few more read pairs are merged, among
+  them pairs whose mismatches cluster in one part of the overlap, as in
+  amplicon 023; its recurring errors reported by FDSTOOLS alone rise by a few
+  tenths of a percent.
+
 ## [0.2.0] – 2026-10-16
 
 ### Fixed
