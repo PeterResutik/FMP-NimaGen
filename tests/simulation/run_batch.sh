@@ -8,6 +8,8 @@
 # (keep/merged and keep/score are those of the pipeline's defaults).
 #
 # Usage: MOTIFS=<mitoLEAF hgmotifs.json> run_batch.sh <haplogroup_list> <batch_dir> [reads_per_amplicon]
+# With MIXTURES=1 the list holds mixtures ("major minor share" per line,
+# simulate_reads.py --mixtures), scored by score_mixtures.py.
 # Needs the FMP-NimaGen conda environment to be active. rtn is skipped
 # (simulated reads contain no NUMTs) unless NUMT_FILTER=1. QUEUE_SIZE (default 6)
 # sets how many pipeline tasks run at once. ERROR_PROFILE (made by
@@ -22,7 +24,9 @@ MOTIFS=${MOTIFS:?set MOTIFS to mitoLEAF docs/data/hgmotifs.json}
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=${REPO:-$(cd "$HERE/../.." && pwd)}
 
-python "$HERE/simulate_reads.py" --motifs "$MOTIFS" --haplogroup-list "$LIST" \
+INPUT=(--haplogroup-list "$LIST")
+[ "${MIXTURES:-0}" = 1 ] && INPUT=(--mixtures "$LIST")
+python "$HERE/simulate_reads.py" --motifs "$MOTIFS" "${INPUT[@]}" \
     --outdir "$BATCH/reads" --reads-per-amplicon "$READS" --processes "${SIM_PROCESSES:-8}" \
     --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta" \
     --left-primers "$REPO/resources/primers/left_primers.fasta" \
@@ -51,8 +55,13 @@ cp "$BATCH"/out/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged/"
 cp "$BATCH"/reads/*_truth.tsv "$KEEP/truth/"
 cp "$BATCH/out/p00_parameters.txt" "$KEEP/"
 
-python "$HERE/score_calls.py" --truth-dir "$KEEP/truth" --merged-dir "$KEEP/merged" --out "$KEEP/score" \
-    --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta"
+score() { # merged_dir out_dir
+    local scorer=score_calls.py
+    [ "${MIXTURES:-0}" = 1 ] && scorer=score_mixtures.py
+    python "$HERE/$scorer" --truth-dir "$KEEP/truth" --merged-dir "$1" --out "$2" \
+        --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta"
+}
+score "$KEEP/merged" "$KEEP/score"
 
 for t in ${EXTRA_THRESHOLDS-3 4 5}; do
     start=$(date +%s)
@@ -62,8 +71,7 @@ for t in ${EXTRA_THRESHOLDS-3 4 5}; do
     echo "report step at $t%, seconds: $(( $(date +%s) - start ))" >> "$BATCH/timing.txt"
     mkdir -p "$KEEP/merged_$t"
     cp "$BATCH/out_$t"/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged_$t/"
-    python "$HERE/score_calls.py" --truth-dir "$KEEP/truth" --merged-dir "$KEEP/merged_$t" --out "$KEEP/score_$t" \
-        --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta"
+    score "$KEEP/merged_$t" "$KEEP/score_$t"
 done
 
 rm -rf "${BATCH:?}/work" "${BATCH:?}/reads" "${BATCH:?}/out" "${BATCH:?}"/out_*

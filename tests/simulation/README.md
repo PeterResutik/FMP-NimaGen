@@ -22,7 +22,10 @@ into this repository.
   instead: each haplogroup takes one run (drawn per haplogroup, or named with
   `--error-source`), and each read pair the base qualities, substitution
   errors and insertion/deletion errors of one real read pair of that run and
-  amplicon.
+  amplicon. With `--mixtures`, each sample mixes two haplogroups: every
+  amplicon gets exactly the given share of its reads from the minor one
+  (lines `major minor share`, share in %); both haplogroups take the same
+  ambiguous states as on their own, and the noise of one run.
 - `build_error_profile.py` makes that profile from real samples: per sample the
   raw FASTQ pair and the pipeline's `p02` and `p09` BAMs, the sequencing run
   it belongs to (`--source`), and, to keep heteroplasmies out of the noise,
@@ -35,13 +38,20 @@ into this repository.
 - `score_calls.py` compares the merged Excel with the truth, overall and per
   caller, and lists mismatches (C-stretches 303-315 and 16180-16193 separately).
   `--exclude` leaves out windows, e.g. `300-320,16170-16200` or `16519-16519`.
+- `score_mixtures.py` scores mixtures: at every position where the two
+  haplogroups differ by one base (away from insertions, deletions and the
+  C-stretches) whether the report, FDSTOOLS and Mutect2 give the minor base
+  (the IUPAC code of both), only the major base, or something else, and how
+  far the reported frequency is from the true share; calls where neither
+  haplogroup has a variant are counted as extra calls.
 - `run_batch.sh` simulates a list of haplogroups, runs the pipeline with
   `--skip_numt_filter --publish_bams false` (`NUMT_FILTER=1` keeps rtn),
   keeps the small outputs
   (`sast.csv`, Mutect2 VCF, merged Excel, truth, parameter log), scores them
   and deletes reads, work folder and full output. `QUEUE_SIZE` (default 6)
   and `SIM_PROCESSES` (default 8) set the parallelism; `ERROR_PROFILE` passes
-  an error profile to `simulate_reads.py`.
+  an error profile to `simulate_reads.py`. With `MIXTURES=1` the list holds
+  mixtures and `score_mixtures.py` scores them.
 - `run_all.sh` runs a long list in batches, skips finished batches and stops
   when disk space runs low.
 

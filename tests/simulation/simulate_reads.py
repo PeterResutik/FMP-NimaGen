@@ -27,8 +27,17 @@ reads alternating between them. With --ambiguous alt every such position
 carries the variant (16519C, 315.1C, 16193 deleted), with --ambiguous rcrs
 the rCRS state (where an IUPAC code excludes the rCRS base, its other base).
 
+With --mixtures, each sample mixes two haplogroups instead: a list of
+lines "major minor share" (share of the minor haplogroup in %) gives samples
+<major>--<minor>--m<share> in which every amplicon has exactly that share of
+its reads from the minor haplogroup (rounded to whole reads), the rest from
+the major one. Both take the same ambiguous states as on their own, and the
+noise of one run, drawn per sample. Read names start with mixA_ (major) or
+mixB_ (minor).
+
 Output per haplogroup: <sample>_R1_001.fastq.gz, <sample>_R2_001.fastq.gz
-(the pipeline's read pattern) and <sample>_truth.tsv with the variants used.
+(the pipeline's read pattern) and <sample>_truth.tsv with the variants used
+(for a mixture also the minor haplogroup, its variants and its share).
 """
 
 import argparse
@@ -215,17 +224,28 @@ def error_profile(path):
     return _PROFILES[path]
 
 
-def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
-    # Seeded by haplogroup name, so its reads don't depend on batch or order
-    rng = random.Random(f"{args.seed}:{haplogroup}")
-    # ambiguous states come from their own stream, so read errors don't depend on them
+def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts, minor=None):
+    """Reads of one haplogroup, or with minor = (haplogroup, motif, share in %)
+    of a mixture with a second one at that share of every amplicon's reads."""
+    # Seeded by haplogroup name (a mixture: by sample name), so its reads don't depend on batch or order
+    seed_name = haplogroup if minor is None else sample
+    rng = random.Random(f"{args.seed}:{seed_name}")
+    # ambiguous states come from their own stream, so read errors don't depend on them; a haplogroup takes
+    # the same states in a mixture as on its own
     states = random.Random(f"{args.seed}:{haplogroup}:states")
     haplotypes, used = apply_motif(rcrs, motif, args.ambiguous, states)
+    parts = [("", haplotypes, args.reads_per_amplicon)]
+    if minor:
+        minor_hg, minor_motif, share = minor
+        minor_haplotypes, minor_used = apply_motif(rcrs, minor_motif, args.ambiguous,
+                                                   random.Random(f"{args.seed}:{minor_hg}:states"))
+        n_minor = round(args.reads_per_amplicon * share / 100)
+        parts = [("mixA_", haplotypes, args.reads_per_amplicon - n_minor), ("mixB_", minor_haplotypes, n_minor)]
     qualities = [33, 34, 35, 36, 36, 37, 37, 37, 38, 38]
     profile = error_profile(args.error_profile) if args.error_profile else None
     if profile:
         # the run whose noise this haplogroup takes, from its own stream
-        source = args.error_source or random.Random(f"{args.seed}:{haplogroup}:noise").choice(profile["meta"]["sources"])
+        source = args.error_source or random.Random(f"{args.seed}:{seed_name}:noise").choice(profile["meta"]["sources"])
         if source not in profile["meta"]["sources"]:
             raise SystemExit(f"--error-source {source} is not in the profile: {profile['meta']['sources']}")
     outdir = Path(args.outdir)
@@ -233,27 +253,32 @@ def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
     r2 = gzip.open(outdir / f"{sample}_R2_001.fastq.gz", "wt")
     n = 0
     for amp, positions in sorted(inserts.items()):
-        templates = [amplicon_template(hap, positions) for hap in haplotypes]
-        for i in range(args.reads_per_amplicon):
-            # Reads alternate between the haplotypes; primer variants (e.g.
-            # amplicon 045) are used in turn within each haplotype
-            lp = left[amp][(i // 2) % len(left[amp])]
-            molecule = resolve_iupac(lp, rng) + templates[i % 2] + resolve_iupac(right[amp][0], rng)
-            n += 1
-            name = f"@SIM:1:{sample}:1:{1101 + n // 10000}:{n % 10000}:{amp}"
-            if profile:
-                pair = rng.choice(profile["pools"][(source, amp)])
-                s1, q1 = sequence_read_like(molecule, rng, pair[0], args.read_length)
-                s2, q2 = sequence_read_like(molecule.translate(COMPLEMENT)[::-1], rng, pair[1], args.read_length)
-            else:
-                s1, q1 = sequence_read(molecule[:args.read_length], rng, qualities)
-                s2, q2 = sequence_read(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, qualities)
-            r1.write(f"{name} 1:N:0:1\n{s1}\n+\n{q1}\n")
-            r2.write(f"{name} 2:N:0:1\n{s2}\n+\n{q2}\n")
+        for tag, haps, count in parts:
+            templates = [amplicon_template(hap, positions) for hap in haps]
+            for i in range(count):
+                # Reads alternate between the haplotypes; primer variants (e.g.
+                # amplicon 045) are used in turn within each haplotype
+                lp = left[amp][(i // 2) % len(left[amp])]
+                molecule = resolve_iupac(lp, rng) + templates[i % 2] + resolve_iupac(right[amp][0], rng)
+                n += 1
+                name = f"@{tag}SIM:1:{sample}:1:{1101 + n // 10000}:{n % 10000}:{amp}"
+                if profile:
+                    pair = rng.choice(profile["pools"][(source, amp)])
+                    s1, q1 = sequence_read_like(molecule, rng, pair[0], args.read_length)
+                    s2, q2 = sequence_read_like(molecule.translate(COMPLEMENT)[::-1], rng, pair[1], args.read_length)
+                else:
+                    s1, q1 = sequence_read(molecule[:args.read_length], rng, qualities)
+                    s2, q2 = sequence_read(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, qualities)
+                r1.write(f"{name} 1:N:0:1\n{s1}\n+\n{q1}\n")
+                r2.write(f"{name} 2:N:0:1\n{s2}\n+\n{q2}\n")
     r1.close()
     r2.close()
     with open(outdir / f"{sample}_truth.tsv", "w") as truth:
         truth.write(f"haplogroup\t{haplogroup}\nmotif\t{motif}\nambiguous\t{args.ambiguous}\nvariants_used\t{' '.join(used)}\n")
+        if minor:
+            truth.write(f"minor_haplogroup\t{minor_hg}\nminor_motif\t{minor_motif}\n"
+                        f"minor_variants_used\t{' '.join(minor_used)}\nminor_share\t{share:g}\n"
+                        f"minor_reads_per_amplicon\t{n_minor}\nreads_per_amplicon\t{args.reads_per_amplicon}\n")
         if profile:
             truth.write(f"error_profile\t{Path(args.error_profile).name}\nerror_source\t{source}\n")
     return n
@@ -264,6 +289,8 @@ def main():
     p.add_argument("--motifs", required=True, help="mitoLEAF hgmotifs.json")
     p.add_argument("--haplogroups", nargs="*", default=[], help="haplogroup names")
     p.add_argument("--haplogroup-list", help="file with one haplogroup name per line")
+    p.add_argument("--mixtures", help="file with one mixture per line: major haplogroup, minor haplogroup, "
+                                      "share of the minor one in %% (whitespace-separated)")
     p.add_argument("--outdir", required=True)
     p.add_argument("--reads-per-amplicon", type=int, default=100)
     p.add_argument("--read-length", type=int, default=226, help="bases read from each end (current workflow: 226)")
@@ -285,7 +312,15 @@ def main():
     names = list(args.haplogroups)
     if args.haplogroup_list:
         names += [l.strip() for l in open(args.haplogroup_list) if l.strip()]
-    missing = [h for h in names if h not in motifs]
+    mixtures = []
+    if args.mixtures:
+        for line in open(args.mixtures):
+            if line.strip():
+                major, minor, share = line.split()
+                if not 0 < float(share) < 100:
+                    raise SystemExit(f"share must be between 0 and 100: {line.strip()}")
+                mixtures.append((major, minor, float(share)))
+    missing = [h for h in names + [h for m in mixtures for h in m[:2]] if h not in motifs]
     if missing:
         raise SystemExit(f"not in mitoLEAF: {missing}")
 
@@ -295,12 +330,13 @@ def main():
     Path(args.outdir).mkdir(parents=True, exist_ok=True)
 
     jobs, seen = [], set()
-    for hg in names:
-        sample = re.sub(r"[^A-Za-z0-9]+", "-", hg).strip("-")
+    clean = lambda hg: re.sub(r"[^A-Za-z0-9]+", "-", hg).strip("-")
+    for hg, minor in [(hg, None) for hg in names] + [(a, (b, motifs[b], s)) for a, b, s in mixtures]:
+        sample = clean(hg) if minor is None else f"{clean(hg)}--{clean(minor[0])}--m{minor[2]:g}".replace(".", "p")
         while sample in seen:
             sample += "x"
         seen.add(sample)
-        jobs.append((hg, motifs[hg], sample, args, rcrs, left, right, inserts))
+        jobs.append((hg, motifs[hg], sample, args, rcrs, left, right, inserts, minor))
     with multiprocessing.Pool(args.processes) as pool:
         for (hg, _, sample, *_), n in zip(jobs, pool.starmap(simulate, jobs)):
             print(f"{hg} -> {sample}: {n} read pairs over {len(inserts)} amplicons", flush=True)

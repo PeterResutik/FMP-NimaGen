@@ -14,6 +14,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   work folder is deleted, the pipeline is resumed with `--min_vf_FDS` and
   `--min_vf_MT2` at each threshold, so only the report step runs again; its
   reports and scores are kept in `keep/merged_<t>` and `keep/score_<t>`.
+- `tests/simulation/simulate_reads.py --mixtures` simulates mixtures of two
+  haplogroups: every amplicon gets exactly the given share of its reads from
+  the minor one. `score_mixtures.py` checks at every position where the two
+  differ by one base whether the report, FDSTOOLS and Mutect2 give the minor
+  base, and how far the reported frequency is from the true share.
+  `run_batch.sh` runs and scores mixture lists with `MIXTURES=1`.
 
 ### Changed
 - Simulated reads with `--error-profile` also carry the insertion and deletion

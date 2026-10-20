@@ -56,3 +56,24 @@ def test_a_profile_without_insertions_and_deletions_reads_up_to_the_length():
     read, qual = sr.sequence_read_like("ACGTAC", random.Random(1), ("II", [(1, "T")]), 4)
     assert read == "ATGT"
     assert qual == "IIII"
+
+
+def test_a_mixture_takes_exactly_its_share_of_every_amplicons_reads(tmp_path):
+    import argparse, collections, gzip
+    rcrs = sr.load_rcrs(sr.REPO / "resources/rCRS/rCRS_NimaGen.fasta")
+    left = sr.load_primers(sr.REPO / "resources/primers/left_primers.fasta")
+    right = sr.load_primers(sr.REPO / "resources/primers/right_primers_rc.fasta")
+    inserts = sr.find_inserts(rcrs, left, right)
+    args = argparse.Namespace(seed=1, ambiguous="one", reads_per_amplicon=20, read_length=226, error_profile=None,
+                              error_source=None, outdir=tmp_path)
+    n = sr.simulate("X", "73G", "X--Y--m10", args, rcrs, left, right, inserts, minor=("Y", "263G 750G", 10.0))
+    assert n == 20 * len(inserts)
+    per_amp = collections.Counter()
+    with gzip.open(tmp_path / "X--Y--m10_R1_001.fastq.gz", "rt") as f:
+        for i, line in enumerate(f):
+            if i % 4 == 0 and line.startswith("@mixB_"):
+                per_amp[line.split()[0].rsplit(":", 1)[1]] += 1
+    assert set(per_amp.values()) == {2} and len(per_amp) == len(inserts)
+    truth = dict(l.rstrip("\n").split("\t", 1) for l in open(tmp_path / "X--Y--m10_truth.tsv"))
+    assert truth["minor_haplogroup"] == "Y" and truth["minor_share"] == "10"
+    assert truth["variants_used"] == "73G" and truth["minor_variants_used"] == "263G 750G"
