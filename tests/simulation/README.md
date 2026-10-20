@@ -20,15 +20,18 @@ into this repository.
   `16181C 16182C 16183C` without `16189C`), which rtn then removes. No PCR
   stutter yet. With `--error-profile`, the reads get the noise of real runs
   instead: each haplogroup takes one run (drawn per haplogroup, or named with
-  `--error-source`), and each read pair the base qualities and substitution
-  errors of one real read pair of that run and amplicon.
+  `--error-source`), and each read pair the base qualities, substitution
+  errors and insertion/deletion errors of one real read pair of that run and
+  amplicon.
 - `build_error_profile.py` makes that profile from real samples: per sample the
   raw FASTQ pair and the pipeline's `p02` and `p09` BAMs, the sequencing run
   it belongs to (`--source`), and, to keep heteroplasmies out of the noise,
   its whole-genome calls (`--wgs-vcf`, mitopy VCF) or known heteroplasmic
   positions (`--mask-positions`). Read pairs are pooled per run, because
-  recurring errors differ between runs. Needs pysam, which is not in the
-  pipeline's environment.
+  recurring errors differ between runs. In the C-stretch regions no errors
+  are kept: PCR stutter there cannot be told apart from a person's length
+  heteroplasmy read by read, so stutter is not simulated. Needs pysam, which
+  is not in the pipeline's environment.
 - `score_calls.py` compares the merged Excel with the truth, overall and per
   caller, and lists mismatches (C-stretches 303-315 and 16180-16193 separately).
   `--exclude` leaves out windows, e.g. `300-320,16170-16200` or `16519-16519`.

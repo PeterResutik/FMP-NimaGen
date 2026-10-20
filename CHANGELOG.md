@@ -15,6 +15,22 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   `--min_vf_MT2` at each threshold, so only the report step runs again; its
   reports and scores are kept in `keep/merged_<t>` and `keep/score_<t>`.
 
+### Changed
+- Simulated reads with `--error-profile` also carry the insertion and deletion
+  errors of real reads. `build_error_profile.py` records them by cycle along
+  with the substitution errors, and `simulate_reads.py` puts them into each
+  simulated read: a deletion skips bases of the molecule, an insertion adds
+  the bases the real read had, and the read still ends after `--read-length`
+  bases or at the amplicon end. An insertion or deletion that at least half
+  of the person's reads of an amplicon carry is the person's own sequence, not
+  an error. A real one on fewer reads, a heteroplasmy, is recognised from the
+  person's whole-genome calls or the list of known heteroplasmies; there,
+  insertions and deletions are left out over the whole run of identical bases,
+  because a base missing from a run can be placed anywhere in it. The
+  C-stretch regions stay without errors: PCR stutter there cannot be told
+  apart from length heteroplasmy read by read, so it is still not simulated.
+  Profiles made before keep working and give the same reads.
+
 ## [0.2.1] – 2026-10-20
 
 ### Changed

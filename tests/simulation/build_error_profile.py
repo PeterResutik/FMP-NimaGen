@@ -2,7 +2,8 @@
 """Error profile of real NimaGen reads, for simulate_reads.py --error-profile.
 
 For every source (a sequencing run: the samples given with the same --source) and amplicon it keeps a pool of real
-read pairs, each read as its quality string and the substitution errors it carries (cycle, base read).
+read pairs, each read as its quality string, the substitution errors it carries (cycle, base read) and the
+insertion/deletion errors it carries (cycle, "D", number of bases skipped; or cycle, "I", bases inserted).
 simulate_reads.py gives every simulated haplogroup the noise of one source, and every simulated read pair the
 qualities and errors of one real pair of that source and amplicon, so the simulated reads carry the real data's
 quality decline along the read, its read-to-read variation, the link between the two reads of a pair and the errors
@@ -14,11 +15,14 @@ after the NUMT filter and primer trimming). Only pairs kept in p09 are used, so 
 discards do not count as noise. A read's amplicon is the primer it starts with (first 15 bases, within the read's
 first 6; cycles are counted from the primer's first base, as simulate_reads.py writes the reads). The true
 base at a position is the majority base of the sample's reads of that amplicon and direction; another base is an
-error. Not counted as errors (the read keeps its qualities there): positions where the sample's WGS shows another
-base on at least --mask-af of its reads or --mask-positions lists a known heteroplasmy (biology, not error), the
-C-stretch regions, the wobble bases of both of the
-amplicon's primers (read at the start and, by R1 or R2 reading through, at the end), and
-cycles bwa soft-clipped. Insertions and deletions are not recorded.
+error. An insertion or deletion is the sample's own when at least half of those reads carry it there (placed at the
+leftmost position of its homopolymer on rCRS); otherwise it is an error. Not counted as errors (the read keeps its
+qualities there): positions where the sample's WGS shows another base, an insertion or a deletion on at least
+--mask-af of its reads (an insertion or deletion masks its homopolymer) or --mask-positions lists a known
+heteroplasmy (biology, not error), the C-stretch regions (their PCR stutter cannot be told apart from a person's
+length heteroplasmy read by read, so it is not simulated), the wobble bases of both of the amplicon's primers (read
+at the start and, by R1 or R2 reading through, at the end), and cycles bwa soft-clipped. An insertion or deletion
+touching one of these positions or its homopolymer is not counted either.
 """
 import argparse, collections, gzip, pickle, random, re
 import pysam
@@ -71,8 +75,34 @@ def wobble_positions(reference, left, right):
     return out
 
 
-def wgs_mask(vcf, min_af):
-    """rCRS positions where the WGS has a substitution allele on at least min_af of the reads (mitopy VCF)."""
+def norm_del(rcrs, p, k):
+    """leftmost rCRS position of a deletion of k bases starting at p (shifted along its homopolymer or repeat)"""
+    while p > 1 and p + k - 1 <= TRUE_MT_LENGTH and rcrs[p - 2] == rcrs[p + k - 2]:
+        p -= 1
+    return p
+
+
+def norm_ins(rcrs, p, s):
+    """leftmost rCRS position (and inserted bases) of an insertion s before position p"""
+    while p > 1 and rcrs[p - 2] == s[-1]:
+        s, p = s[-1] + s[:-1], p - 1
+    return p, s
+
+
+def indel_span(rcrs, kind, p, what):
+    """rCRS positions an insertion or deletion at p touches: its bases, one on each side and its homopolymer"""
+    k = what if kind == "D" else len(what)
+    span = set(range(p - 1, p + k + 1))
+    base, q = (rcrs[p - 1] if kind == "D" else what[0]), p
+    while q <= TRUE_MT_LENGTH and rcrs[q - 1] == base:
+        span.add(q)
+        q += 1
+    return {(x - 1) % TRUE_MT_LENGTH + 1 for x in span}
+
+
+def wgs_mask(vcf, min_af, rcrs):
+    """rCRS positions where the WGS has a substitution, insertion or deletion allele on at least min_af of the reads
+    (mitopy VCF); an insertion or deletion masks the positions it touches."""
     mask = set()
     for line in open(vcf):
         if line.startswith("#"):
@@ -85,6 +115,12 @@ def wgs_mask(vcf, min_af):
                 for i in range(min(len(ref), len(alt))):
                     if ref[i] != alt[i]:
                         mask.add(pos + i)
+                if len(ref) != len(alt):
+                    k = abs(len(ref) - len(alt))
+                    if len(ref) > len(alt):
+                        mask |= indel_span(rcrs, "D", norm_del(rcrs, pos + 1, k), k)
+                    else:
+                        mask |= indel_span(rcrs, "I", *norm_ins(rcrs, pos + 1, alt[1:]))
     return mask
 
 
@@ -109,6 +145,7 @@ def main():
     left, right_rc = load_primers(args.left_primers), load_primers(args.right_primers)
     right = {a: [s.translate(COMP)[::-1] for s in ps] for a, ps in right_rc.items()}
     wobble = wobble_positions(args.reference, left, right_rc)
+    rcrs = "".join(l.strip() for l in open(args.reference) if not l.startswith(">"))[:TRUE_MT_LENGTH].upper()
     region = {x for a, b in REGIONS for x in range(a, b + 1)}
     vcfs = dict(args.wgs_vcf)
     extra_mask = {n: {int(x) for x in v.split(",") if x} for n, v in args.mask_positions}
@@ -124,7 +161,7 @@ def main():
                 for r in f:
                     if r.name in kept:
                         quals[(r.name, d)] = r.quality
-        mask = (wgs_mask(vcfs[name], args.mask_af) if name in vcfs else set()) | extra_mask.get(name, set())
+        mask = (wgs_mask(vcfs[name], args.mask_af, rcrs) if name in vcfs else set()) | extra_mask.get(name, set())
         stats[f"{name} masked positions"] = len(mask)
         groups = collections.defaultdict(list)
         pair_reads = {}
@@ -145,22 +182,56 @@ def main():
                     continue
                 base = r.query_sequence[qpos]
                 cycles[cyc] = ((rpos % TRUE_MT_LENGTH) + 1, base.translate(COMP) if r.is_reverse else base)
-            groups[(amp, d)].append((quals[(r.query_name, d)][off:], cycles))
+            # insertions and deletions: (cycle, "D", bases skipped or "I", bases inserted, rCRS key); a deletion is
+            # recorded at the cycle of the base that follows it in the read's own direction
+            indels, qp, rp, seq = [], 0, r.reference_start, r.query_sequence
+            for op, k in r.cigartuples:
+                if op in (0, 7, 8):
+                    qp, rp = qp + k, rp + k
+                elif op == 2:
+                    cyc = (n - qp if r.is_reverse else qp) - off
+                    if cyc > 0:
+                        p = rp % TRUE_MT_LENGTH + 1
+                        indels.append((cyc, "D", k, ("D", norm_del(rcrs, p, k), k)))
+                    rp += k
+                elif op == 1:
+                    cyc = (n - qp - k if r.is_reverse else qp) - off
+                    if cyc > 0:
+                        ins = seq[qp:qp + k]
+                        p, s = norm_ins(rcrs, rp % TRUE_MT_LENGTH + 1, ins)
+                        indels.append((cyc, "I", ins.translate(COMP)[::-1] if r.is_reverse else ins, ("I", p, s)))
+                    qp += k
+                elif op == 4:
+                    qp += k
+            groups[(amp, d)].append((quals[(r.query_name, d)][off:], cycles, indels))
             pair_reads[(r.query_name, d)] = (amp, len(groups[(amp, d)]) - 1)
             stats[f"primer at offset {off}"] += 1
         for (amp, d), reads in groups.items():
             counts = collections.defaultdict(collections.Counter)
-            for _, cycles in reads:
+            carriers = collections.Counter()
+            for _, cycles, indels in reads:
                 for pos, base in cycles.values():
                     counts[pos][base] += 1
+                for *_, key in indels:
+                    carriers[key] += 1
             major = {k: c.most_common(1)[0][0] for k, c in counts.items()}
-            for i, (qual, cycles) in enumerate(reads):
+            skip = mask | region | wobble[amp]
+            # the sample's own insertions and deletions, and those touching masked positions, are not errors
+            not_error = set()
+            for key in carriers:
+                before = (key[1] - 2) % TRUE_MT_LENGTH + 1  # the base before it, read by every read across it
+                if carriers[key] >= 0.5 * max(sum(counts[before].values()), carriers[key]) or \
+                        indel_span(rcrs, *key) & skip:
+                    not_error.add(key)
+            for i, (qual, cycles, indels) in enumerate(reads):
                 errors = [(cyc, base) for cyc, (pos, base) in sorted(cycles.items())
                           if base != major[pos] and pos not in mask and pos not in region
                           and pos not in wobble[amp]]
-                reads[i] = (qual, errors)
+                indel_errors = [(cyc, kind, what) for cyc, kind, what, key in indels if key not in not_error]
+                reads[i] = (qual, errors, indel_errors)
                 stats["reads"] += 1
                 stats["errors"] += len(errors)
+                stats["indel errors"] += len(indel_errors)
                 stats["bases"] += len(qual)
         n_pairs = 0
         for (qname, d), (amp, i) in pair_reads.items():
@@ -176,11 +247,12 @@ def main():
     for key, reads in sorted(pools.items()):
         if len(reads) > args.pool_size:
             reads = rng.sample(reads, args.pool_size)
-        profile["pools"][key] = reads  # [((R1 qualities, R1 errors), (R2 qualities, R2 errors))]
+        profile["pools"][key] = reads  # [((R1 qualities, R1 errors, R1 indels), (R2 ...))]
     with gzip.open(args.out, "wb") as f:
         pickle.dump(profile, f)
     print(dict(stats))
-    print(f"pools: {len(profile['pools'])}; error rate per base {stats['errors'] / max(stats['bases'], 1):.2e}")
+    print(f"pools: {len(profile['pools'])}; per base: substitution errors {stats['errors'] / max(stats['bases'], 1):.2e}, "
+          f"insertion/deletion errors {stats['indel errors'] / max(stats['bases'], 1):.2e}")
 
 
 if __name__ == "__main__":

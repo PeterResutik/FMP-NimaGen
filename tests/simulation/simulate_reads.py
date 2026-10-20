@@ -11,11 +11,12 @@ errors follow per-base qualities; PCR stutter is not simulated.
 With --error-profile (made by build_error_profile.py from real samples) each
 haplogroup takes the noise of one source (a sequencing run), drawn at random
 per haplogroup (or named with --error-source), and every read pair takes the
-qualities and substitution errors of one real read pair of that run and
-amplicon: the quality decline along the read, the read-to-read variation, the
-link between the two reads of a pair and the errors that recur at fixed
-cycles in that run are those of the real data. Without it, every base gets a
-quality between 33 and 38 and errors at that rate.
+qualities, substitution errors and insertion/deletion errors of one real read
+pair of that run and amplicon: the quality decline along the read, the
+read-to-read variation, the link between the two reads of a pair and the
+errors that recur at fixed cycles in that run are those of the real data.
+Without it, every base gets a quality between 33 and 38 and substitution
+errors at that rate.
 
 mitoLEAF marks positions whose state varies within a haplogroup with IUPAC
 codes (16519Y: T or C) and lowercase entries (315.1c: C inserted or not;
@@ -166,12 +167,34 @@ def sequence_read(molecule, rng, qualities):
     return "".join(read), "".join(qual)
 
 
-def sequence_read_like(molecule, rng, template):
-    """The qualities and substitution errors of a real read on this molecule.
-    An error the real read made towards the base this molecule has there
-    becomes another base."""
+def sequence_read_like(molecule, rng, template, length=None):
+    """The qualities, substitution errors and insertion/deletion errors of a
+    real read on this molecule, reading up to length bases (default: all of
+    it). A deletion skips molecule bases before the cycle it is recorded at,
+    an insertion puts the real read's inserted bases at its cycles; the read
+    still ends after length bases or at the molecule's end. An error the real
+    read made towards the base this molecule has there becomes another base."""
     qual, errors = template[0], template[1]
-    read = list(molecule)
+    indels = template[2] if len(template) > 2 else ()
+    length = len(molecule) if length is None else length
+    at = {}
+    for cycle, kind, what in indels:
+        at.setdefault(cycle, []).append((kind, what))
+    read, i = [], 0
+    while len(read) < length:
+        cycle = len(read)
+        for kind, what in at.pop(cycle, ()):
+            if kind == "D":
+                i += what
+            else:
+                read.extend(what)
+        if len(read) > cycle:
+            continue
+        if i >= len(molecule):
+            break
+        read.append(molecule[i])
+        i += 1
+    read = read[:length]
     qual = (qual + qual[-1] * len(read))[:len(read)]
     for cycle, base in errors:
         if cycle < len(read):
@@ -183,8 +206,9 @@ _PROFILES = {}
 
 
 def error_profile(path):
-    """{"pools": {(source, amplicon): [((R1 qualities, R1 errors), (R2 qualities, R2 errors))]},
-    "meta": {"sources": [...], ...}}, loaded once per process."""
+    """{"pools": {(source, amplicon): [((R1 qualities, R1 errors, R1 indels), (R2 ...))]},
+    "meta": {"sources": [...], ...}}, loaded once per process. Profiles made
+    before insertions and deletions were recorded have no indels entry."""
     if path not in _PROFILES:
         with gzip.open(path, "rb") as f:
             _PROFILES[path] = pickle.load(f)
@@ -219,8 +243,8 @@ def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
             name = f"@SIM:1:{sample}:1:{1101 + n // 10000}:{n % 10000}:{amp}"
             if profile:
                 pair = rng.choice(profile["pools"][(source, amp)])
-                s1, q1 = sequence_read_like(molecule[:args.read_length], rng, pair[0])
-                s2, q2 = sequence_read_like(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, pair[1])
+                s1, q1 = sequence_read_like(molecule, rng, pair[0], args.read_length)
+                s2, q2 = sequence_read_like(molecule.translate(COMPLEMENT)[::-1], rng, pair[1], args.read_length)
             else:
                 s1, q1 = sequence_read(molecule[:args.read_length], rng, qualities)
                 s2, q2 = sequence_read(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, qualities)
