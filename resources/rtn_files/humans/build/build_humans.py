@@ -9,8 +9,8 @@ so reads across the origin align in one piece.
 
 A genome is left out (left_out.tsv, with the reason) when:
 - it is not aligned to rCRS in one piece;
-- a 200-base tile is closer to a NUMT than to the genome's own haplogroup by 3 or more
-  (tile_check.py);
+- the insert of a NimaGen amplicon (what rtn judges in a primer-trimmed read) is closer to
+  a NUMT than to the genome's own haplogroup by 3 or more (amplicon_check.py);
 - it has more than 10 unconfirmed substitutions, or 4 or more of them within 50 bases.
   A substitution is confirmed when a genome outside the genome's own accession series
   (same prefix, number in the same block of 500) carries it too; the genomes counted
@@ -22,7 +22,7 @@ The people's insertions and deletions in the length regions are not used (whole-
 calls are unreliable there), so those stretches have the rCRS length.
 
 usage: build_humans.py workdir people_calls.tsv.gz out.fa
-  workdir holds ref.fa, mitoleaf.fa, scan/ and scan_people/ (scan_humans.py, tile_check.py)
+  workdir holds ref.fa, mitoleaf.fa, scan/ and scan_people/ (scan_humans.py, amplicon_check.py)
 """
 import re
 import sys
@@ -106,15 +106,16 @@ def unconfirmed(g):
 
 def screen(scan_dir, stats=None):
     s = pd.read_csv(scan_dir / "scan.tsv", sep="\t", keep_default_na=False).set_index("genome")
-    m = (pd.read_csv(scan_dir / "tile_genomes.tsv", sep="\t", keep_default_na=False)
-         .groupby("genome").margin.max().reindex(s.index).fillna(-99))
+    a = pd.read_csv(scan_dir / "amplicon_genomes.tsv", sep="\t", keep_default_na=False,
+                    dtype={"amplicon": str}).set_index("genome")
+    m = a.margin.reindex(s.index).fillna(-99)
     why = {}
     for g in s.index:
         r = []
         if s.covered[g].count(";") > 0:
             r.append("not aligned in one piece")
         if m[g] >= 3:
-            r.append(f"a tile closer to a NUMT than to its haplogroup by {int(m[g])}")
+            r.append(f"amplicon {a.amplicon[g]} closer to a NUMT than to its haplogroup by {int(m[g])}")
         u, w = unconfirmed(g)
         if len(u) > UNCONFIRMED_MAX:
             r.append(f"{len(u)} substitutions no genome outside its series carries")

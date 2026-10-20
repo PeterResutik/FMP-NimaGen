@@ -18,8 +18,6 @@ EU092925.1	12 bases other than A, C, G, T
 EU092937.1	12 bases other than A, C, G, T
 EU095203.1	6 bases other than A, C, G, T
 FJ194437.1	not aligned in one piece
-FJ467985.1	a tile closer to a NUMT than to its haplogroup by 3
-FJ467986.1	a tile closer to a NUMT than to its haplogroup by 3
 FJ767910.1	10 bases other than A, C, G, T
 FJ767911.1	10 bases other than A, C, G, T
 FJ767912.1	11 bases other than A, C, G, T
@@ -61,7 +59,7 @@ HM852878.1	13 bases other than A, C, G, T
 HM852880.1	16 bases other than A, C, G, T
 HM852883.1	21 bases other than A, C, G, T
 HM852898.1	18 bases other than A, C, G, T
-JN214441.1	a tile closer to a NUMT than to its haplogroup by 5
+JN214441.1	amplicon 002 closer to a NUMT than to its haplogroup by 5
 JN214444.1	7 bases other than A, C, G, T
 JN581637.1	19 bases other than A, C, G, T
 JN581638.1	21 bases other than A, C, G, T
@@ -86,7 +84,7 @@ JQ044806.1	7 bases other than A, C, G, T
 JQ044810.1	6 bases other than A, C, G, T
 JQ044826.1	20 bases other than A, C, G, T
 JQ044830.1	13 bases other than A, C, G, T
-JQ044838.1	a tile closer to a NUMT than to its haplogroup by 3; 8 bases other than A, C, G, T
+JQ044838.1	amplicon 097 closer to a NUMT than to its haplogroup by 3; 8 bases other than A, C, G, T
 JQ044840.1	17 bases other than A, C, G, T
 JQ044849.1	17 bases other than A, C, G, T
 JQ044851.1	6 bases other than A, C, G, T
@@ -119,18 +117,17 @@ JQ045075.1	7 bases other than A, C, G, T
 JQ045078.1	6 bases other than A, C, G, T
 JQ664544.1	17 bases other than A, C, G, T
 JQ664547.1	22 bases other than A, C, G, T
-JQ702570.1	a tile closer to a NUMT than to its haplogroup by 3
+JQ702570.1	amplicon 041 closer to a NUMT than to its haplogroup by 3
 JX303896.1	6 bases other than A, C, G, T
 JX303897.1	8 bases other than A, C, G, T
 JX303898.1	9 bases other than A, C, G, T
-JX303899.1	a tile closer to a NUMT than to its haplogroup by 3; 17 bases other than A, C, G, T
+JX303899.1	amplicon 096 closer to a NUMT than to its haplogroup by 3; 17 bases other than A, C, G, T
 JX303900.1	9 bases other than A, C, G, T
-KC252522.1	a tile closer to a NUMT than to its haplogroup by 5
+KC252522.1	amplicon 052 closer to a NUMT than to its haplogroup by 5
 KC345829.1	8 bases other than A, C, G, T
 KC345913.1	7 bases other than A, C, G, T
-KC505120.1	a tile closer to a NUMT than to its haplogroup by 3
-KC533464.1	a tile closer to a NUMT than to its haplogroup by 3
-KC533465.1	a tile closer to a NUMT than to its haplogroup by 5
+KC533464.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+KC533465.1	amplicon 097 closer to a NUMT than to its haplogroup by 6
 KC553980.1	25 bases other than A, C, G, T
 KC553981.1	25 bases other than A, C, G, T
 KC553982.1	25 bases other than A, C, G, T
@@ -171,12 +168,10 @@ KC554016.1	25 bases other than A, C, G, T
 KC554017.1	25 bases other than A, C, G, T
 KC554018.1	25 bases other than A, C, G, T
 KC622234.1	9 bases other than A, C, G, T
-KC763383.1	a tile closer to a NUMT than to its haplogroup by 3
-KC911364.1	a tile closer to a NUMT than to its haplogroup by 3
-KC990644.1	a tile closer to a NUMT than to its haplogroup by 3
+KC990644.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
 KC990647.1	4 such substitutions within 50 bases
-KC990679.1	a tile closer to a NUMT than to its haplogroup by 3
-KC990689.1	a tile closer to a NUMT than to its haplogroup by 3
+KC990679.1	amplicon 075 closer to a NUMT than to its haplogroup by 3
+KC990689.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
 KC993938.1	19 bases other than A, C, G, T
 KC993945.1	8 bases other than A, C, G, T
 KC993951.1	10 bases other than A, C, G, T
@@ -184,7 +179,7 @@ KC993956.1	18 bases other than A, C, G, T
 KC993961.1	29 bases other than A, C, G, T
 KC993962.1	12 bases other than A, C, G, T
 KC993971.1	9 bases other than A, C, G, T
-KC993973.1	a tile closer to a NUMT than to its haplogroup by 19; 6 such substitutions within 50 bases; 12 bases other than A, C, G, T
+KC993973.1	amplicon 098 closer to a NUMT than to its haplogroup by 20; 6 such substitutions within 50 bases; 12 bases other than A, C, G, T
 KC993985.1	9 bases other than A, C, G, T
 KC994076.1	18 bases other than A, C, G, T
 KC994144.1	15 bases other than A, C, G, T
@@ -208,7 +203,6 @@ KF161142.1	9 bases other than A, C, G, T
 KF161149.1	12 bases other than A, C, G, T
 KF161154.1	10 bases other than A, C, G, T
 KF161159.1	16 bases other than A, C, G, T
-KF161167.1	a tile closer to a NUMT than to its haplogroup by 4
 KF161168.1	15 bases other than A, C, G, T
 KF161171.1	14 bases other than A, C, G, T
 KF161172.1	7 bases other than A, C, G, T
@@ -288,7 +282,6 @@ KF161555.1	12 bases other than A, C, G, T
 KF161572.1	8 bases other than A, C, G, T
 KF161603.1	13 bases other than A, C, G, T
 KF161620.1	12 bases other than A, C, G, T
-KF161670.1	a tile closer to a NUMT than to its haplogroup by 3
 KF161680.1	6 bases other than A, C, G, T
 KF161724.1	15 bases other than A, C, G, T
 KF161727.1	6 bases other than A, C, G, T
@@ -307,7 +300,7 @@ KF162142.1	6 bases other than A, C, G, T
 KF162153.1	12 bases other than A, C, G, T
 KF162154.1	17 bases other than A, C, G, T
 KF162155.1	13 bases other than A, C, G, T
-KF162166.1	a tile closer to a NUMT than to its haplogroup by 4; 28 bases other than A, C, G, T
+KF162166.1	amplicon 002 closer to a NUMT than to its haplogroup by 4; 28 bases other than A, C, G, T
 KF162229.1	16 bases other than A, C, G, T
 KF162232.1	12 bases other than A, C, G, T
 KF162234.1	8 bases other than A, C, G, T
@@ -397,19 +390,17 @@ KF162594.1	7 bases other than A, C, G, T
 KF162611.1	24 bases other than A, C, G, T
 KF162634.1	7 bases other than A, C, G, T
 KF162706.1	23 bases other than A, C, G, T
-KF162754.1	a tile closer to a NUMT than to its haplogroup by 5; 22 bases other than A, C, G, T
+KF162754.1	amplicon 002 closer to a NUMT than to its haplogroup by 5; 22 bases other than A, C, G, T
 KF162776.1	11 bases other than A, C, G, T
 KF162887.1	9 bases other than A, C, G, T
-KF162927.1	a tile closer to a NUMT than to its haplogroup by 5
+KF162927.1	amplicon 002 closer to a NUMT than to its haplogroup by 5
 KF162933.1	21 bases other than A, C, G, T
 KF162936.1	8 bases other than A, C, G, T
-KF162961.1	a tile closer to a NUMT than to its haplogroup by 3
 KF163010.1	8 bases other than A, C, G, T
 KF163022.1	20 bases other than A, C, G, T
 KF163040.1	14 bases other than A, C, G, T
-KF523404.1	a tile closer to a NUMT than to its haplogroup by 3
+KF523404.1	amplicon 082 closer to a NUMT than to its haplogroup by 3
 KJ154558.1	7 bases other than A, C, G, T
-KJ185461.1	a tile closer to a NUMT than to its haplogroup by 3
 KJ186007.1	9 bases other than A, C, G, T
 KJ445789.1	9 bases other than A, C, G, T
 KJ445790.1	10 bases other than A, C, G, T
@@ -439,14 +430,14 @@ KJ446758.1	7 bases other than A, C, G, T
 KJ669113.1	12 bases other than A, C, G, T
 KJ669118.1	12 bases other than A, C, G, T
 KJ669119.1	12 bases other than A, C, G, T
-KJ669136.1	a tile closer to a NUMT than to its haplogroup by 3
+KJ669136.1	amplicon 096 closer to a NUMT than to its haplogroup by 3
 KJ801426.1	6 bases other than A, C, G, T
 KJ801460.1	6 bases other than A, C, G, T
 KJ923818.1	24 bases other than A, C, G, T
 KM986516.1	21 bases other than A, C, G, T
 KM986523.1	22 bases other than A, C, G, T
 KM986526.1	16 bases other than A, C, G, T
-KM986528.1	a tile closer to a NUMT than to its haplogroup by 4
+KM986528.1	amplicon 049 closer to a NUMT than to its haplogroup by 3
 KM986533.1	20 bases other than A, C, G, T
 KM986534.1	12 bases other than A, C, G, T
 KM986536.1	13 bases other than A, C, G, T
@@ -457,11 +448,11 @@ KP814039.1	14 bases other than A, C, G, T
 KP900749.1	6 bases other than A, C, G, T
 KT725906.1	7 bases other than A, C, G, T
 KT725931.1	13 bases other than A, C, G, T
-KT726064.1	a tile closer to a NUMT than to its haplogroup by 3
+KT726064.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
 KT726083.1	6 bases other than A, C, G, T
 KU131372.1	4 such substitutions within 50 bases
 KU213923.1	6 bases other than A, C, G, T
-KU521428.1	a tile closer to a NUMT than to its haplogroup by 3
+KU521428.1	amplicon 063 closer to a NUMT than to its haplogroup by 3
 KU523275.1	29 bases other than A, C, G, T
 KU523307.1	7 bases other than A, C, G, T
 KU523318.1	14 bases other than A, C, G, T
@@ -899,7 +890,7 @@ KY408478.1	18 bases other than A, C, G, T
 KY408479.1	18 bases other than A, C, G, T
 KY408480.1	18 bases other than A, C, G, T
 KY408481.1	18 bases other than A, C, G, T
-KY408482.1	a tile closer to a NUMT than to its haplogroup by 3; 18 bases other than A, C, G, T
+KY408482.1	18 bases other than A, C, G, T
 KY408483.1	18 bases other than A, C, G, T
 KY408484.1	18 bases other than A, C, G, T
 KY408485.1	18 bases other than A, C, G, T
@@ -1431,7 +1422,7 @@ KY409010.1	18 bases other than A, C, G, T
 KY409011.1	18 bases other than A, C, G, T
 KY409012.1	18 bases other than A, C, G, T
 KY409013.1	18 bases other than A, C, G, T
-KY409014.1	a tile closer to a NUMT than to its haplogroup by 3; 19 bases other than A, C, G, T
+KY409014.1	19 bases other than A, C, G, T
 KY409015.1	18 bases other than A, C, G, T
 KY409016.1	18 bases other than A, C, G, T
 KY409017.1	19 bases other than A, C, G, T
@@ -1839,7 +1830,7 @@ KY409418.1	18 bases other than A, C, G, T
 KY409419.1	18 bases other than A, C, G, T
 KY409420.1	18 bases other than A, C, G, T
 KY409421.1	18 bases other than A, C, G, T
-KY409422.1	a tile closer to a NUMT than to its haplogroup by 3; 18 bases other than A, C, G, T
+KY409422.1	18 bases other than A, C, G, T
 KY409423.1	19 bases other than A, C, G, T
 KY409424.1	19 bases other than A, C, G, T
 KY409425.1	18 bases other than A, C, G, T
@@ -2076,7 +2067,7 @@ KY409655.1	18 bases other than A, C, G, T
 KY409656.1	18 bases other than A, C, G, T
 KY409657.1	18 bases other than A, C, G, T
 KY409658.1	18 bases other than A, C, G, T
-KY409659.1	a tile closer to a NUMT than to its haplogroup by 3; 18 bases other than A, C, G, T
+KY409659.1	18 bases other than A, C, G, T
 KY409660.1	18 bases other than A, C, G, T
 KY409661.1	19 bases other than A, C, G, T
 KY409662.1	18 bases other than A, C, G, T
@@ -2460,7 +2451,7 @@ KY410039.1	18 bases other than A, C, G, T
 KY410040.1	18 bases other than A, C, G, T
 KY410041.1	18 bases other than A, C, G, T
 KY410042.1	19 bases other than A, C, G, T
-KY410043.1	a tile closer to a NUMT than to its haplogroup by 3; 20 bases other than A, C, G, T
+KY410043.1	20 bases other than A, C, G, T
 KY410044.1	18 bases other than A, C, G, T
 KY410045.1	18 bases other than A, C, G, T
 KY410046.1	18 bases other than A, C, G, T
@@ -2654,11 +2645,11 @@ KY410233.1	18 bases other than A, C, G, T
 KY410234.1	18 bases other than A, C, G, T
 KY410235.1	18 bases other than A, C, G, T
 KY410236.1	18 bases other than A, C, G, T
-KY411441.2	a tile closer to a NUMT than to its haplogroup by 4
+KY411441.2	amplicon 052 closer to a NUMT than to its haplogroup by 3
 KY797233.1	21 bases other than A, C, G, T
 KY797244.1	11 bases other than A, C, G, T
 KY797250.2	11 bases other than A, C, G, T
-KY798202.1	a tile closer to a NUMT than to its haplogroup by 3
+KY798202.1	amplicon 063 closer to a NUMT than to its haplogroup by 3
 LC597329.1	18 bases other than A, C, G, T
 LS997679.1	26 bases other than A, C, G, T
 LS997685.1	29 bases other than A, C, G, T
@@ -2952,8 +2943,6 @@ MN540482.1	18 bases other than A, C, G, T
 MN540504.1	13 bases other than A, C, G, T
 MN540529.1	7 bases other than A, C, G, T
 MN540530.1	21 bases other than A, C, G, T
-MN628051.1	a tile closer to a NUMT than to its haplogroup by 4
-MN628053.1	a tile closer to a NUMT than to its haplogroup by 4
 MN628100.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628101.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628102.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
@@ -2962,43 +2951,43 @@ MN628104.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry
 MN628105.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628106.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628107.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628108.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628109.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628110.1	a tile closer to a NUMT than to its haplogroup by 7; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628108.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628109.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628110.1	amplicon 041 closer to a NUMT than to its haplogroup by 5; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628111.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628112.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628112.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628113.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628114.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628115.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628116.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628117.1	a tile closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628115.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628116.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628117.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628118.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628119.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628120.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628121.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628122.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628123.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628124.1	a tile closer to a NUMT than to its haplogroup by 5; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628125.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628119.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628120.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628121.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628122.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628123.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628124.1	amplicon 013 closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628125.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628126.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628127.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628127.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628128.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628129.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628130.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628131.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628132.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628133.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628134.1	a tile closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628133.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628134.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628135.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628136.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628137.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628138.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628139.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628140.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628141.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628142.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628140.1	amplicon 013 closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628141.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628142.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628143.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628144.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628144.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628145.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628146.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628147.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
@@ -3006,22 +2995,22 @@ MN628148.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry
 MN628149.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628150.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628151.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628152.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628152.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628153.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628154.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628155.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628156.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628157.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628158.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628159.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628160.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628159.1	amplicon 013 closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628160.1	amplicon 041 closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628161.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628162.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628163.1	a tile closer to a NUMT than to its haplogroup by 6; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628164.1	a tile closer to a NUMT than to its haplogroup by 4; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628163.1	amplicon 013 closer to a NUMT than to its haplogroup by 3; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628164.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628165.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628166.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
-MN628167.1	a tile closer to a NUMT than to its haplogroup by 7; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
+MN628167.1	amplicon 041 closer to a NUMT than to its haplogroup by 5; submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN628168.1	submission MN628108-MN628167 (Zhang 2019): 27 of its 69 genomes carry a stretch identical to a NUMT on chromosome 1 or 3
 MN687304.1	18 bases other than A, C, G, T
 MN687307.1	8 bases other than A, C, G, T
@@ -3039,18 +3028,15 @@ MT079051.1	16 bases other than A, C, G, T
 MT079067.1	6 bases other than A, C, G, T
 MT079078.1	21 bases other than A, C, G, T
 MT079109.1	14 bases other than A, C, G, T
-MT418979.1	a tile closer to a NUMT than to its haplogroup by 3
-MT418987.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419025.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419039.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419072.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419073.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419077.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419334.1	a tile closer to a NUMT than to its haplogroup by 3
-MT419350.1	a tile closer to a NUMT than to its haplogroup by 3
+MT418979.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT418987.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419025.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419039.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419072.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419073.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419077.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
+MT419334.1	amplicon 001 closer to a NUMT than to its haplogroup by 3
 MT454392.1	22 bases other than A, C, G, T
-MT554207.1	a tile closer to a NUMT than to its haplogroup by 3
-MT554257.1	a tile closer to a NUMT than to its haplogroup by 3
 MT588214.1	23 bases other than A, C, G, T
 MT588221.1	12 bases other than A, C, G, T
 MT588224.1	19 bases other than A, C, G, T
@@ -3058,15 +3044,14 @@ MT588227.1	15 bases other than A, C, G, T
 MT588239.1	10 bases other than A, C, G, T
 MT588264.1	10 bases other than A, C, G, T
 MT588294.1	10 bases other than A, C, G, T
-MT902280.1	a tile closer to a NUMT than to its haplogroup by 5
+MT902280.1	amplicon 097 closer to a NUMT than to its haplogroup by 5
 MT928286.1	10 bases other than A, C, G, T
 MT928292.1	27 bases other than A, C, G, T
-MZ475293.1	a tile closer to a NUMT than to its haplogroup by 3
-MZ475297.1	a tile closer to a NUMT than to its haplogroup by 4
-MZ920526.1	a tile closer to a NUMT than to its haplogroup by 3
+MZ475297.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
 MZ920894.1	14 bases other than A, C, G, T
-MZ920976.1	a tile closer to a NUMT than to its haplogroup by 3
+MZ920941.1	amplicon 044 closer to a NUMT than to its haplogroup by 3
 MZ921135.1	19 bases other than A, C, G, T
+OL505381.1	amplicon 054 closer to a NUMT than to its haplogroup by 3
 OL880075.1	26 bases other than A, C, G, T
 OL880099.1	25 bases other than A, C, G, T
 OL880105.1	29 bases other than A, C, G, T
@@ -3081,11 +3066,7 @@ ON496958.1	7 bases other than A, C, G, T
 ON496969.1	18 bases other than A, C, G, T
 ON496976.1	10 bases other than A, C, G, T
 ON496977.1	19 bases other than A, C, G, T
-ON983463.1	a tile closer to a NUMT than to its haplogroup by 3
-ON983582.1	a tile closer to a NUMT than to its haplogroup by 3
-ON983617.1	a tile closer to a NUMT than to its haplogroup by 3
-ON983644.1	a tile closer to a NUMT than to its haplogroup by 3
-OP718229.1	a tile closer to a NUMT than to its haplogroup by 3
+ON983617.1	amplicon 063 closer to a NUMT than to its haplogroup by 3
 OQ707097.1	11 bases other than A, C, G, T
 OQ707108.1	16 bases other than A, C, G, T
 OQ707114.1	23 bases other than A, C, G, T
@@ -3123,12 +3104,12 @@ PP654654.1	27 bases other than A, C, G, T
 PP654758.1	12 bases other than A, C, G, T
 PP654763.1	24 bases other than A, C, G, T
 PP654764.1	8 bases other than A, C, G, T
-PP654797.1	a tile closer to a NUMT than to its haplogroup by 3
-PP654802.1	a tile closer to a NUMT than to its haplogroup by 3
-PP654803.1	a tile closer to a NUMT than to its haplogroup by 3
-PP654804.1	a tile closer to a NUMT than to its haplogroup by 3
-PP654809.1	a tile closer to a NUMT than to its haplogroup by 3
-PP654826.1	a tile closer to a NUMT than to its haplogroup by 3
+PP654797.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PP654802.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PP654803.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PP654804.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PP654809.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PP654826.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
 PP930240.1	23 bases other than A, C, G, T
 PP930249.1	23 bases other than A, C, G, T
 PP930252.1	10 bases other than A, C, G, T
@@ -3140,7 +3121,6 @@ PQ306091.1	12 substitutions no genome outside its series carries
 PQ306140.1	13 substitutions no genome outside its series carries
 PQ825604.1	15 bases other than A, C, G, T
 PQ825726.1	8 bases other than A, C, G, T
-PQ827220.1	a tile closer to a NUMT than to its haplogroup by 3
 PQ835295.1	16 bases other than A, C, G, T
 PQ835304.1	13 bases other than A, C, G, T
 PQ835305.1	8 bases other than A, C, G, T
@@ -3160,36 +3140,28 @@ PV067340.1	19 bases other than A, C, G, T
 PV067344.1	9 bases other than A, C, G, T
 PV067346.1	6 bases other than A, C, G, T
 PV067353.1	9 bases other than A, C, G, T
-PV521815.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559003.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559322.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559435.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559443.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559576.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559734.1	a tile closer to a NUMT than to its haplogroup by 3
-PV559799.1	a tile closer to a NUMT than to its haplogroup by 3
-PV613433.1	a tile closer to a NUMT than to its haplogroup by 4
-PV613434.1	a tile closer to a NUMT than to its haplogroup by 4
+PV521815.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
+PV559003.1	amplicon 065 closer to a NUMT than to its haplogroup by 3
+PV559322.1	amplicon 002 closer to a NUMT than to its haplogroup by 3
+PV613433.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
+PV613434.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
 PV658275.1	22 bases other than A, C, G, T
-PV695718.1	a tile closer to a NUMT than to its haplogroup by 3
-PV695794.1	a tile closer to a NUMT than to its haplogroup by 3
-PV695800.1	a tile closer to a NUMT than to its haplogroup by 4
-PV695801.1	a tile closer to a NUMT than to its haplogroup by 6
-PV695803.1	a tile closer to a NUMT than to its haplogroup by 5
-PV695805.1	a tile closer to a NUMT than to its haplogroup by 6
-PV695916.1	a tile closer to a NUMT than to its haplogroup by 3
-PV695946.1	a tile closer to a NUMT than to its haplogroup by 5
-PV695957.1	a tile closer to a NUMT than to its haplogroup by 3
-PV695971.1	a tile closer to a NUMT than to its haplogroup by 3
-PX272307.1	a tile closer to a NUMT than to its haplogroup by 4
-PX272348.1	a tile closer to a NUMT than to its haplogroup by 4
-PX366803.1	a tile closer to a NUMT than to its haplogroup by 3
-PX366824.1	a tile closer to a NUMT than to its haplogroup by 3
-PX366853.1	a tile closer to a NUMT than to its haplogroup by 3
-PX366892.1	a tile closer to a NUMT than to its haplogroup by 3
-PX402541.1	a tile closer to a NUMT than to its haplogroup by 4
-PX402942.1	a tile closer to a NUMT than to its haplogroup by 3
-PX402958.1	a tile closer to a NUMT than to its haplogroup by 3
+PV695718.1	amplicon 041 closer to a NUMT than to its haplogroup by 3
+PV695754.1	amplicon 097 closer to a NUMT than to its haplogroup by 5
+PV695794.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
+PV695801.1	amplicon 084 closer to a NUMT than to its haplogroup by 6
+PV695803.1	amplicon 015 closer to a NUMT than to its haplogroup by 8
+PV695805.1	amplicon 015 closer to a NUMT than to its haplogroup by 8
+PV695916.1	amplicon 035 closer to a NUMT than to its haplogroup by 3
+PV695946.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
+PV695957.1	amplicon 041 closer to a NUMT than to its haplogroup by 3
+PV695971.1	amplicon 041 closer to a NUMT than to its haplogroup by 3
+PX272307.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
+PX272348.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
+PX366824.1	amplicon 035 closer to a NUMT than to its haplogroup by 3
+PX366853.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
+PX366892.1	amplicon 097 closer to a NUMT than to its haplogroup by 3
+PX402541.1	amplicon 002 closer to a NUMT than to its haplogroup by 4
 PX529187.1	7 bases other than A, C, G, T
 PX529188.1	7 bases other than A, C, G, T
 PX529194.1	8 bases other than A, C, G, T

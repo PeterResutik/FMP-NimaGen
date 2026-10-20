@@ -19,6 +19,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   them pairs whose mismatches cluster in one part of the overlap, as in
   amplicon 023; its recurring errors reported by FDSTOOLS alone rise by a few
   tenths of a percent.
+- rtn compares reads with `humans_NimaGen_2026-10-19.fa` (was
+  `humans_NimaGen_2026-10.fa`). Its build checks every genome for NUMT-like
+  stretches amplicon by amplicon, over the insert rtn judges in a
+  primer-trimmed read, instead of in 200-base tiles. The tiles missed a genome
+  whose amplicon 097 is 5 differences closer to a NUMT than to its own
+  haplogroup, so reads of that NUMT passed the filter; and they left out 31
+  genomes in which a tile crossed the margin but no amplicon insert does. Now
+  3 genomes the tiles kept are left out and the 31 are back (59,243 entries).
+  The new name makes the first run after the update build the index again.
 
 ### Removed
 - The quality trimming of the merged reads in `p05` (`--quality_cutoff`, Q25

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds humans_NimaGen_2026-10.fa, the human mitogenomes rtn compares reads with, from public
+# Builds humans_NimaGen_2026-10-19.fa, the human mitogenomes rtn compares reads with, from public
 # sources (see README.md). Needs bwa, samtools and the pipeline's conda environment, and downloads
 # from GitHub (mitoLEAF) and NCBI (about 70,000 genomes, one to two hours).
 #
@@ -9,7 +9,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 RES=$(cd "$HERE/../../.." && pwd)
 W=$1
 mkdir -p "$W"
-NAME=humans_NimaGen_2026-10.fa
+NAME=humans_NimaGen_2026-10-19.fa
 NUMTS=$RES/rtn_files/numts/Calabrese_Dayama_Smart_Numts_modified.fa
 MITOLEAF=https://raw.githubusercontent.com/forensicgenomics/mitoLeaf/25b6076/docs/data
 
@@ -34,13 +34,13 @@ echo "4. screen the GenBank genomes"
 mkdir -p "$W/scan" && cp "$W/ref.fa" "$W/scan/"
 python "$HERE/genbank_singles.py" "$W/genbank.fa" "$W/scan"
 python "$HERE/scan_humans.py" "$W/genbank.fa" "$W/hgmotifs.json" "$W/scan"
-python "$HERE/tile_check.py" "$W/scan" "$NUMTS"
+python "$HERE/amplicon_check.py" "$W/scan" "$NUMTS" "$RES"
 
 echo "5. screen the re-called 1000 Genomes and HGDP people"
 mkdir -p "$W/scan_people" && cp "$W/ref.fa" "$W/scan_people/"
 python "$HERE/people_sequences.py" "$HERE/people_calls.tsv.gz" "$W/ref.fa" > "$W/scan_people/singles.fa"
 python "$HERE/scan_humans.py" "$W/scan_people/singles.fa" "$W/hgmotifs.json" "$W/scan_people"
-python "$HERE/tile_check.py" "$W/scan_people" "$NUMTS"
+python "$HERE/amplicon_check.py" "$W/scan_people" "$NUMTS" "$RES"
 
 echo "6. mitoLEAF haplogroup sequences"
 python "$HERE/haplogroups.py" "$W/hgmotifs.json" "$W/ref.fa" > "$W/mitoleaf.fa"

@@ -47,6 +47,12 @@ step from 50 to 55 rescues none).
 | nuclear-copy reads passing | 801 | 801 |
 | independent test: Mitotree haplogroups losing an amplicon, of 52,953 | 28 | 5 |
 
+The humans file was rebuilt with its NUMT check per amplicon
+(`../humans/humans_NimaGen_2026-10-19.fa`). The same rule on the rebuilt file
+gives N = 50 again: genomes losing an amplicon 158 at N = 0, 80 at N = 45, 74 at
+N = 50 and 55; NUMT reads passing 318 and 321; nuclear-copy reads 801; Mitotree
+haplogroups losing an amplicon at N = 50: the same 5.
+
 The Mitotree (FamilyTreeDNA, CC BY-NC-ND 4.0) was used only as a test set, after
 N was fixed; nothing from it is in this repository. On 17 real samples the 50
 positions change no call.
