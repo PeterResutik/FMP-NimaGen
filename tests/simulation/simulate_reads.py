@@ -8,6 +8,15 @@ both stop at the amplicon end when the amplicon is shorter. Primer
 sequences come from the primer files, as they would after PCR. Sequencing
 errors follow per-base qualities; PCR stutter is not simulated.
 
+With --error-profile (made by build_error_profile.py from real samples) each
+haplogroup takes the noise of one source (a sequencing run), drawn at random
+per haplogroup (or named with --error-source), and every read pair takes the
+qualities and substitution errors of one real read pair of that run and
+amplicon: the quality decline along the read, the read-to-read variation, the
+link between the two reads of a pair and the errors that recur at fixed
+cycles in that run are those of the real data. Without it, every base gets a
+quality between 33 and 38 and errors at that rate.
+
 mitoLEAF marks positions whose state varies within a haplogroup with IUPAC
 codes (16519Y: T or C) and lowercase entries (315.1c: C inserted or not;
 16193c: C or deleted). With --ambiguous one (default) each such position gets
@@ -25,6 +34,7 @@ import argparse
 import gzip
 import json
 import multiprocessing
+import pickle
 import random
 import re
 from pathlib import Path
@@ -156,6 +166,31 @@ def sequence_read(molecule, rng, qualities):
     return "".join(read), "".join(qual)
 
 
+def sequence_read_like(molecule, rng, template):
+    """The qualities and substitution errors of a real read on this molecule.
+    An error the real read made towards the base this molecule has there
+    becomes another base."""
+    qual, errors = template[0], template[1]
+    read = list(molecule)
+    qual = (qual + qual[-1] * len(read))[:len(read)]
+    for cycle, base in errors:
+        if cycle < len(read):
+            read[cycle] = base if base != read[cycle] else rng.choice([b for b in "ACGT" if b != read[cycle]])
+    return "".join(read), qual
+
+
+_PROFILES = {}
+
+
+def error_profile(path):
+    """{"pools": {(source, amplicon): [((R1 qualities, R1 errors), (R2 qualities, R2 errors))]},
+    "meta": {"sources": [...], ...}}, loaded once per process."""
+    if path not in _PROFILES:
+        with gzip.open(path, "rb") as f:
+            _PROFILES[path] = pickle.load(f)
+    return _PROFILES[path]
+
+
 def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
     # Seeded by haplogroup name, so its reads don't depend on batch or order
     rng = random.Random(f"{args.seed}:{haplogroup}")
@@ -163,6 +198,12 @@ def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
     states = random.Random(f"{args.seed}:{haplogroup}:states")
     haplotypes, used = apply_motif(rcrs, motif, args.ambiguous, states)
     qualities = [33, 34, 35, 36, 36, 37, 37, 37, 38, 38]
+    profile = error_profile(args.error_profile) if args.error_profile else None
+    if profile:
+        # the run whose noise this haplogroup takes, from its own stream
+        source = args.error_source or random.Random(f"{args.seed}:{haplogroup}:noise").choice(profile["meta"]["sources"])
+        if source not in profile["meta"]["sources"]:
+            raise SystemExit(f"--error-source {source} is not in the profile: {profile['meta']['sources']}")
     outdir = Path(args.outdir)
     r1 = gzip.open(outdir / f"{sample}_R1_001.fastq.gz", "wt")
     r2 = gzip.open(outdir / f"{sample}_R2_001.fastq.gz", "wt")
@@ -176,14 +217,21 @@ def simulate(haplogroup, motif, sample, args, rcrs, left, right, inserts):
             molecule = resolve_iupac(lp, rng) + templates[i % 2] + resolve_iupac(right[amp][0], rng)
             n += 1
             name = f"@SIM:1:{sample}:1:{1101 + n // 10000}:{n % 10000}:{amp}"
-            s1, q1 = sequence_read(molecule[:args.read_length], rng, qualities)
-            s2, q2 = sequence_read(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, qualities)
+            if profile:
+                pair = rng.choice(profile["pools"][(source, amp)])
+                s1, q1 = sequence_read_like(molecule[:args.read_length], rng, pair[0])
+                s2, q2 = sequence_read_like(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, pair[1])
+            else:
+                s1, q1 = sequence_read(molecule[:args.read_length], rng, qualities)
+                s2, q2 = sequence_read(molecule.translate(COMPLEMENT)[::-1][:args.read_length], rng, qualities)
             r1.write(f"{name} 1:N:0:1\n{s1}\n+\n{q1}\n")
             r2.write(f"{name} 2:N:0:1\n{s2}\n+\n{q2}\n")
     r1.close()
     r2.close()
     with open(outdir / f"{sample}_truth.tsv", "w") as truth:
         truth.write(f"haplogroup\t{haplogroup}\nmotif\t{motif}\nambiguous\t{args.ambiguous}\nvariants_used\t{' '.join(used)}\n")
+        if profile:
+            truth.write(f"error_profile\t{Path(args.error_profile).name}\nerror_source\t{source}\n")
     return n
 
 
@@ -199,6 +247,10 @@ def main():
     p.add_argument("--ambiguous", choices=["one", "het", "alt", "rcrs"], default="one",
                    help="ambiguous motif entries: one state per haplogroup (one), 50/50 heteroplasmy (het), "
                         "always the variant (alt) or always the rCRS state (rcrs)")
+    p.add_argument("--error-profile", help="error profile of real samples (build_error_profile.py); "
+                                          "without it, errors follow qualities of 33-38")
+    p.add_argument("--error-source", help="the profile's source (run) whose noise every haplogroup takes "
+                                         "(default: one drawn per haplogroup)")
     p.add_argument("--processes", type=int, default=4)
     p.add_argument("--reference", default=REPO / "resources/rCRS/rCRS_NimaGen.fasta")
     p.add_argument("--left-primers", default=REPO / "resources/primers/left_primers.fasta")

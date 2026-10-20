@@ -29,6 +29,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   3 genomes the tiles kept are left out and the 31 are back (59,243 entries).
   The new name makes the first run after the update build the index again.
 
+### Added
+- `tests/simulation/build_error_profile.py` and `simulate_reads.py
+  --error-profile`: simulated reads can carry the noise of real runs. The
+  profile keeps real read pairs per run and amplicon, each as its base
+  qualities and substitution errors; every simulated pair takes those of one
+  real pair, so the simulation has the real quality decline along the read and
+  the errors that recur at fixed positions in a run. `--error-source` names
+  the run; by default each haplogroup draws one. `run_batch.sh` passes
+  `ERROR_PROFILE`.
+
 ### Removed
 - The quality trimming of the merged reads in `p05` (`--quality_cutoff`, Q25
   from the 3' end, after the primers were removed). A merged read ends with the

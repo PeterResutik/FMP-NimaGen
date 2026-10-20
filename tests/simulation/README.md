@@ -18,7 +18,17 @@ into this repository.
   the variant (`--ambiguous alt`) or the rCRS state (`--ambiguous rcrs`).
   Drawn states and `alt` can combine in ways few real genomes show (e.g.
   `16181C 16182C 16183C` without `16189C`), which rtn then removes. No PCR
-  stutter yet.
+  stutter yet. With `--error-profile`, the reads get the noise of real runs
+  instead: each haplogroup takes one run (drawn per haplogroup, or named with
+  `--error-source`), and each read pair the base qualities and substitution
+  errors of one real read pair of that run and amplicon.
+- `build_error_profile.py` makes that profile from real samples: per sample the
+  raw FASTQ pair and the pipeline's `p02` and `p09` BAMs, the sequencing run
+  it belongs to (`--source`), and, to keep heteroplasmies out of the noise,
+  its whole-genome calls (`--wgs-vcf`, mitopy VCF) or known heteroplasmic
+  positions (`--mask-positions`). Read pairs are pooled per run, because
+  recurring errors differ between runs. Needs pysam, which is not in the
+  pipeline's environment.
 - `score_calls.py` compares the merged Excel with the truth, overall and per
   caller, and lists mismatches (C-stretches 303-315 and 16180-16193 separately).
   `--exclude` leaves out windows, e.g. `300-320,16170-16200` or `16519-16519`.
@@ -27,7 +37,8 @@ into this repository.
   keeps the small outputs
   (`sast.csv`, Mutect2 VCF, merged Excel, truth, parameter log), scores them
   and deletes reads, work folder and full output. `QUEUE_SIZE` (default 6)
-  and `SIM_PROCESSES` (default 8) set the parallelism.
+  and `SIM_PROCESSES` (default 8) set the parallelism; `ERROR_PROFILE` passes
+  an error profile to `simulate_reads.py`.
 - `run_all.sh` runs a long list in batches, skips finished batches and stops
   when disk space runs low.
 

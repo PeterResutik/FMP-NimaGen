@@ -6,8 +6,9 @@
 # Usage: MOTIFS=<mitoLEAF hgmotifs.json> run_batch.sh <haplogroup_list> <batch_dir> [reads_per_amplicon]
 # Needs the FMP-NimaGen conda environment to be active. rtn is skipped
 # (simulated reads contain no NUMTs) unless NUMT_FILTER=1. QUEUE_SIZE (default 6)
-# sets how many pipeline tasks run at once. On failure the work folder is kept
-# for debugging.
+# sets how many pipeline tasks run at once. ERROR_PROFILE (made by
+# build_error_profile.py) gives the reads the qualities and errors of real
+# reads. On failure the work folder is kept for debugging.
 set -euo pipefail
 
 LIST=$1
@@ -21,7 +22,8 @@ python "$HERE/simulate_reads.py" --motifs "$MOTIFS" --haplogroup-list "$LIST" \
     --outdir "$BATCH/reads" --reads-per-amplicon "$READS" --processes "${SIM_PROCESSES:-8}" \
     --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta" \
     --left-primers "$REPO/resources/primers/left_primers.fasta" \
-    --right-primers "$REPO/resources/primers/right_primers_rc.fasta" > "$BATCH/simulate.log"
+    --right-primers "$REPO/resources/primers/right_primers_rc.fasta" \
+    ${ERROR_PROFILE:+--error-profile "$ERROR_PROFILE"} > "$BATCH/simulate.log"
 
 FLAGS=(--publish_bams false)
 [ "${NUMT_FILTER:-0}" = 1 ] || FLAGS+=(--skip_numt_filter)
