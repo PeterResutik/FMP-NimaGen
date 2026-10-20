@@ -8,6 +8,13 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Added
+- `tests/simulation/run_batch.sh` also reports each batch at further detection
+  thresholds (`EXTRA_THRESHOLDS`, default `3 4 5`; empty for none). Before the
+  work folder is deleted, the pipeline is resumed with `--min_vf_FDS` and
+  `--min_vf_MT2` at each threshold, so only the report step runs again; its
+  reports and scores are kept in `keep/merged_<t>` and `keep/score_<t>`.
+
 ## [0.2.1] – 2026-10-20
 
 ### Changed

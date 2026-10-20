@@ -2,6 +2,10 @@
 # Simulate a list of haplogroups, run the pipeline on them, keep only the small
 # outputs (sast.csv, Mutect2 VCF, merged Excel, truth, parameter log), score
 # them against the truth and delete reads, work folder and full output.
+# Before the work folder goes, the report step is run again at each detection
+# threshold in EXTRA_THRESHOLDS (default "3 4 5"; empty for none): only p13
+# reruns, and keep/merged_<t> and keep/score_<t> hold its reports and scores
+# (keep/merged and keep/score are those of the pipeline's defaults).
 #
 # Usage: MOTIFS=<mitoLEAF hgmotifs.json> run_batch.sh <haplogroup_list> <batch_dir> [reads_per_amplicon]
 # Needs the FMP-NimaGen conda environment to be active. rtn is skipped
@@ -28,11 +32,16 @@ python "$HERE/simulate_reads.py" --motifs "$MOTIFS" --haplogroup-list "$LIST" \
 FLAGS=(--publish_bams false)
 [ "${NUMT_FILTER:-0}" = 1 ] || FLAGS+=(--skip_numt_filter)
 
+# a run name of our own, to resume exactly this run for the other thresholds
+# (other batches may run from the same folder at the same time)
+RUN="sim_$(basename "$BATCH" | tr -c 'a-zA-Z0-9_\n' _)_$(date +%s)_$$"
 start=$(date +%s)
-(cd "$REPO" && nextflow run main.nf -profile local -qs "${QUEUE_SIZE:-6}" -w "$BATCH/work" \
+(cd "$REPO" && nextflow run main.nf -name "$RUN" -profile local -qs "${QUEUE_SIZE:-6}" -w "$BATCH/work" \
     --reads "$BATCH/reads/*_{R1,R2}_001.fastq.gz" --outdir "$BATCH/out" \
     "${FLAGS[@]}") > "$BATCH/nextflow.log" 2>&1
 echo "pipeline seconds: $(( $(date +%s) - start ))" > "$BATCH/timing.txt"
+SESSION=$(awk -F'\t' -v n="$RUN" '$3 == n {print $6}' "$REPO/.nextflow/history" | tail -1)
+[ -n "$SESSION" ] || { echo "run $RUN not found in $REPO/.nextflow/history" >&2; exit 1; }
 
 KEEP="$BATCH/keep"
 mkdir -p "$KEEP/sast" "$KEEP/vcf" "$KEEP/merged" "$KEEP/truth"
@@ -45,4 +54,16 @@ cp "$BATCH/out/p00_parameters.txt" "$KEEP/"
 python "$HERE/score_calls.py" --truth-dir "$KEEP/truth" --merged-dir "$KEEP/merged" --out "$KEEP/score" \
     --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta"
 
-rm -rf "${BATCH:?}/work" "${BATCH:?}/reads" "${BATCH:?}/out"
+for t in ${EXTRA_THRESHOLDS-3 4 5}; do
+    start=$(date +%s)
+    (cd "$REPO" && nextflow run main.nf -profile local -resume "$SESSION" -qs "${QUEUE_SIZE:-6}" -w "$BATCH/work" \
+        --reads "$BATCH/reads/*_{R1,R2}_001.fastq.gz" --outdir "$BATCH/out_$t" \
+        --min_vf_FDS "$t" --min_vf_MT2 "$t" "${FLAGS[@]}") > "$BATCH/nextflow_$t.log" 2>&1
+    echo "report step at $t%, seconds: $(( $(date +%s) - start ))" >> "$BATCH/timing.txt"
+    mkdir -p "$KEEP/merged_$t"
+    cp "$BATCH/out_$t"/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged_$t/"
+    python "$HERE/score_calls.py" --truth-dir "$KEEP/truth" --merged-dir "$KEEP/merged_$t" --out "$KEEP/score_$t" \
+        --reference "$REPO/resources/rCRS/rCRS_NimaGen.fasta"
+done
+
+rm -rf "${BATCH:?}/work" "${BATCH:?}/reads" "${BATCH:?}/out" "${BATCH:?}"/out_*
