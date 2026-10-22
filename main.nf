@@ -426,7 +426,9 @@ process p11_variant_calling_fdstools_sast_p08 {
     
         fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
-        fdstools samplestats ${sample_id}.sc.csv ${sample_id}.sast.csv
+        # samplestats names the alleles itself from the TSSV output: FDSTOOLS 2.2 cannot read back
+        # N3107DEL, the name seqconvert writes for the rCRS placeholder at 3107
+        fdstools samplestats ${sample_id}.tssv.csv ${sample_id}.sast.csv --library $params.fdstools_library -F allelename
         fdstools vis --min-abs $params.min_abs --min-pct-of-max $params.min_pct_of_max --min-pct-of-sum $params.min_pct_of_sum --allele-min-abs $params.allele_min_abs --allele-min-pct-of-max $params.allele_min_pct_of_max --allele-min-pct-of-sum $params.allele_min_pct_of_sum sample ${sample_id}.sast.csv ${sample_id}.html
     
 

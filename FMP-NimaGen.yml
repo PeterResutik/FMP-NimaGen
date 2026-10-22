@@ -17,5 +17,5 @@ dependencies:
   - pip
   - pip:
       - cutadapt==5.2
-      - fdstools==2.1.1
+      - fdstools==2.2.1
       - pytest==8.4.2

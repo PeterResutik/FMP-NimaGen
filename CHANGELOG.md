@@ -42,6 +42,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   C-stretch regions stay without errors: PCR stutter there cannot be told
   apart from length heteroplasmy read by read, so it is still not simulated.
   Profiles made before keep working and give the same reads.
+- FDSTOOLS 2.2.1 (was 2.1.1, in `FMP-NimaGen.yml` and the Dockerfile).
+  `samplestats` now reads the TSSV output and names the alleles itself
+  (`--library -F allelename`). In 2.2 it cannot read back `N3107DEL`, the name
+  `seqconvert` writes for the rCRS placeholder at 3107, which is why 2.1.1 was
+  pinned. The reports are the same as with 2.1.1.
 
 ## [0.2.1] – 2026-10-20
 
