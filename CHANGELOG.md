@@ -8,6 +8,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.3.0] – 2026-10-21
+
 ### Added
 - `tests/simulation/run_batch.sh` also reports each batch at further detection
   thresholds (`EXTRA_THRESHOLDS`, default `3 4 5`; empty for none). Before the
