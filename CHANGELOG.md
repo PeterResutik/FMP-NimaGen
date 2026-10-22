@@ -47,6 +47,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (`--library -F allelename`). In 2.2 it cannot read back `N3107DEL`, the name
   `seqconvert` writes for the rCRS placeholder at 3107, which is why 2.1.1 was
   pinned. The reports are the same as with 2.1.1.
+- FDSTOOLS leaves out bases below `--baseQ`, as Mutect2 does. TSSV runs with
+  `--distrust-base-quality` one below `--baseQ` (29 by default): a rarer
+  sequence that differs from a more abundant one of the same length only at
+  bases below `--baseQ` is counted for the more abundant one. FDSTOOLS
+  reported recurring errors that the sequencer itself marks with very low
+  quality, which Mutect2 ignored; it now leaves them out too. FDSTOOLS judges
+  the quality of identical reads together (their cubic mean), not read by read,
+  and a real variant at a position of naturally low quality, such as the edge
+  of a long homopolymer, can be counted for the main sequence, as Mutect2 also
+  ignores it there. `tssv.csv` and `sast.csv` get a column `quality`.
 
 ## [0.2.1] – 2026-10-20
 

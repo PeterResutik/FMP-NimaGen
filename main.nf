@@ -56,7 +56,7 @@ params.allele_min_pct_of_max = 0
 params.allele_min_pct_of_sum = 3
  
 // mutect2
-params.baseQ = 30
+params.baseQ = 30 // minimum base quality: Mutect2 ignores lower bases, FDSTOOLS (TSSV) distrusts them
 params.callable_depth = 6
 params.native_pair_hmm_threads = 1 // threads of Mutect2's pair HMM: more save almost no time on mtDNA
 params.mutect2_memory = "4 GB" // memory per Mutect2 task (p12); Java may use 80% of it
@@ -424,7 +424,10 @@ process p11_variant_calling_fdstools_sast_p08 {
     if [ -s "${rtn_fastq}" ]; then
 
     
-        fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt
+        # bases below --baseQ are distrusted, as Mutect2 ignores them: a rarer sequence that differs from a more
+        # abundant one of the same length only at such bases is counted for the more abundant one
+        fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt \
+            --distrust-base-quality ${(params.baseQ as int) - 1}
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         # samplestats names the alleles itself from the TSSV output: FDSTOOLS 2.2 cannot read back
         # N3107DEL, the name seqconvert writes for the rCRS placeholder at 3107
@@ -650,7 +653,7 @@ workflow {
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
 
          VARIANT CALLING (with MUTECT2)
-         --baseQ                          : $params.baseQ # Minimum base quality required to consider a base for calling, also in Mutect2 pileup detection
+         --baseQ                          : $params.baseQ # Minimum base quality: Mutect2 ignores lower bases (also in its pileup detection), FDSTOOLS distrusts them
          --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
          --force_alleles                  : ${relativePath(params.force_alleles)} # VCF of alleles Mutect2 always evaluates
          --native_pair_hmm_threads        : $params.native_pair_hmm_threads # threads of the Mutect2 pair HMM; more save almost no time on mtDNA
