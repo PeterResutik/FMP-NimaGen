@@ -20,6 +20,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   differ by one base whether the report, FDSTOOLS and Mutect2 give the minor
   base, and how far the reported frequency is from the true share.
   `run_batch.sh` runs and scores mixture lists with `MIXTURES=1`.
+- `tests/evaluation/`: the evaluation on real data, starting with mixtures of
+  real samples. `mix_reads.py` mixes the read pairs of two samples so that
+  every amplicon has exactly the given share of the second sample's reads,
+  and tags each read with its sample; `evaluate_mixtures.py` compares the
+  mixtures' reports with the heteroplasmies the two samples' own reports
+  predict, at the share counted from the tags in the pipeline's BAM.
 
 ### Changed
 - Simulated reads with `--error-profile` also carry the insertion and deletion
