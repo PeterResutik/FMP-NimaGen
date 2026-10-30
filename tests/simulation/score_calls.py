@@ -5,15 +5,15 @@ For every <sample>_truth.tsv (written by simulate_reads.py) the matching
 report <sample>_<frame>_frame.xlsx is read (--frame, default separate). Truth
 variants are written in the pipeline's notation (A73G, -315.1C, C8281-; 50/50
 heteroplasmies as T16519Y, -315.1c, C16193c) and compared with the reported
-calls (FMP) and with each caller's own label. Calls inside the C-stretches
+calls (FMP). Calls inside the C-stretches
 303-315 and 16180-16193 are counted separately. Mismatches within 10 bp of
 each other, and all mismatches within one C-stretch, form one cluster; each
 cluster is checked on sequence level (truth vs reported calls applied to
 rCRS), so "same sequence, different notation" is told apart from a real error;
 a heteroplasmy reported as homoplasmic (or the other way round) counts as a
 different sequence. --exclude drops truth variants and calls inside the given
-windows (e.g. the C-stretches) before comparing. The summary printed gives per
-view the samples whose reported calls describe the true sequence.
+windows (e.g. the C-stretches) before comparing. The summary printed gives the
+samples whose reported calls describe the true sequence.
 
 Writes summary.tsv (one row per sample) and details.tsv (one row per
 mismatch) to --out.
@@ -99,9 +99,9 @@ def read_report(xlsx):
     for row in ws.iter_rows(min_row=2, values_only=True):
         get = lambda k: row[col[k]] if k in col else None
         if get("FMP") == "LOW":
-            low.append(f"{get('marker')}(FDS={get('called_by_FDSTOOLS')},MT2={get('called_by_MUTECT2')})")
+            low.append(str(get("marker")))
         else:
-            calls.append({k: get(k) for k in ("FMP", "FDSTOOLS", "MUTECT2", "called_by_FDSTOOLS", "called_by_MUTECT2")})
+            calls.append(get("FMP"))
     return calls, low
 
 
@@ -136,7 +136,6 @@ def main():
     rcrs = load_rcrs(args.reference)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    views = ("report", "fdstools", "mutect2")
     summary, details = [], []
     for truth_file in sorted(Path(args.truth_dir).glob("*_truth.tsv")):
         sample = truth_file.name[: -len("_truth.tsv")]
@@ -147,34 +146,25 @@ def main():
             summary.append([sample, truth["haplogroup"], len(expected), "NO_REPORT"])
             continue
         calls, low = read_report(xlsx)
-        labels = {
-            "report": keep({c["FMP"] for c in calls}),
-            "fdstools": keep({c["FDSTOOLS"] for c in calls if c["FDSTOOLS"]}),
-            "mutect2": keep({c["MUTECT2"] for c in calls if c["MUTECT2"]}),
-        }
-        row = [sample, truth["haplogroup"], len(expected)]
-        for view in views:
-            missed, extra, same, wrong = compare(expected, labels[view], rcrs)
-            row += [len(missed), len(extra), wrong]
-            for kind, group in (("missed", missed), ("extra", extra)):
-                for label in sorted(group, key=position):
-                    details.append([sample, truth["haplogroup"], view, kind, label, region(label),
-                                    "same sequence" if same.get(position(label)) else "sequence differs"])
-        summary.append(row + [" ".join(low)])
+        missed, extra, same, wrong = compare(expected, keep(set(calls)), rcrs)
+        for kind, group in (("missed", missed), ("extra", extra)):
+            for label in sorted(group, key=position):
+                details.append([sample, truth["haplogroup"], kind, label, region(label),
+                                "same sequence" if same.get(position(label)) else "sequence differs"])
+        summary.append([sample, truth["haplogroup"], len(expected), len(missed), len(extra), wrong, " ".join(low)])
 
     with open(out / "summary.tsv", "w") as f:
-        cols = [f"{v}_{k}" for v in views for k in ("missed", "extra", "wrong_sequence_clusters")]
-        f.write("\t".join(["sample", "haplogroup", "expected"] + cols + ["low_amplicons"]) + "\n")
+        f.write("\t".join(["sample", "haplogroup", "expected", "report_missed", "report_extra",
+                           "report_wrong_sequence_clusters", "low_amplicons"]) + "\n")
         for row in summary:
             f.write("\t".join(map(str, row)) + "\n")
     with open(out / "details.tsv", "w") as f:
-        f.write("sample\thaplogroup\tview\tkind\tlabel\tregion\tsequence_check\n")
+        f.write("sample\thaplogroup\tkind\tlabel\tregion\tsequence_check\n")
         for row in details:
             f.write("\t".join(map(str, row)) + "\n")
     scored = [r for r in summary if r[3] != "NO_REPORT"]
-    for i, view in enumerate(views):
-        right_seq = sum(1 for r in scored if r[5 + 3 * i] == 0)
-        print(f"{view:9}: {right_seq}/{len(scored)} samples with the correct sequence")
+    right_seq = sum(1 for r in scored if r[5] == 0)
+    print(f"{right_seq}/{len(scored)} samples with the correct sequence")
 
 
 if __name__ == "__main__":

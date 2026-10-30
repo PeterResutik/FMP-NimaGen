@@ -1,6 +1,6 @@
 #!/bin/bash
 # Simulate a list of haplogroups, run the pipeline on them, keep only the small
-# outputs (sast.csv, Mutect2 VCF, merged Excel, truth, parameter log), score
+# outputs (sast.csv, merged Excel, truth, parameter log), score
 # them against the truth and delete reads, work folder and full output.
 # Before the work folder goes, the report step is run again at each detection
 # threshold in EXTRA_THRESHOLDS (default "3 4 5"; empty for none): only p13
@@ -48,9 +48,8 @@ SESSION=$(awk -F'\t' -v n="$RUN" '$3 == n {print $6}' "$REPO/.nextflow/history" 
 [ -n "$SESSION" ] || { echo "run $RUN not found in $REPO/.nextflow/history" >&2; exit 1; }
 
 KEEP="$BATCH/keep"
-mkdir -p "$KEEP/sast" "$KEEP/vcf" "$KEEP/merged" "$KEEP/truth"
+mkdir -p "$KEEP/sast" "$KEEP/merged" "$KEEP/truth"
 cp "$BATCH"/out/p11_fdstools/*/*.sast.csv "$KEEP/sast/"
-cp "$BATCH"/out/p12_mutect2/*/*.vcf.gz "$KEEP/vcf/"
 cp "$BATCH"/out/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged/"
 cp "$BATCH"/reads/*_truth.tsv "$KEEP/truth/"
 cp "$BATCH/out/p00_parameters.txt" "$KEEP/"
@@ -67,7 +66,7 @@ for t in ${EXTRA_THRESHOLDS-3 4 5}; do
     start=$(date +%s)
     (cd "$REPO" && nextflow run main.nf -profile local -resume "$SESSION" -qs "${QUEUE_SIZE:-6}" -w "$BATCH/work" \
         --reads "$BATCH/reads/*_{R1,R2}_001.fastq.gz" --outdir "$BATCH/out_$t" \
-        --min_vf_FDS "$t" --min_vf_MT2 "$t" "${FLAGS[@]}") > "$BATCH/nextflow_$t.log" 2>&1
+        --min_vf_FDS "$t" "${FLAGS[@]}") > "$BATCH/nextflow_$t.log" 2>&1
     echo "report step at $t%, seconds: $(( $(date +%s) - start ))" >> "$BATCH/timing.txt"
     mkdir -p "$KEEP/merged_$t"
     cp "$BATCH/out_$t"/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged_$t/"

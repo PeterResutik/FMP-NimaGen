@@ -3,12 +3,11 @@
 
 Sites are the positions where the two haplogroups carry different single bases, outside the C-stretches 303-315
 and 16180-16193 and more than 5 bases away from an insertion or deletion of either haplogroup. At every site the
-minor haplogroup's base is on the given share of each amplicon's reads. Per site and per view (the report's FMP
-label, FDSTOOLS' and Mutect2's own labels):
+minor haplogroup's base is on the given share of each amplicon's reads. Per site, the report's label (FMP):
   minor found  the label is the IUPAC code of both bases (T1119Y);
   major only   the label is the major base, or there is none where the major base is rCRS's;
   other        any other label.
-The expected frequency of a site is that of its non-rCRS base(s), as the report gives it (vf_FDS, vf_MT2).
+The expected frequency of a site is that of its non-rCRS base(s), as the report gives it (vf_FDS).
 Calls at positions where neither haplogroup differs from rCRS (C-stretches aside) are extra calls.
 
 Writes summary.tsv (one row per mixture) and sites.tsv (one row per site) to --out.
@@ -25,7 +24,6 @@ from score_calls import REPO, C_STRETCHES, apply_labels, expected_labels, load_r
 IUPAC_CODE = {frozenset("AG"): "R", frozenset("CT"): "Y", frozenset("AC"): "M", frozenset("GT"): "K",
               frozenset("CG"): "S", frozenset("AT"): "W"}
 SUBSTITUTION = re.compile(r"[ACGTN]\d+[ACGTRYMKSW]")
-VIEWS = (("report", "FMP", None), ("fdstools", "FDSTOOLS", "vf_FDS"), ("mutect2", "MUTECT2", "vf_MT2"))
 
 
 def in_c_stretch(p):
@@ -101,9 +99,8 @@ def main():
         for r in rows:
             if SUBSTITUTION.fullmatch(str(r["FMP"])):
                 by_pos.setdefault(position(r["FMP"]), r)
-        found = {v: 0 for v, _, _ in VIEWS}
-        counts = {"major only": 0, "other": 0}
-        errors = {"fdstools": [], "mutect2": []}
+        counts = {"minor found": 0, "major only": 0, "other": 0}
+        errors = []
         site_list = sites(major, minor, rcrs)
         for pos, base_major, base_minor in site_list:
             ref = rcrs[pos - 1]
@@ -112,45 +109,34 @@ def main():
             row = [sample, truth["haplogroup"], truth["minor_haplogroup"], truth["minor_share"],
                    truth.get("reads_per_amplicon", ""), truth.get("error_source", ""), pos, ref, base_major,
                    base_minor, round(expected_vf, 2)]
-            for view, col, vf_col in VIEWS:
-                st = status(r.get(col), ref, pos, base_major, base_minor)
-                row += [r.get(col) or "", st]
-                if st == "minor found":
-                    found[view] += 1
-                    vf = number(r.get(vf_col)) if vf_col else None
-                    if vf is not None:
-                        errors[view].append(vf - expected_vf)
-                elif view == "report":
-                    counts[st] += 1
-                if vf_col:
-                    row.append(r.get(vf_col) if r.get(vf_col) is not None else "")
-            site_rows.append(row)
+            st = status(r.get("FMP"), ref, pos, base_major, base_minor)
+            counts[st] += 1
+            vf = number(r.get("vf_FDS"))
+            if st == "minor found" and vf is not None:
+                errors.append(vf - expected_vf)
+            site_rows.append(row + [r.get("FMP") or "", st, r.get("vf_FDS") if r.get("vf_FDS") is not None else ""])
         explained = {q for q, b in major.items() if b != plain[q]} | {q for q, b in minor.items() if b != plain[q]}
         extra = sum(1 for r in rows if position(r["FMP"]) is not None and not in_c_stretch(position(r["FMP"]))
                     and position(r["FMP"]) not in explained)
-        stats = []
-        for view in ("fdstools", "mutect2"):
-            e = errors[view]
-            stats += [round(median(abs(x) for x in e), 2) if e else "", round(median(e), 2) if e else ""]
-        summary.append(head + [len(site_list), found["report"], found["fdstools"], found["mutect2"],
-                               counts["major only"], counts["other"], extra] + stats)
+        stats = [round(median(abs(x) for x in errors), 2) if errors else "", round(median(errors), 2) if errors else ""]
+        summary.append(head + [len(site_list), counts["minor found"], counts["major only"], counts["other"], extra]
+                       + stats)
 
     with open(out / "summary.tsv", "w") as f:
         f.write("\t".join(["sample", "major", "minor", "minor_share_pct", "reads_per_amplicon", "error_source",
-                           "sites", "minor_found", "minor_found_FDS", "minor_found_MT2", "major_only", "other",
-                           "extra_calls", "abs_err_vf_FDS", "bias_vf_FDS", "abs_err_vf_MT2", "bias_vf_MT2"]) + "\n")
+                           "sites", "minor_found", "major_only", "other", "extra_calls", "abs_err_vf_FDS",
+                           "bias_vf_FDS"]) + "\n")
         for row in summary:
             f.write("\t".join(map(str, row)) + "\n")
     with open(out / "sites.tsv", "w") as f:
         f.write("\t".join(["sample", "major", "minor", "minor_share_pct", "reads_per_amplicon", "error_source",
                            "pos", "rCRS", "base_major", "base_minor", "expected_vf_pct", "FMP", "report_status",
-                           "FDSTOOLS", "fdstools_status", "vf_FDS", "MUTECT2", "mutect2_status", "vf_MT2"]) + "\n")
+                           "vf_FDS"]) + "\n")
         for row in site_rows:
             f.write("\t".join(map(str, row)) + "\n")
     scored = [r for r in summary if r[6] != "NO_REPORT"]
     total = sum(r[6] for r in scored)
-    print(f"{len(scored)} mixtures, {total} sites; minor base found by the report at "
-          f"{sum(r[7] for r in scored)}, FDSTOOLS {sum(r[8] for r in scored)}, Mutect2 {sum(r[9] for r in scored)}")
+    print(f"{len(scored)} mixtures, {total} sites; minor base found at {sum(r[7] for r in scored)}")
 
 
 if __name__ == "__main__":

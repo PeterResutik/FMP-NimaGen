@@ -15,8 +15,9 @@ regions 300-315 and 16180-16193 (written per molecule; listed for review in
 OUT_PREFIX.length.tsv instead).
 
 Expected: the share of reads from each sample at the position, counted from the read-name
-tags in the Mutect2 BAM (p09); the frequency expected for the non-rCRS base(s) follows from
-it. FDSTOOLS counts its reads per amplicon from p08, so its expected share is about the same.
+tags in the BAM of p09 (the reads after the NUMT filter); the frequency expected for the
+non-rCRS base(s) follows from it. FDSTOOLS counts its reads per amplicon from p08, the same
+reads with their primers, so its expected share is about the same.
 """
 import argparse
 import glob
@@ -137,7 +138,7 @@ def main():
         sites = sorted(p for p in set(bases_a) | set(bases_b)
                        if bases_a.get(p, rcrs[p - 1]) != bases_b.get(p, rcrs[p - 1])
                        and p not in unclear_a | unclear_b and not in_length_region(p))
-        errors = {"FMP": [], "FDS": [], "MT2": []}
+        errors = []
         counts = defaultdict(int)
         for p in sites:
             ref = rcrs[p - 1]
@@ -168,17 +169,13 @@ def main():
             counts[status] += 1
             if minor >= min_vf:
                 counts["heteroplasmies expected"] += 1
-                counts["found by FDSTOOLS"] += observed.get("FDSTOOLS") == expected
-                counts["found by Mutect2"] += observed.get("MUTECT2") == expected
-            vf_fds, vf_mt2 = number(observed.get("vf_FDS")), number(observed.get("vf_MT2"))
-            if status == "found" and minor >= min_vf:
-                for key, v in (("FDS", vf_fds), ("MT2", vf_mt2)):
-                    if v is not None:
-                        errors[key].append(v - 100 * expected_vf)
+                counts["heteroplasmies found"] += status == "found"
+            vf_fds = number(observed.get("vf_FDS"))
+            if status == "found" and minor >= min_vf and vf_fds is not None:
+                errors.append(vf_fds - 100 * expected_vf)
             site_rows.append([sample, a, b, nominal, p, ref, base_a, base_b, n_a, n_b, round(100 * share_b, 2),
-                              round(100 * expected_vf, 2), expected or "", label or "", observed.get("FDSTOOLS") or "",
-                              vf_fds if vf_fds is not None else "", observed.get("MUTECT2") or "",
-                              vf_mt2 if vf_mt2 is not None else "", status])
+                              round(100 * expected_vf, 2), expected or "", label or "",
+                              vf_fds if vf_fds is not None else "", status])
 
         explained = set(sites) | unclear_a | unclear_b | set(bases_a) | set(bases_b)
         for r in mix:
@@ -186,18 +183,14 @@ def main():
             if str(r["FMP"]) == "LOW" or p is None:
                 continue
             if in_length_region(p):
-                length_rows.append([sample, nominal, r["FMP"], r.get("FDSTOOLS") or "", r.get("vf_FDS") or "",
-                                    r.get("MUTECT2") or "", r.get("vf_MT2") or ""])
+                length_rows.append([sample, nominal, r["FMP"], r.get("vf_FDS") or ""])
             elif p not in explained:
-                extra_rows.append([sample, nominal, r["FMP"], r.get("FDSTOOLS") or "", r.get("vf_FDS") or "",
-                                   r.get("MUTECT2") or "", r.get("vf_MT2") or "", r.get("marker") or ""])
+                extra_rows.append([sample, nominal, r["FMP"], r.get("vf_FDS") or "", r.get("marker") or ""])
         n_extra = sum(1 for e in extra_rows if e[0] == sample)
-        med = {k: (round(median(abs(x) for x in v), 2) if v else "") for k, v in errors.items()}
-        bias = {k: (round(median(v), 2) if v else "") for k, v in errors.items()}
-        summary.append([sample, a, b, nominal, len(sites), counts["heteroplasmies expected"], counts["found"],
-                        counts["found by FDSTOOLS"], counts["found by Mutect2"], counts["missed"],
-                        counts["other label"], counts["not expected, found"], med["FDS"], bias["FDS"],
-                        med["MT2"], bias["MT2"], n_extra])
+        med = round(median(abs(x) for x in errors), 2) if errors else ""
+        bias = round(median(errors), 2) if errors else ""
+        summary.append([sample, a, b, nominal, len(sites), counts["heteroplasmies expected"],
+                        counts["heteroplasmies found"], counts["found"], counts["missed"], counts["other label"], counts["not expected, found"], med, bias, n_extra])
 
     def write(name, header, rows):
         with open(f"{prefix}.{name}.tsv", "w") as f:
@@ -206,13 +199,12 @@ def main():
                 f.write("\t".join(str(x) for x in r) + "\n")
 
     write("sites", ["sample", "major", "minor", "minor_pct", "pos", "rCRS", "base_major", "base_minor", "reads_major",
-                    "reads_minor", "share_minor_pct", "expected_vf_pct", "expected", "FMP", "FDSTOOLS", "vf_FDS",
-                    "MUTECT2", "vf_MT2", "status"], site_rows)
-    write("extra", ["sample", "minor_pct", "FMP", "FDSTOOLS", "vf_FDS", "MUTECT2", "vf_MT2", "marker"], extra_rows)
-    write("length", ["sample", "minor_pct", "FMP", "FDSTOOLS", "vf_FDS", "MUTECT2", "vf_MT2"], length_rows)
-    write("summary", ["sample", "major", "minor", "minor_pct", "sites", "het_expected", "found", "found_FDS",
-                      "found_MT2", "missed", "other_label", "found_not_expected", "abs_err_FDS", "bias_FDS",
-                      "abs_err_MT2", "bias_MT2", "extra_rows"], summary)
+                    "reads_minor", "share_minor_pct", "expected_vf_pct", "expected", "FMP", "vf_FDS", "status"],
+          site_rows)
+    write("extra", ["sample", "minor_pct", "FMP", "vf_FDS", "marker"], extra_rows)
+    write("length", ["sample", "minor_pct", "FMP", "vf_FDS"], length_rows)
+    write("summary", ["sample", "major", "minor", "minor_pct", "sites", "het_expected", "het_found", "found", "missed",
+                      "other_label", "found_not_expected", "abs_err_FDS", "bias_FDS", "extra_rows"], summary)
 
 
 if __name__ == "__main__":

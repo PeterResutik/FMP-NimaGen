@@ -35,19 +35,19 @@ into this repository.
   are kept: PCR stutter there cannot be told apart from a person's length
   heteroplasmy read by read, so stutter is not simulated. Needs pysam, which
   is not in the pipeline's environment.
-- `score_calls.py` compares the merged Excel with the truth, overall and per
-  caller, and lists mismatches (C-stretches 303-315 and 16180-16193 separately).
+- `score_calls.py` compares the report with the truth and lists mismatches
+  (C-stretches 303-315 and 16180-16193 separately).
   `--exclude` leaves out windows, e.g. `300-320,16170-16200` or `16519-16519`.
 - `score_mixtures.py` scores mixtures: at every position where the two
   haplogroups differ by one base (away from insertions, deletions and the
-  C-stretches) whether the report, FDSTOOLS and Mutect2 give the minor base
+  C-stretches) whether the report gives the minor base
   (the IUPAC code of both), only the major base, or something else, and how
   far the reported frequency is from the true share; calls where neither
   haplogroup has a variant are counted as extra calls.
 - `run_batch.sh` simulates a list of haplogroups, runs the pipeline with
   `--skip_numt_filter --publish_bams false` (`NUMT_FILTER=1` keeps rtn),
   keeps the small outputs
-  (`sast.csv`, Mutect2 VCF, merged Excel, truth, parameter log), scores them
+  (`sast.csv`, merged Excel, truth, parameter log), scores them
   and deletes reads, work folder and full output. `QUEUE_SIZE` (default 6)
   and `SIM_PROCESSES` (default 8) set the parallelism; `ERROR_PROFILE` passes
   an error profile to `simulate_reads.py`. With `MIXTURES=1` the list holds

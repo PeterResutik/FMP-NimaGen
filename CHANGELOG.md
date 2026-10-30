@@ -22,6 +22,18 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   an amplicon with fewer FDSTOOLS reads than `--depth`, with those reads in
   `rd_FDS`; the depth of the Mutect2 BAM no longer makes `LOW` rows. The calls
   and their order are unchanged.
+- The scores of the simulations and of the real mixtures follow the report:
+  `score_calls.py`, `score_mixtures.py` and `evaluate_mixtures.py` score the
+  report's calls (`FMP`) and FDSTOOLS' frequencies (`vf_FDS`) only. Their
+  columns for each caller's own label are gone: `fdstools_*` and `mutect2_*`
+  and the `view` column of `details.tsv` (`score_calls.py`);
+  `minor_found_FDS`, `minor_found_MT2`, `abs_err_vf_MT2`, `bias_vf_MT2` and the
+  `FDSTOOLS` and `MUTECT2` columns of `sites.tsv` (`score_mixtures.py`);
+  `found_MT2`, `abs_err_MT2`, `bias_MT2` and the `FDSTOOLS`, `MUTECT2` and
+  `vf_MT2` columns (`evaluate_mixtures.py`, where `found_FDS`, the expected
+  heteroplasmies found, is now `het_found`). `low_amplicons`
+  names the amplicons only. `run_batch.sh` no longer keeps a Mutect2 VCF,
+  which made it stop since Mutect2 is no longer run.
 
 ## [0.3.0] – 2026-10-21
 
