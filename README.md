@@ -35,7 +35,7 @@ The pipeline automates the following steps:
 5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-19.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; the callers keep the original qualities.  
 6. **Quality control** (`p10`): read depth per amplicon.  
 7. **Variant calling** (`p11`–`p12`): **FDSTOOLS** on the reads with primers and **GATK Mutect2** on the trimmed reads. Both leave out bases below `--baseQ` (30): Mutect2 ignores them, and FDSTOOLS counts a read that differs from a more common sequence of the same length only at such bases for that sequence.  
-8. **Report** (`p13`): both callers' calls are written in one notation and merged into one Excel table per sample, which shows where the callers agree and where they do not.  
+8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
 
 The workflow is designed for reproducibility and scalability.
 
@@ -165,7 +165,7 @@ BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set
 ## Reading the Report
 
 The report has one row per variant, sorted by position. The first column,
-`FMP`, is the pipeline's call. The columns after it show what each caller found.
+`FMP`, is the call. The columns after it show the reads FDSTOOLS counted for it.
 
 ### Notation
 
@@ -192,45 +192,26 @@ molecule is the same.
 | Column | Meaning |
 |---|---|
 | `FMP` | the call |
-| `FDSTOOLS`, `MUTECT2` | each caller's own label; empty if the caller did not report the variant |
-| `vf_FDS`, `vf_MT2` | share of the reads with the variant, in percent; with several bases at one position, one value per base (`C 40, A 10`) |
-| `rd_FDS`, `rd_total_FDS` | FDSTOOLS: reads with the variant, and all reads at the position |
-| `rd_MT2`, `MBQ` | Mutect2: read counts and median base quality, each for rCRS first, then for the variant (`687,1450`: 687 reads with the rCRS base, 1450 with the variant) |
-| `called_by_FDSTOOLS`, `called_by_MUTECT2` | whether each caller confirms the call (see below) |
-| `variant_note` | remarks, for example which Mutect2 calls were left out; not written with `--variant_note false` |
+| `vf_FDS` | share of the reads with the variant, in percent; with several bases at one position, one value per base (`C 40, A 10`) |
+| `rd_FDS`, `rd_total_FDS` | reads with the variant, and all reads at the position; in a `LOW` row, the reads of the amplicon |
+| `variant_note` | remarks; not written with `--variant_note false` |
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
 | `marker`, `marker_range`, `num_markers` | the amplicons FDSTOOLS' depth and frequency come from (every amplicon with reads covering the position), their ranges, and their number |
-| `Filter`, `Pos`, `Ref`, `Variant`, `GT` | fields of the Mutect2 VCF record |
-| `Type` | `SNP`, `PHP` (point heteroplasmy), `INS`, `DEL` or `LHP` (length heteroplasmy) |
 
-The two callers show their evidence differently. FDSTOOLS gives the reads and
-the share of the variant only (`rd_FDS`, `vf_FDS`); the reads without it
-follow from `rd_total_FDS`. Mutect2 gives the reads of both the rCRS base and
-the variant (`rd_MT2`), and the share of the variant (`vf_MT2`). Mutect2
-also uses reads that run from one amplicon's left primer to the right primer
-of the next amplicon in the same primer pool (001 to 003, 002 to 004, 098 to
-100). They are whole mtDNA molecules, but FDSTOOLS cannot assign them to one
-amplicon, so in these amplicons Mutect2's depth is higher than FDSTOOLS', by
-up to about a quarter.
+FDSTOOLS gives the reads and the share of the variant (`rd_FDS`, `vf_FDS`);
+the reads without it follow from `rd_total_FDS`. Reads that run from one
+amplicon's left primer to the right primer of the next amplicon in the same
+primer pool (001 to 003, 002 to 004, 098 to 100) are whole mtDNA molecules,
+but FDSTOOLS cannot assign them to one amplicon, so they do not count towards
+its depth.
 
-### Flags and colours
+### Colours
 
-`called_by_FDSTOOLS` and `called_by_MUTECT2`:
-
-| Value | Colour | Meaning |
-|---|---|---|
-| `TRUE` | | the caller reports the variant as written in `FMP` |
-| `FALSE` | red | the caller does not report it |
-| `DISAGREEMENT` | amber | the caller reports it on the other side of a threshold, for example as major where the other caller has it as minor; `FMP` follows the averaged frequency (`--disagreement_average`) |
-| `DISABLED` | grey | Mutect2's minor calls are left out in this region (`--mutect2_disabled_regions`) |
-| `LOW`, `OK` | red, none | in a `LOW` row: which caller has too few reads |
-
-The colour of the `FMP` cell shows the kind of row at a glance: red where the
-callers do not agree (`FALSE` or `DISAGREEMENT`), yellow for `LOW`, orange for
-a point heteroplasmy, blue for a lowercase length variant, and green for
-variants both callers report (a lighter green for insertions and deletions).
-Red and yellow rows are the ones to look at. The columns that come from
-FDSTOOLS have a green background, those from Mutect2 a blue one.
+The colour of the `FMP` cell shows the kind of row at a glance: yellow for
+`LOW`, orange for a point heteroplasmy, blue for a lowercase length variant,
+and green for the other variants (a lighter green for insertions and
+deletions). Yellow rows are the ones to look at. The other columns have a
+green background.
 
 ## Main Options
 
@@ -238,13 +219,11 @@ FDSTOOLS have a green background, those from Mutect2 a blue one.
 |---|---|---|
 | `--reads` | `raw_data/*_{R1,R2}_001.fastq.gz` | input files |
 | `--outdir` | `results` | output folder |
-| `--min_vf_FDS`, `--min_vf_MT2` | 2 | a base counts as present from this share (%), per caller |
+| `--min_vf_FDS` | 2 | a base counts as present from this share (%) |
 | `--max_overlap` | 226 | FLASH counts the mismatches of an overlap over at most this many bases; set it to the read length, so that the whole overlap is checked |
 | `--lh_thresh` | 10 | length variants: under 10% not reported, 10–90% minor (lowercase), above 90% major |
 | `--depth` | 20 | amplicons with fewer reads are marked LOW |
 | `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
-| `--mutect2_disabled_regions` | `none` | complex regions where Mutect2's minor calls are left out: `none`, `all`, or e.g. `300-315,16180-16193` |
-| `--disagreement_average` | `plain` | how the two callers' frequencies are averaged when they disagree: `plain` or `depth_weighted` |
 | `--variant_note` | `true` | `false` leaves the `variant_note` column out of the report |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
@@ -277,38 +256,12 @@ pytest
 
 ## Known Limitations
 
-- Mutect2's frequency for a substitution is too high where some reads have no
-  base at that position (a substitution and a deletion at one position). In a
-  test with 50% rCRS, 30% substituted and 20% deleted, Mutect2 gave the
-  deletion 20% but the substitution 42%: it counts the reads without a base
-  toward the substitution. Only the frequency shown is affected: whether rCRS
-  is still present is decided from Mutect2's read counts, which give rCRS 50%
-  there. In a repeat (two equal bases in a row) Mutect2 counts those reads as
-  rCRS instead. FDSTOOLS counts each molecule once and is not affected. In the
-  C-stretches, where this is most frequent, Mutect2 can be left out with
-  `--mutect2_disabled_regions`.
-- In 16180–16193, Mutect2 reports single changes, not whole molecules, and the
-  report rebuilds molecules from its major calls only. Where the A-run is one
-  A short and the C-run differs in length between molecules (A3 C10 to
-  A3 C13), Mutect2 writes most of them as a C at 16183 and puts the extra Cs
-  after 16182: A16183M, A16183a, -16182.1c and -16182.2c, in either frame.
-  FDSTOOLS reads each molecule whole: A16183-, -16193.1c, -16193.2c and
-  -16193.3c (separate frame), or A16183C, C16193c, -16193.1c and -16193.2c
-  (shared frame). Each of these rows then comes from one caller only. For such
-  a sample, leave Mutect2 out there with
-  `--mutect2_disabled_regions 16180-16193`; its major calls are still reported.
-- `vf_MT2` is Mutect2's own estimate of the frequency, not the share of its
-  reads. For a base on all n reads it is about (n + 1) / (n + 2), so 21 of 21
-  reads give 95.7%; this matters mainly in amplicons with few reads. Whether
-  rCRS is still present is decided from Mutect2's read counts.
-- FDSTOOLS does not use base qualities. A sequencing error that comes back at
-  the same position in many samples can reach `--min_vf_FDS` and appear as a
-  row from FDSTOOLS only, while Mutect2, which ignores bases under Q30, does
-  not call it. In the samples tested this happened at 3407, 3413 and 3460
-  (amplicon 023, whose R2 loses quality after its first cycles), at 8541
-  (amplicon 053) and at 10231 and 10266 (amplicon 063), at up to 4%. These
-  rows show `called_by_MUTECT2` false. A higher detection threshold
-  (`--min_vf_FDS`, `--min_vf_MT2`) leaves them out.
+- A sequencing error that comes back at the same position in many samples can
+  reach `--min_vf_FDS` and appear as a heteroplasmy. Before FDSTOOLS distrusted
+  bases below `--baseQ` (0.3.0), this happened in the samples tested at 3407,
+  3413 and 3460 (amplicon 023, whose R2 loses quality after its first cycles),
+  at 8541 (amplicon 053) and at 10231 and 10266 (amplicon 063), at up to 4%.
+  A higher detection threshold (`--min_vf_FDS`) leaves them out.
 
 ## Cleaning Up
 

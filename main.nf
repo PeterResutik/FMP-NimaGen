@@ -71,12 +71,9 @@ params.python_script_rtn_qualities = "$baseDir/resources/scripts/rtn_qualities.p
 
 // merging
 params.depth = 20
-params.min_vf_MT2 = 2
 params.min_vf_FDS = 2
 params.lh_thresh = 10 // symmetric: floor=10%, ceiling=1-10%=90% — below floor not reported, floor-ceiling reported as LHP (lowercase), above ceiling reported as major (uppercase)
-params.disagreement_average = "plain" // plain | depth_weighted: how the merge averages both callers' frequencies when they disagree on major vs minor
 params.frame = "separate" // separate | shared: how 16180-16193 and 300-315 are written (resources/scripts/frames.py)
-params.mutect2_disabled_regions = "none" // none | all | names separated by commas (57-60,300-315,16180-16193): complex regions where only Mutect2's major calls count
 params.variant_note = true // false: the report has no variant_note column
 
     // rm -r "$baseDir/work"
@@ -535,7 +532,7 @@ process p13_merge_variants_p10_p11 {
     publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy', overwrite: true
 
     input:
-    tuple val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file), path(mutect2_depth_txt)
+    tuple val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)
     path reference
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
@@ -548,9 +545,6 @@ process p13_merge_variants_p10_p11 {
     """
     if [ -s "${sast_file}" ]; then
 
-        # Mutect2 is not run: the merge gets an empty Mutect2 table, so the report holds FDSTOOLS calls only
-        printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${sample_id}_mutect2_empty.txt
-
         python $python_script_process_fdstools_sast \
             ${sast_file} \
             ${sample_id}_fdstools_processed.txt \
@@ -559,13 +553,8 @@ process p13_merge_variants_p10_p11 {
 
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
-            ${sample_id}_mutect2_empty.txt \
             ${sample_id}_${params.frame}_frame.xlsx \
-            --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
-            --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
-            --disagreement_average $params.disagreement_average \
-            --mutect2_disabled_regions $params.mutect2_disabled_regions --min_reads $params.minimum \
-            --variant_note $params.variant_note
+            --min_vf $params.min_vf_FDS --marker_map $params.fdstools_library --variant_note $params.variant_note
 
 
 
@@ -627,13 +616,10 @@ workflow {
          --baseQ                          : $params.baseQ # Minimum base quality: FDSTOOLS distrusts lower bases
 
          POSTPROCESSING
-         --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there
-         --min_vf_MT2                     : $params.min_vf_MT2 # Minor variant frequency threshold MUTECT2
+         --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; its calls are kept
          --min_vf_FDS                     : $params.min_vf_FDS # Minor variant frequency threshold FDSTOOLS
          --lh_thresh                      : $params.lh_thresh # Length variants: under it not reported, up to 100 minus it lowercase, above uppercase
-         --disagreement_average           : $params.disagreement_average # plain or depth_weighted average when the callers disagree on major vs minor
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left) for 16180-16193 and 300-315
-         --mutect2_disabled_regions       : $params.mutect2_disabled_regions # none, all or e.g. 300-315,16180-16193: Mutect2 minor calls left out there
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
 
          OUTPUT DIRECTORY   
@@ -703,10 +689,7 @@ workflow {
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
-    // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
-    p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.bams.map { sid, _bam, _bai, _rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
-    p10_p11_final_inputs = p10_fdstools_ch.join(p09_depth_ch, by: 0)
-    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
+    p13_merge_variants_p10_p11(p10_fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
 
 }

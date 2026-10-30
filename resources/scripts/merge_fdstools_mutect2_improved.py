@@ -1,14 +1,14 @@
+"""The report: FDSTOOLS' calls (the table written by process_fdstools_output_improved_better.py)
+with one row per variant and one LOW row per amplicon below --depth, written as a coloured Excel file."""
 import argparse
 import pandas as pd
 import re
 import sys
 import traceback
 from openpyxl import load_workbook
-from openpyxl.styles import PatternFill, Border, Side, Alignment
+from openpyxl.styles import PatternFill, Border, Side
 
-import frames
 import iupac
-import notation
 
 
 white_border = Border(
@@ -17,27 +17,6 @@ white_border = Border(
     top=Side(border_style="thin", color="FFFFFF"),
     bottom=Side(border_style="thin", color="FFFFFF")
 )
-
-
-def lh_bounds_pct(threshold_pct):
-    """Symmetric floor/ceiling (percentage scale, 0-100) around a single
-    length-heteroplasmy threshold. Accepts either side (e.g. 10 or 90) and
-    always returns (floor, ceiling) with floor <= ceiling."""
-    return min(threshold_pct, 100 - threshold_pct), max(threshold_pct, 100 - threshold_pct)
-
-
-def is_major_format(variant_str):
-    """Whether an already-formatted LHP/DEL/INS label is in major
-    (uppercase- or dash-terminated) or minor (lowercase-terminated) form.
-    Returns None if it can't be determined (missing/empty)."""
-    if not isinstance(variant_str, str) or not variant_str.strip():
-        return None
-    last_char = variant_str.strip().split()[-1][-1]
-    if last_char == "-":
-        return True
-    if last_char.isalpha():
-        return last_char.isupper()
-    return None
 
 
 _SUBSTITUTION = re.compile(r'^([ACGT])(\d+)([ACGTRYMKSWVHDBN])$')
@@ -56,16 +35,11 @@ def substitution_parts(variant_str):
     return match.groups()
 
 
-def merge_key(variant_str):
-    """Key that puts the same locus on one row across both callers.
-
-    Length variants only differ by letter case between a major and minor call
-    ("-309.1C" vs "-309.1c"), so upper-casing is enough; deletions likewise (major
-    "A523-" and minor "A523a" both key as "A523-"). Substitutions meet by position,
-    whatever bases each caller found there (T16189C, T16189Y and T16189H all key as
-    "T16189~"), so the two callers are compared on one row; "~" sorts after "-", so
-    the row follows a deletion at the same position.
-    """
+def order_key(variant_str):
+    """Key that orders the rows before they are sorted by position: a deletion at a
+    position (A523- or A523a, keyed "A523-") comes before the substitution there
+    (T16189C, T16189Y, ... keyed "T16189~", as "~" sorts after "-"); other labels
+    are keyed upper-cased."""
     parts = substitution_parts(variant_str)
     if parts:
         ref, pos, _code = parts
@@ -77,7 +51,7 @@ def merge_key(variant_str):
 
 
 def as_number(value):
-    """A value from a caller's table as a number where it is one; values per base
+    """A value from the table as a number where it is one; values per base
     ("C 40, A 10") stay text."""
     try:
         return float(value)
@@ -85,26 +59,14 @@ def as_number(value):
         return value
 
 
-def mutect2_rcrs_share(coverages, min_reads):
-    """rCRS's share (a fraction) from Mutect2's reads (iupac.rcrs_share). rCRS on fewer than
-    min_reads reads does not count, as in Mutect2's own processing. None when unreadable."""
-    try:
-        if float(str(coverages[0]).split(",")[0]) < min_reads:
-            return 0.0
-    except ValueError:
-        return None
-    return iupac.rcrs_share(coverages)
-
-
-def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor, min_reads=1):
-    """A caller's substitution rows at one position as one row, for a caller that
-    writes one row per base other than rCRS: T16189Y (C 40%) and T16189W (A 10%)
-    become T16189H with vf "C 40, A 10". rCRS counts as present when what is left
-    of the reads (100% minus the other bases and the molecules with a deletion
-    there, `deleted`) reaches min_vf, so C 70% and A 30% become T16189M. vf times
-    `factor` is percent. Reads: FDSTOOLS gives one number per base, Mutect2
-    "ref,alt" per row, which becomes "ref,alt1,alt2" in the order of vf."""
-    parts = df[label].apply(substitution_parts)
+def one_row_per_position(df, min_vf, deleted):
+    """FDSTOOLS' substitution rows at one position as one row: T16189Y (C 40%) and
+    T16189W (A 10%) become T16189H with vf "C 40, A 10" and reads "C 200, A 50".
+    rCRS counts as present when what is left of the reads (100% minus the other
+    bases and the molecules with a deletion there, `deleted`) reaches min_vf, so
+    C 70% and A 30% become T16189M. The FDSTOOLS step already writes one row per
+    position, so this only joins rows it left apart."""
+    parts = df["FDSTOOLS"].apply(substitution_parts)
     groups = {}
     for i, p in parts.items():
         if p:
@@ -113,34 +75,24 @@ def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor, min_reads=1
     for (ref, pos), idx in groups.items():
         if len(idx) < 2:
             continue
-        vfs, reads, ref_reads = {}, {}, None
+        vfs, reads = {}, {}
         for i in idx:
             bases = iupac.alts(parts[i][2], ref)
-            values = iupac.parse_values(df.at[i, vf], bases)
-            if values is None:
+            values = iupac.parse_values(df.at[i, "vf_FDS"], bases)
+            n = as_number(df.at[i, "rd_FDS"])
+            if values is None or not isinstance(n, float):  # already given per base: left as it is
                 break
             vfs.update(values)
-            if "," in str(df.at[i, rd]):
-                ref_reads, n = str(df.at[i, rd]).split(",", 1)
-            else:
-                n = df.at[i, rd]
             reads[next(iter(bases))] = n
         else:
-            reads_share = (mutect2_rcrs_share([f"{ref_reads}," + ",".join(str(n) for n in reads.values())],
-                                              min_reads)
-                           if ref_reads is not None else None)
-            ref_share = (100 * reads_share if reads_share is not None
-                         else 100 - factor * sum(vfs.values()) - deleted.get((ref, pos), 0))
+            ref_share = 100 - sum(vfs.values()) - deleted.get((ref, pos), 0)
             present = set(vfs) | ({ref} if ref_share >= min_vf else set())
             row = {c: " | ".join(dict.fromkeys(str(v) for v in df.loc[idx, c].dropna())) or None
                    for c in df.columns}
             order = sorted(vfs, key=lambda b: (-vfs[b], b))
-            row[label] = f"{ref}{pos}{iupac.code(present)}"
-            row[vf] = iupac.format_values(vfs, 4 if vf == "vf_MT2" else 2)
-            row[rd] = (f"{ref_reads}," + ",".join(str(reads[b]) for b in order) if ref_reads is not None
-                       else ", ".join(f"{b} {reads[b]:g}" for b in order))
-            if "Type" in row:
-                row["Type"] = "SNP" if len(present) == 1 else "PHP"
+            row["FDSTOOLS"] = f"{ref}{pos}{iupac.code(present)}"
+            row["vf_FDS"] = iupac.format_values(vfs, 2)
+            row["rd_FDS"] = ", ".join(f"{b} {reads[b]:g}" for b in order)
             rows.append(row)
             combined += idx
     if not rows:
@@ -148,15 +100,15 @@ def one_row_per_position(df, label, vf, rd, min_vf, deleted, factor, min_reads=1
     return pd.concat([df.drop(index=combined), pd.DataFrame(rows)], ignore_index=True)
 
 
-def deletion_shares(labels, vfs, factor):
-    """{(ref, position): percent} of a caller's deletion rows (A523-, A523a)."""
+def deletion_shares(labels, vfs):
+    """{(ref, position): percent} of FDSTOOLS' deletion rows (A523-, A523a)."""
     out = {}
     for label, vf in zip(labels, vfs):
         m = _DELETION.match(str(label))
         if m and m.group(3) in ("-", m.group(1).lower()):
             value = as_number(vf)
             if isinstance(value, float):
-                out[(m.group(1), m.group(2))] = value * factor
+                out[(m.group(1), m.group(2))] = value
     return out
 
 
@@ -178,334 +130,65 @@ def load_amplicon_ranges(library_path):
     return ranges
 
 
-def mutect2_amplicon_depths(depth_file, ranges):
-    """Mutect2-side depth per amplicon: reads at the amplicon's middle position
-    in the BAM Mutect2 runs on (p09's samtools depth output)."""
-    depths = {}
-    for line in open(depth_file):
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        pos, depth = int(parts[1]), int(float(parts[2]))
-        for amplicon, (start, end) in ranges.items():
-            if start <= pos <= end:
-                depths[amplicon] = depth
-    return depths
+def build_low_rows(fds_low, ranges):
+    """One LOW row per amplicon below the depth threshold, in the library's order,
+    with FDSTOOLS' reads of the amplicon."""
+    depths = dict(zip(fds_low["marker"], fds_low["rd_FDS"]))
+    return pd.DataFrame([{"FMP": "LOW", "rd_FDS": depths[amplicon], "marker": amplicon,
+                          "marker_range": f"{start}-{end}"}
+                         for amplicon, (start, end) in ranges.items() if amplicon in depths])
 
 
-def build_low_rows(fds_low, mt2_depths, ranges, depth_threshold):
-    """One LOW row per amplicon where either caller's depth is below
-    depth_threshold. FDSTOOLS/MUTECT2 name the amplicon for the caller(s) that
-    are low; called_by_* read "LOW" or "OK" per caller."""
-    fds_depths = dict(zip(fds_low["marker"], fds_low["rd_FDS"]))
-    rows = []
-    for amplicon, (start, end) in ranges.items():
-        fds_is_low = amplicon in fds_depths
-        mt2_is_low = amplicon in mt2_depths and mt2_depths[amplicon] < depth_threshold
-        if not (fds_is_low or mt2_is_low):
-            continue
-        rows.append({
-            "FMP": "LOW",
-            "FDSTOOLS": amplicon if fds_is_low else None,
-            "rd_FDS": fds_depths.get(amplicon),
-            "MUTECT2": amplicon if mt2_is_low else None,
-            "rd_MT2": mt2_depths.get(amplicon),
-            "called_by_FDSTOOLS": "LOW" if fds_is_low else "OK",
-            "called_by_MUTECT2": "LOW" if mt2_is_low else "OK",
-            "marker": amplicon,
-            "marker_range": f"{start}-{end}",
-        })
-    return pd.DataFrame(rows)
-
-
-def caller_average_pct(row, vf_fds, vf_mt2, weighted=False):
-    """Average of the two callers' frequencies (percent). With weighted=True each
-    caller is weighted by its depth for the call (FDSTOOLS: amplicon reads,
-    Mutect2: ref+alt reads), falling back to the plain average if a depth is missing."""
-    if not weighted:
-        return (vf_fds + vf_mt2 * 100) / 2
-    d_fds = pd.to_numeric(row.get("rd_total_FDS"), errors="coerce")
-    try:
-        d_mt2 = sum(float(x) for x in str(row.get("rd_MT2")).split(","))
-    except ValueError:
-        d_mt2 = float("nan")
-    if pd.notna(d_fds) and pd.notna(d_mt2) and d_fds + d_mt2 > 0:
-        return (vf_fds * d_fds + vf_mt2 * 100 * d_mt2) / (d_fds + d_mt2)
-    return (vf_fds + vf_mt2 * 100) / 2
-
-
-def disabled_regions(value):
-    """Region names for --mutect2_disabled_regions: none, all, or names from
-    frames.REGIONS separated by commas (300-315,16180-16193)."""
-    if value in ("", "none"):
-        return []
-    if value == "all":
-        return list(frames.REGIONS)
-    names = [n.strip() for n in value.split(",")]
-    unknown = [n for n in names if n not in frames.REGIONS]
-    if unknown:
-        raise argparse.ArgumentTypeError(
-            f"unknown region {', '.join(unknown)}; choose from {', '.join(frames.REGIONS)}, all or none")
-    return names
-
-
-def region_of(label, names):
-    """The region among `names` that a report label lies in, or None."""
-    m = re.match(r"^-?[ACGTN]?(\d+)", str(label))
-    if m:
-        pos = int(m.group(1))
-        return next((n for n in names if frames.REGIONS[n].first <= pos <= frames.REGIONS[n].last), None)
-    return None
-
-
-def merge_variant_callers(file_fdstools: str, file_mutect2: str, lh_thresh: float = 10.0,
-                          min_vf: float = 5.0, mutect2_depth_file: str = None,
-                          marker_map: str = None, depth_threshold: int = 10,
-                          weighted_average: bool = False, mutect2_disabled=(),
-                          min_reads: int = 1) -> pd.DataFrame:
-    try:
-        df1 = pd.read_csv(file_fdstools, sep="\t")
-        df2 = pd.read_csv(file_mutect2, sep="\t")
-    except Exception as e:
-        print(f"Error reading input files: {e}", file=sys.stderr)
-        raise
-
-    if df1.empty and df2.empty:
-        print("Both inputs are empty (negative control / H2O). Writing empty output.", file=sys.stderr)
+def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = None) -> pd.DataFrame:
+    df = pd.read_csv(file_fdstools, sep="\t")
+    if df.empty:
+        print("The FDSTOOLS table is empty (negative control / H2O). Writing empty output.", file=sys.stderr)
         return pd.DataFrame()
 
-    for df, columns in ((df1, ("vf_FDS", "rd_FDS")), (df2, ("vf_MT2",))):
-        for c in columns:
-            if c in df.columns and df[c].dtype == object:
-                df[c] = df[c].map(as_number)
+    for c in ("vf_FDS", "rd_FDS"):
+        if c in df.columns and df[c].dtype == object:
+            df[c] = df[c].map(as_number)
 
-    try:
-        # LOW rows are rebuilt per amplicon for both callers after the merge
-        fds_low = df1[df1["FDSTOOLS"] == "LOW"]
-        df1 = df1[df1["FDSTOOLS"] != "LOW"].copy()
-        if marker_map:
-            ranges = load_amplicon_ranges(marker_map)
-        else:
-            ranges = {m: tuple(map(int, str(r).split("-"))) for m, r in zip(fds_low["marker"], fds_low["marker_range"])}
-        mt2_depths = mutect2_amplicon_depths(mutect2_depth_file, ranges) if mutect2_depth_file else {}
+    # LOW rows are rebuilt per amplicon at the end
+    fds_low = df[df["FDSTOOLS"] == "LOW"]
+    df = df[df["FDSTOOLS"] != "LOW"].copy()
+    if marker_map:
+        ranges = load_amplicon_ranges(marker_map)
+    else:
+        ranges = {m: tuple(map(int, str(r).split("-"))) for m, r in zip(fds_low["marker"], fds_low["marker_range"])}
 
-        # In a disabled region only Mutect2's major calls count; its minor calls
-        # are listed in the note of the region's rows
-        left_out = {}
-        if mutect2_disabled and not df2.empty:
-            minor = df2["MUTECT2"].apply(
-                lambda label: not notation.is_major(label) and region_of(label, mutect2_disabled) is not None)
-            for label, vf in zip(df2.loc[minor, "MUTECT2"], df2.loc[minor, "vf_MT2"]):
-                left_out.setdefault(region_of(label, mutect2_disabled), []).append(f"{label} {iupac.scale_values(vf, 100)}%")
-            df2 = df2[~minor].copy()
+    df = one_row_per_position(df, min_vf, deletion_shares(df["FDSTOOLS"], df["vf_FDS"]))
+    df = df.rename(columns={"FDSTOOLS": "FMP"})
 
-        fds_deleted = deletion_shares(df1["FDSTOOLS"], df1["vf_FDS"], 1)
-        mt2_deleted = deletion_shares(df2["MUTECT2"], df2["vf_MT2"], 100) if not df2.empty else {}
-        df1 = one_row_per_position(df1, "FDSTOOLS", "vf_FDS", "rd_FDS", min_vf, fds_deleted, 1)
-        if not df2.empty:
-            df2 = one_row_per_position(df2, "MUTECT2", "vf_MT2", "rd_MT2", min_vf, mt2_deleted, 100, min_reads)
+    # by position; at one position a deletion before a substitution
+    df["_order_key"] = df["FMP"].apply(order_key)
+    df = df.sort_values(by="_order_key", kind="mergesort").drop(columns=["_order_key"]).reset_index(drop=True)
+    df["variant_position"] = df["FMP"].apply(
+        lambda seq: float(m.group(1)) if (m := re.search(r"(\d+\.?\d*)", str(seq))) else float("inf"))
+    df = df.sort_values(by="variant_position").drop(columns=["variant_position"])
 
-        # Rename original variant columns before merge to avoid conflict
-        df1["FMP"] = df1["FDSTOOLS"]
-        df2["FMP"] = df2["MUTECT2"]
+    front = [c for c in ("FMP", "vf_FDS", "rd_FDS") if c in df.columns]
+    df = df[front + [c for c in df.columns if c not in front]]
 
-        # Join on a case-normalized key so the same locus is recognized as
-        # the same event even when the two callers' own individual variant
-        # frequencies land on opposite sides of the major/minor case
-        # boundary for a length-heteroplasmy call (e.g. "-309.1C" vs
-        # "-309.1c"). Each caller's own original-case label is preserved
-        # in FMP_FDSTOOLS/FMP_MUTECT2 below and reconciled afterward.
-        df1["_merge_key"] = df1["FMP"].apply(merge_key)
-        df2["_merge_key"] = df2["FMP"].apply(merge_key)
+    low_rows = build_low_rows(fds_low, ranges)
+    if not low_rows.empty:
+        df = pd.concat([df, low_rows], ignore_index=True)
+    return df
 
-        merged = pd.merge(df1, df2, on="_merge_key", how="outer", suffixes=("_FDSTOOLS", "_MUTECT2"))
-        merged.drop(columns=["_merge_key"], inplace=True)
-
-        # Where both callers agree on a length-heteroplasmy locus but
-        # disagree on major-vs-minor classification (case mismatch above),
-        # decide from the *averaged* variant frequency instead of trusting
-        # either caller's individual estimate, and use whichever caller's
-        # already-shifted/formatted label matches that averaged decision.
-        # fds_confirms/mt2_confirms record whether each caller's *own* call
-        # actually matches the reported classification (None when no
-        # reconciliation was needed/possible, i.e. not a both-called length
-        # variant) - used below to correct called_by_FDSTOOLS/MUTECT2 so
-        # they mean "this caller supports what's reported", not just
-        # "this caller called something at this locus".
-        lh_floor, lh_ceiling = lh_bounds_pct(lh_thresh)
-
-        def reconcile_row(row):
-            fmp_fds = row.get("FMP_FDSTOOLS")
-            fmp_mt2 = row.get("FMP_MUTECT2")
-            current_type = row.get("Type")
-            both_called = pd.notna(fmp_fds) and pd.notna(fmp_mt2)
-            is_length_type = current_type in ("DEL", "INS", "LHP")
-
-            # Substitutions: both callers on one row per position. When their labels
-            # differ, every base other than rCRS that either caller found is kept
-            # (as a minor call from one caller is reported on its own row), and
-            # whether rCRS is still present is decided from the two callers'
-            # averaged share of it, as major vs minor is decided for length
-            # variants (Mutect2's share from its reads, see iupac.rcrs_share). A
-            # caller whose own label differs is a DISAGREEMENT.
-            if both_called and not is_length_type:
-                fds_parts = substitution_parts(fmp_fds)
-                mt2_parts = substitution_parts(fmp_mt2)
-                if fds_parts and mt2_parts and fmp_fds != fmp_mt2:
-                    ref, pos, _ = fds_parts
-                    fds_alts = iupac.parse_values(row.get("vf_FDS"), iupac.alts(fds_parts[2], ref))
-                    mt2_alts = iupac.parse_values(iupac.scale_values(row.get("vf_MT2"), 100, 6),
-                                                  iupac.alts(mt2_parts[2], ref))
-                    if fds_alts is not None and mt2_alts is not None:
-                        ref_fds = 100 - sum(fds_alts.values()) - fds_deleted.get((ref, pos), 0)
-                        reads = mutect2_rcrs_share([row.get("rd_MT2")], min_reads)
-                        ref_mt2 = (100 * reads if reads is not None
-                                   else 100 - sum(mt2_alts.values()) - mt2_deleted.get((ref, pos), 0))
-                        avg_ref = caller_average_pct(row, ref_fds, ref_mt2 / 100, weighted_average)
-                        present = set(fds_alts) | set(mt2_alts) | ({ref} if avg_ref >= min_vf else set())
-                        fmp = f"{ref}{pos}{iupac.code(present)}"
-                        return pd.Series({
-                            "FMP": fmp,
-                            "Type": "SNP" if len(present) == 1 else "PHP",
-                            "fds_confirms": fmp_fds == fmp,
-                            "mt2_confirms": fmp_mt2 == fmp,
-                        })
-
-            if not (both_called and is_length_type):
-                fmp = fmp_fds if pd.notna(fmp_fds) else fmp_mt2
-                return pd.Series({"FMP": fmp, "Type": current_type,
-                                   "fds_confirms": None, "mt2_confirms": None})
-
-            vf_fds, vf_mt2 = row.get("vf_FDS"), row.get("vf_MT2")
-            if pd.isna(vf_fds) or pd.isna(vf_mt2):
-                fmp = fmp_mt2 if pd.notna(fmp_mt2) else fmp_fds
-                return pd.Series({"FMP": fmp, "Type": current_type,
-                                   "fds_confirms": None, "mt2_confirms": None})
-
-            avg_pct = caller_average_pct(row, vf_fds, vf_mt2, weighted_average)
-            desired_major = avg_pct >= lh_ceiling
-
-            fds_confirms = is_major_format(fmp_fds) == desired_major
-            mt2_confirms = is_major_format(fmp_mt2) == desired_major
-
-            if fds_confirms:
-                fmp = fmp_fds
-            elif mt2_confirms:
-                fmp = fmp_mt2
-            else:
-                fmp = fmp_mt2  # fallback; shouldn't normally happen
-
-            if desired_major == (current_type in ("DEL", "INS")):
-                var_type = current_type
-            elif desired_major:
-                ref, var = str(row.get("Ref", "")), str(row.get("Variant", ""))
-                var_type = "DEL" if len(ref) > len(var) else "INS"
-            else:
-                var_type = "LHP"
-
-            return pd.Series({"FMP": fmp, "Type": var_type,
-                               "fds_confirms": fds_confirms, "mt2_confirms": mt2_confirms})
-
-        reconciled = merged.apply(reconcile_row, axis=1)
-        merged["FMP"] = reconciled["FMP"]
-        if "Type" in merged.columns:
-            merged["Type"] = reconciled["Type"]
-        merged.drop(columns=["FMP_FDSTOOLS", "FMP_MUTECT2"], inplace=True, errors="ignore")
-
-        merged["called_by_FDSTOOLS"] = (~merged["FDSTOOLS"].isna()).astype(bool)
-        merged["called_by_MUTECT2"] = (~merged["MUTECT2"].isna()).astype(bool)
-
-        # fds_confirms/mt2_confirms are only non-null when BOTH callers made
-        # a call at this locus (both_called above) - so a False here never
-        # means "this caller didn't call it" (that's the plain False set
-        # just above, untouched by this override). It means the caller DID
-        # call it, but on the other side of the major/minor (or SNP/PHP)
-        # threshold from the averaged-frequency decision that FMP reports -
-        # a real disagreement between the two callers, not a non-call.
-        # Flagging both cases identically as False reads as "MUTECT2/
-        # FDSTOOLS missed this", which is misleading for the disagreement
-        # case, so it gets its own label instead of False.
-        merged["called_by_FDSTOOLS"] = merged["called_by_FDSTOOLS"].astype(object)
-        merged["called_by_MUTECT2"] = merged["called_by_MUTECT2"].astype(object)
-
-        fds_override = reconciled["fds_confirms"].notna()
-        merged.loc[fds_override.values, "called_by_FDSTOOLS"] = reconciled.loc[fds_override, "fds_confirms"].apply(
-            lambda confirms: True if confirms else "DISAGREEMENT").values
-        mt2_override = reconciled["mt2_confirms"].notna()
-        merged.loc[mt2_override.values, "called_by_MUTECT2"] = reconciled.loc[mt2_override, "mt2_confirms"].apply(
-            lambda confirms: True if confirms else "DISAGREEMENT").values
-
-        if mutect2_disabled:
-            region = merged["FMP"].apply(lambda label: region_of(label, mutect2_disabled))
-            silent = merged["called_by_MUTECT2"].apply(lambda v: v is False)
-            merged.loc[region.notna() & silent, "called_by_MUTECT2"] = "DISABLED"
-            if "variant_note" not in merged.columns:
-                merged["variant_note"] = None
-            for name, labels in left_out.items():
-                note = f"Mutect2 minor calls left out: {', '.join(labels)}"
-                rows = region == name
-                merged.loc[rows, "variant_note"] = merged.loc[rows, "variant_note"].apply(
-                    lambda n: note if pd.isna(n) else f"{n}; {note}")
-
-        def extract_position(seq):
-            match = re.search(r"(\d+\.?\d*)", str(seq))
-            return float(match.group(1)) if match else float('inf')
-
-        merged["variant_position"] = merged["FMP"].apply(extract_position)
-        merged = merged.sort_values(by="variant_position").drop(columns=["variant_position"])
-        # merged = merged.sort_values(by="marker")
-
-        front = ["FMP"]
-        # other = [col for col in merged.columns if col not in front]
-        # return merged[front + other]
-
-        # Reorder known columns if they exist
-        priority_order = [
-            "FDSTOOLS",
-            "vf_FDS",
-            "rd_FDS",
-            "MUTECT2",
-            "vf_MT2",
-            "rd_MT2",
-            "MBQ",
-            "called_by_FDSTOOLS",
-            "called_by_MUTECT2"
-        ]
-        existing_priority = [col for col in priority_order if col in merged.columns]
-        remaining_columns = [col for col in merged.columns if col not in front and col not in existing_priority]
-        merged = merged[front + existing_priority + remaining_columns]
-
-        low_rows = build_low_rows(fds_low, mt2_depths, ranges, depth_threshold)
-        if not low_rows.empty:
-            merged = pd.concat([merged, low_rows], ignore_index=True)
-
-        return merged
-
-
-    except Exception as e:
-        print(f"Error processing and merging data: {e}", file=sys.stderr)
-        raise
 
 def apply_excel_styles(excel_path: str):
     try:
         wb = load_workbook(excel_path)
         ws = wb.active
 
-        # Define fills
-        fill_green = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # D to M
-        fill_blue = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")   # N to X
-        fill_red = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")    # False flags (caller didn't call it at all)
-        fill_disagree = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")  # DISAGREEMENT flags (caller called it, but on the other side of the major/minor threshold)
-        fill_disabled = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # DISABLED: Mutect2 left out in this region
+        fill_green = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # FDSTOOLS' columns
 
-        # Define additional fill colors for column A
+        # The first column (the call) by kind
         fill_low = PatternFill(start_color="FEFE01", end_color="FEFE01", fill_type="solid")
         fill_iupac = PatternFill(start_color="FAC000", end_color="FAC000", fill_type="solid")
         fill_lowercase = PatternFill(start_color="3CB0F1", end_color="3CB0F1", fill_type="solid")
-        fill_false_flag = PatternFill(start_color="F50003", end_color="F50003", fill_type="solid")
         fill_dash = PatternFill(start_color="92D14F", end_color="92D14F", fill_type="solid")
         fill_default = PatternFill(start_color="36B150", end_color="36B150", fill_type="solid")
-
 
         header = [cell.value for cell in ws[1]]
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -513,13 +196,10 @@ def apply_excel_styles(excel_path: str):
                 col_name = header[idx]
                 cell.border = white_border
 
-                # Special coloring for first column "variant"
                 if idx == 0:
                     val = str(cell.value)
                     if val == "LOW":
                         cell.fill = fill_low
-                    elif row[8].value is False or row[9].value is False or row[8].value == "DISAGREEMENT" or row[9].value == "DISAGREEMENT":
-                        cell.fill = fill_false_flag
                     elif re.search(r"[a-z]", val):
                         cell.fill = fill_lowercase
                     elif "-" in val:
@@ -528,97 +208,47 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_iupac
                     else:
                         cell.fill = fill_default
-
-
-                # Red fill for False flags
-                if col_name == "called_by_FDSTOOLS" and cell.value is False:
-                    cell.fill = fill_green
-                elif col_name == "called_by_MUTECT2" and cell.value is False:
-                    cell.fill = fill_red
-
-                if col_name.endswith("_MUTECT2") or col_name.endswith("_MT2") or col_name in ["MUTECT2", "Filter", "Pos", "Ref", "Variant", "GT", "Type", "MBQ", "Filter" ]:
-                    cell.fill = fill_blue
-                elif col_name.endswith("_FDSTOOLS") or col_name.endswith("_FDS") or col_name in ["FDSTOOLS", "marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
+                elif col_name.endswith("_FDS") or col_name in ["marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
                     cell.fill = fill_green
 
-
-                if col_name in ("called_by_FDSTOOLS", "called_by_MUTECT2"):
-                    # In a LOW row these say "LOW" or "OK" for each caller's depth
-                    if row[0].value == "LOW":
-                        if cell.value == "LOW":
-                            cell.fill = fill_red
-                    elif cell.value is False:
-                        cell.fill = fill_red
-                    elif cell.value == "DISAGREEMENT":
-                        cell.fill = fill_disagree
-                    elif cell.value == "DISABLED":
-                        cell.fill = fill_disabled
-                    # True/False are booleans and Excel centers those by
-                    # default, but "DISAGREEMENT" is a plain string, which
-                    # Excel left-aligns by default - so without an explicit
-                    # alignment it visually stood out from True/False in
-                    # the same column. Center both axes explicitly so all
-                    # three values in this column line up the same way.
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
         for col in ws.columns:
             max_length = 0
             column = col[0].column_letter  # Get column name (e.g., 'A', 'B', etc.)
             for cell in col:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-            adjusted_width = (max_length + 1)
-            ws.column_dimensions[column].width = adjusted_width
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column].width = max_length + 1
 
         wb.save(excel_path)
     except Exception as e:
         print(f"Error styling Excel file: {e}", file=sys.stderr)
         raise
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Merge mitochondrial variant calls from FDSTOOLS and MUTECT2.")
-    parser.add_argument("caller1", help="Path to the FDSTOOLS file (TSV format, with 'FDSTOOLS' column).")
-    parser.add_argument("caller2", help="Path to the MUTECT2 file (TSV format, with 'MUTECT2' column).")
-    parser.add_argument("output_file", help="Path to save the merged output (XLSX format).")
-    parser.add_argument("--lh_thresh", type=float, default=10.0, help="Symmetric length-heteroplasmy threshold, used to reconcile major/minor case disagreements between callers via their averaged variant frequency")
-    parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold: where the callers' substitution labels differ, rCRS counts as present when the callers' averaged share of it reaches min_vf")
-    parser.add_argument("--mutect2_depth", help="samtools depth at each amplicon's middle position in the BAM Mutect2 runs on (p09); amplicons below --depth are reported as LOW for Mutect2")
+    parser = argparse.ArgumentParser(description="Write the report from FDSTOOLS' calls.")
+    parser.add_argument("fdstools_table", help="FDSTOOLS' calls (TSV, with an 'FDSTOOLS' column), from process_fdstools_output_improved_better.py")
+    parser.add_argument("output_file", help="Path to save the report (XLSX format).")
+    parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold: where FDSTOOLS writes a position's bases on separate rows, rCRS counts as present when its share reaches min_vf")
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
-    parser.add_argument("--depth", type=int, default=10, help="Read depth below which an amplicon is reported as LOW")
-    parser.add_argument("--disagreement_average", choices=["plain", "depth_weighted"], default="plain", help="How the two callers' frequencies are averaged when they disagree on major vs minor: plain average, or weighted by each caller's read depth")
-    parser.add_argument("--min_reads", type=int, default=2, help="Reads rCRS needs in Mutect2's counts to count where the callers' substitution labels differ, as in Mutect2's own processing")
-    parser.add_argument("--mutect2_disabled_regions", type=disabled_regions, default="none", help="Complex regions where only Mutect2's major calls count (its minor calls are listed in the note of the region's rows): none, all, or names separated by commas, e.g. 300-315,16180-16193")
     parser.add_argument("--variant_note", choices=["true", "false"], default="true", help="false: the report has no variant_note column")
 
     args = parser.parse_args()
 
     try:
-        df_merged = merge_variant_callers(args.caller1, args.caller2, args.lh_thresh, args.min_vf,
-                                          args.mutect2_depth, args.marker_map, args.depth,
-                                          args.disagreement_average == "depth_weighted",
-                                          args.mutect2_disabled_regions, args.min_reads)
-        if df_merged.empty:
+        report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map)
+        if report.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")
             sys.exit(0)
-        df_merged.drop(columns=["ID","is_noise_or_low_frq"], errors="ignore", inplace=True)
-        df_merged.rename(columns={
-            "total_wo_noise_or_low_frq": "total_clean",
-            "variant_frequency_wo_noise_or_low_frq": "variant_frequency_clean"
-        }, inplace=True)
-        if "vf_MT2" in df_merged.columns:
-            number = pd.to_numeric(df_merged["vf_MT2"], errors="coerce")
-            df_merged["vf_MT2"] = (number * 100).round(2).where(
-                number.notna(), df_merged["vf_MT2"].map(lambda v: iupac.scale_values(v, 100)))
+        report.drop(columns=["ID", "is_noise_or_low_frq"], errors="ignore", inplace=True)
         if args.variant_note == "false":
-            df_merged = df_merged.drop(columns=["variant_note"], errors="ignore")
-        df_merged.to_excel(args.output_file, index=False, engine="openpyxl")
-        print(f"Merged Excel file saved to: {args.output_file}")
+            report = report.drop(columns=["variant_note"], errors="ignore")
+        report.to_excel(args.output_file, index=False, engine="openpyxl")
+        print(f"Report saved to: {args.output_file}")
     except Exception:
         traceback.print_exc()
-        print("Merging failed. Please check your input files and formats.", file=sys.stderr)
+        print("Writing the report failed. Please check the input file and its format.", file=sys.stderr)
         sys.exit(1)
 
     try:

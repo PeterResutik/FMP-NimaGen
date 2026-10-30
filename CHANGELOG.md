@@ -13,6 +13,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   the merge an empty Mutect2 table, so the Mutect2 columns of the report stay
   empty, and the parameter log says that Mutect2 is not run. The Mutect2 step,
   its parameters and the Mutect2 columns are still there for now.
+- The report holds FDSTOOLS' columns only: `FMP` (the call), `vf_FDS`,
+  `rd_FDS`, `rd_total_FDS`, `variant_note`, `dominant_molecule`, `marker`,
+  `marker_range` and `num_markers`. The columns `FDSTOOLS` (always equal to
+  `FMP`), `MUTECT2`, `vf_MT2`, `rd_MT2`, `MBQ`, `called_by_FDSTOOLS` and
+  `called_by_MUTECT2` are gone, and so are `--min_vf_MT2`,
+  `--disagreement_average` and `--mutect2_disabled_regions`. A `LOW` row marks
+  an amplicon with fewer FDSTOOLS reads than `--depth`, with those reads in
+  `rd_FDS`; the depth of the Mutect2 BAM no longer makes `LOW` rows. The calls
+  and their order are unchanged.
 
 ## [0.3.0] – 2026-10-21
 
