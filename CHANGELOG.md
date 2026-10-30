@@ -8,11 +8,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.4.0] – 2026-10-30
+
 ### Changed
-- Mutect2 is no longer run: the report holds FDSTOOLS calls only. p13 gives
-  the merge an empty Mutect2 table, so the Mutect2 columns of the report stay
-  empty, and the parameter log says that Mutect2 is not run. The Mutect2 step,
-  its parameters and the Mutect2 columns are still there for now.
+- FDSTOOLS is the only variant caller; Mutect2 is no longer run. Since 0.3.0,
+  FDSTOOLS leaves out bases below `--baseQ`, as Mutect2 does, so Mutect2 had
+  become redundant. It also had two weaknesses of its own: in the
+  homopolymers of HV1 and HV2, its local assembly broke the length variant
+  of a whole molecule into changes at single positions, and it missed some
+  variants that the reads clearly supported.
 - The report holds FDSTOOLS' columns only: `FMP` (the call), `vf_FDS`,
   `rd_FDS`, `rd_total_FDS`, `variant_note`, `dominant_molecule`, `marker`,
   `marker_range` and `num_markers`. The columns `FDSTOOLS` (always equal to
@@ -31,9 +35,9 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   `FDSTOOLS` and `MUTECT2` columns of `sites.tsv` (`score_mixtures.py`);
   `found_MT2`, `abs_err_MT2`, `bias_MT2` and the `FDSTOOLS`, `MUTECT2` and
   `vf_MT2` columns (`evaluate_mixtures.py`, where `found_FDS`, the expected
-  heteroplasmies found, is now `het_found`). `low_amplicons`
-  names the amplicons only. `run_batch.sh` no longer keeps a Mutect2 VCF,
-  which made it stop since Mutect2 is no longer run.
+  heteroplasmies found, is now `het_found`). `low_amplicons` names the
+  amplicons only. `run_batch.sh` no longer keeps a Mutect2 VCF, which made it
+  stop since Mutect2 is no longer run.
 
 ### Removed
 - Mutect2 (`p12`), its processing script
