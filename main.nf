@@ -535,9 +535,8 @@ process p13_merge_variants_p10_p11 {
     publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy', overwrite: true
 
     input:
-    tuple val(sample_id), path(vcf_file), path(vcf_file_idx), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file), path(mutect2_depth_txt)
+    tuple val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file), path(mutect2_depth_txt)
     path reference
-    path python_script_process_mutect2_vcfgz
     path python_script_process_fdstools_sast
     path python_script_merge_fdstools_mutect2
     path python_modules // notation.py, frames.py, iupac.py: imported by the p13 scripts, inputs so -resume sees changes
@@ -546,39 +545,11 @@ process p13_merge_variants_p10_p11 {
     path("${sample_id}_${params.frame}_frame.xlsx"), emit: merged_variants_ch
 
     script:
-    def vcf_name = "${vcf_file}".replaceAll('.vcf.gz', '')
-
     """
-    if [ -s "${vcf_file}" ] && [ -s "${sast_file}" ]; then
+    if [ -s "${sast_file}" ]; then
 
-        echo -e "ID\tFilter\tPos\tRef\tVariant\tVariantLevel\tMeanBaseQuality\tCoverage\tGT" \
-            > ${vcf_file.baseName}.txt
-
-        bcftools query -u \
-            -f "${vcf_name}.bam\t%FILTER\t%POS\t%REF\t%ALT\t[%AF\t%MBQ\t%AD\t%GT]\n" \
-            ${vcf_file} | \
-            awk -F'\\t' '(\$2 !~ /bla/)' \
-            >> ${vcf_file.baseName}.txt
-
-        ## Annotate SNVs and INDELs
-        awk 'BEGIN {OFS="\\t"} {
-            if (NR == 1) { print \$0, "Type"; next }
-            if ((length(\$4) > 1 || length(\$5) > 1) && length(\$4) != length(\$5)) { \$10="INDEL" }
-            else { \$10="SNP" }
-            print
-        }' ${vcf_file.baseName}.txt > ${vcf_file.baseName}.filtered.txt
-
-        mutect_rows=\$(awk 'NR>1{c++} END{print c+0}' ${vcf_file.baseName}.filtered.txt)
-
-        if [ "\$mutect_rows" -gt 0 ]; then
-            python $python_script_process_mutect2_vcfgz \
-                ${vcf_file.baseName}.filtered.txt \
-                ${vcf_file.baseName}.filtered.empop.txt \
-                $reference \
-                --min_vf $params.min_vf_MT2 --lh_thresh $params.lh_thresh --frame $params.frame --min_reads $params.minimum
-        else
-            printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${vcf_file.baseName}.filtered.empop.txt
-        fi
+        # Mutect2 is not run: the merge gets an empty Mutect2 table, so the report holds FDSTOOLS calls only
+        printf "MUTECT2\tvf_MT2\trd_MT2\tMBQ\n" > ${sample_id}_mutect2_empty.txt
 
         python $python_script_process_fdstools_sast \
             ${sast_file} \
@@ -588,7 +559,7 @@ process p13_merge_variants_p10_p11 {
 
         python $python_script_merge_fdstools_mutect2 \
             ${sample_id}_fdstools_processed.txt \
-            ${vcf_file.baseName}.filtered.empop.txt \
+            ${sample_id}_mutect2_empty.txt \
             ${sample_id}_${params.frame}_frame.xlsx \
             --lh_thresh $params.lh_thresh --min_vf $params.min_vf_FDS \
             --mutect2_depth ${mutect2_depth_txt} --marker_map $params.fdstools_library --depth $params.depth \
@@ -599,7 +570,7 @@ process p13_merge_variants_p10_p11 {
 
 
     else
-        echo "Skipping ${sample_id}: one or more input files are empty." >&2
+        echo "Skipping ${sample_id}: the FDSTOOLS output is empty." >&2
         python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_${params.frame}_frame.xlsx', index=False, header=False)"
     fi
     """
@@ -652,20 +623,8 @@ workflow {
          --minimum                        : $params.minimum # Reads a sequence (FDSTOOLS) or a base (MUTECT2, rCRS included) needs
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
 
-         VARIANT CALLING (with MUTECT2)
-         --baseQ                          : $params.baseQ # Minimum base quality: Mutect2 ignores lower bases (also in its pileup detection), FDSTOOLS distrusts them
-         --callable_depth                 : $params.callable_depth # Minimum depth to be considered callable for Mutect stats. Does not affect genotyping
-         --force_alleles                  : ${relativePath(params.force_alleles)} # VCF of alleles Mutect2 always evaluates
-         --native_pair_hmm_threads        : $params.native_pair_hmm_threads # threads of the Mutect2 pair HMM; more save almost no time on mtDNA
-         --mutect2_memory                 : $params.mutect2_memory # memory per Mutect2 task; Java may use 80 percent of it
-         --initial-tumor-lod              : 0 (hard coded) # every candidate is written; --min_vf_MT2 and --minimum decide
-         --tumor-lod-to-emit              : 0 (hard coded)
-         --max-reads-per-alignment-start  : 0 (hard coded) # all reads kept: every read of an amplicon starts at one position
-         --min-reads-per-strand           : 0 (hard coded) # merged reads all point one way (FilterMutectCalls)
-         --linked-de-bruijn-graph         : true (hard coded)
-         --recover-all-dangling-branches  : true (hard coded)
-         --pileup-detection               : true (hard coded) # also for indels
-         --max-mnp-distance               : 0 (hard coded) # one record per substituted position
+         VARIANT CALLING (MUTECT2 not run: the report holds FDSTOOLS calls only)
+         --baseQ                          : $params.baseQ # Minimum base quality: FDSTOOLS distrusts lower bases
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; both callers keep their calls there
@@ -740,15 +699,14 @@ workflow {
 
     // ────────────────── VARIANT CALLING ─────────────────────
     p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
-    p12_variant_calling_mutect2_vcfgz_p01_p09(p09_filter_numts_trimmed_merged_bam_p07.out.bams, params.reference, p01_index_ch, p01_index_mutect2_ch, params.force_alleles)
-    p11_mutect2_ch = p12_variant_calling_mutect2_vcfgz_p01_p09.out.mutect2_ch 
+    // Mutect2 (p12) is not run: the report holds FDSTOOLS calls only
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
     // Depth at each amplicon's middle position in the BAM Mutect2 runs on, for Mutect2's LOW
     p09_depth_ch = p09_filter_numts_trimmed_merged_bam_p07.out.bams.map { sid, _bam, _bai, _rd, rd_wo_numts -> tuple(sid, rd_wo_numts) }
-    p10_p11_final_inputs = p11_mutect2_ch.join(p10_fdstools_ch, by: 0).join(p09_depth_ch, by: 0)
-    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_mutect2_vcfgz, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
+    p10_p11_final_inputs = p10_fdstools_ch.join(p09_depth_ch, by: 0)
+    p13_merge_variants_p10_p11(p10_p11_final_inputs, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
 
 }

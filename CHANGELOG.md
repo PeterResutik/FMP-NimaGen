@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- Mutect2 is no longer run: the report holds FDSTOOLS calls only. p13 gives
+  the merge an empty Mutect2 table, so the Mutect2 columns of the report stay
+  empty, and the parameter log says that Mutect2 is not run. The Mutect2 step,
+  its parameters and the Mutect2 columns are still there for now.
+
 ## [0.3.0] – 2026-10-21
 
 ### Added
