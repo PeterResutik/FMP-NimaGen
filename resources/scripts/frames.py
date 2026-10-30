@@ -23,7 +23,7 @@ another base (AACAC: A16182C) keeps its shared-frame reading.
 
 In both frames, one other base inside a leading run that keeps all its bases
 (AAACA at 16180) is an insertion after the bases before it (-16182.1C), as
-FDSTOOLS and Mutect2 align it; the rest of the molecule is then read as a
+FDSTOOLS aligns it; the rest of the molecule is then read as a
 full run.
 """
 import re

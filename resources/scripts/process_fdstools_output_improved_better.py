@@ -42,7 +42,7 @@ def resolve_heteroplasmy(row, min_variant_frequency_pct, length_heteroplasmy_thr
         if row['variant_frequency'] < lh_floor:
             return LH_DROP_SENTINEL
         is_major = row['variant_frequency'] >= lh_ceiling
-        # Minor deletion as ref base in lowercase (A523a), matching the Mutect2 side
+        # Minor deletion as ref base in lowercase (A523a)
         if 'DEL' in seq:
             return seq.replace('DEL', '-' if is_major else seq[0].lower())
         return '-' + seq if is_major else '-' + seq[:-1] + seq[-1].lower()

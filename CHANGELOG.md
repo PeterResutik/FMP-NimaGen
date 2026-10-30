@@ -35,6 +35,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   names the amplicons only. `run_batch.sh` no longer keeps a Mutect2 VCF,
   which made it stop since Mutect2 is no longer run.
 
+### Removed
+- Mutect2 (`p12`), its processing script
+  (`process_mutect2_output_improved.py`) and its tests, the alleles it always
+  evaluated (`resources/mutect2/force_alleles.vcf`), the sequence dictionary
+  of the reference that only Mutect2 used, and the parameters
+  `--callable_depth`, `--native_pair_hmm_threads`, `--mutect2_memory` and
+  `--force_alleles`. GATK and bcftools are no longer part of the environment
+  (`FMP-NimaGen.yml`, Dockerfile).
+
 ## [0.3.0] – 2026-10-21
 
 ### Added

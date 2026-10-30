@@ -31,10 +31,10 @@ The pipeline automates the following steps:
 1. **Mapping and soft-clip removal** (`p02`–`p03`): read pairs are mapped to rCRS with bwa, and soft-clipped bases are removed.  
 2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
 3. **Primer trimming** (`p05`): Cutadapt removes the primers and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
-4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for Mutect2).  
-5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-19.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; the callers keep the original qualities.  
+4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
+5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-19.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
 6. **Quality control** (`p10`): read depth per amplicon.  
-7. **Variant calling** (`p11`–`p12`): **FDSTOOLS** on the reads with primers and **GATK Mutect2** on the trimmed reads. Both leave out bases below `--baseQ` (30): Mutect2 ignores them, and FDSTOOLS counts a read that differs from a more common sequence of the same length only at such bases for that sequence.  
+7. **Variant calling** (`p11`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
 
 The workflow is designed for reproducibility and scalability.
@@ -157,7 +157,6 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | `p00_parameters.txt` | the options of the run |
 | `p10_quality_control/<sample>/` | read depth per amplicon (plot and tables) |
 | `p11_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
-| `p12_mutect2/<sample>/` | Mutect2 VCF |
 | `p13_merged_variants_xlsx/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
@@ -229,9 +228,7 @@ green background.
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
 | `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
 | `--rtn_memory` | `4 GB` | memory per rtn task (`p09`), which holds the humans index (about 2 GB); Nextflow starts no more tasks than the computer's memory holds |
-| `--mutect2_memory` | `4 GB` | memory per Mutect2 task (`p12`); Java may use 80% of it |
 | `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p11`); Nextflow reserves as many cores for each task, at most as many as the computer has |
-| `--native_pair_hmm_threads` | 1 | threads of Mutect2's pair HMM; more save almost no time on mtDNA |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
 
 All options and their values are printed at the start of each run and saved in
@@ -292,7 +289,7 @@ rm -r results
 
 ## Citation
 
-If this pipeline is used in research, please cite this repository and the associated tools (e.g., GATK, FDSTools, FLASH, Cutadapt, Nextflow).
+If this pipeline is used in research, please cite this repository and the associated tools (e.g., FDSTools, FLASH, Cutadapt, Nextflow).
 
 ## Contributing
 
@@ -314,5 +311,5 @@ Third-party material in this repository keeps its own terms:
   `resources/rtn_files/humans/build/README.md`).
 - `resources/rtn_files/numts/` comes from [RtN](https://github.com/Ahhgust/RtN).
 
-The tools the pipeline runs (FDSTOOLS, GATK, bwa, samtools, rtn and others) are
+The tools the pipeline runs (FDSTOOLS, bwa, samtools, rtn and others) are
 not part of this repository and are covered by their own licences.

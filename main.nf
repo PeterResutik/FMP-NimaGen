@@ -26,7 +26,7 @@ params.minimum_length = 60
 params.maximum_length = 600 // longer than any merged 2x226 read, so products spanning two amplicons are kept
 params.primer_min_overlap = 15 // bases of a primer that must be in the read when it is incomplete at the read end
 
-// bwa mem in p07 (primer-trimmed merged reads, used by Mutect2)
+// bwa mem in p07 (primer-trimmed merged reads, judged by rtn in p09)
 params.clipping_penalty = "100,100" // bwa mem -L; bwa default is 5,5
 
 params.humans_index_dir = "$baseDir/resources/rtn_files/humans"
@@ -55,17 +55,11 @@ params.allele_min_abs = 2
 params.allele_min_pct_of_max = 0 
 params.allele_min_pct_of_sum = 3
  
-// mutect2
-params.baseQ = 30 // minimum base quality: Mutect2 ignores lower bases, FDSTOOLS (TSSV) distrusts them
-params.callable_depth = 6
-params.native_pair_hmm_threads = 1 // threads of Mutect2's pair HMM: more save almost no time on mtDNA
-params.mutect2_memory = "4 GB" // memory per Mutect2 task (p12); Java may use 80% of it
-params.force_alleles = "$baseDir/resources/mutect2/force_alleles.vcf" // alleles Mutect2 always evaluates (--alleles)
+params.baseQ = 30 // minimum base quality: FDSTOOLS (TSSV) distrusts lower bases
 
 params.python_script_remove_scb = "$baseDir/resources/scripts/remove_soft_clipped_bases_improved.py"
 params.python_script_generate_read_depth_plot = "$baseDir/resources/scripts/generate_read_depth_plot_improved.py"
 params.python_script_process_fdstools_sast = "$baseDir/resources/scripts/process_fdstools_output_improved_better.py"
-params.python_script_process_mutect2_vcfgz = "$baseDir/resources/scripts/process_mutect2_output_improved.py"
 params.python_script_merge_fdstools_mutect2 = "$baseDir/resources/scripts/merge_fdstools_mutect2_improved.py"
 params.python_script_rtn_qualities = "$baseDir/resources/scripts/rtn_qualities.py"
 
@@ -104,14 +98,12 @@ process p01_index_reference_fasta {
 
     output:
     path("${reference}.*"), emit: reference
-    path("${reference.baseName}.dict"), emit: reference_dict
 
     script:
     """
     bwa index $reference 
     
     samtools faidx $reference 
-    samtools dict $reference -o ${reference.baseName}.dict
     """
 }
 
@@ -358,7 +350,7 @@ process p09_filter_numts_trimmed_merged_bam_p07 {
     def base = bam_wo_scb_merged_trimmed.baseName
     def rtn = "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b"
     // rtn_lowq: rtn evaluates a copy of the reads with base quality 2 at these positions; its decision
-    // (MAPQ, tags) is kept and the reads get their own qualities back, so Mutect2 sees the original ones
+    // (MAPQ, tags) is kept and the reads get their own qualities back
     def numt_filter = params.skip_numt_filter.toString().toBoolean() ?
         "cp ${bam_wo_scb_merged_trimmed} ${base}.rtn.bam && samtools index ${base}.rtn.bam" :
         rtn_lowq == 'none' ? "${rtn} ${bam_wo_scb_merged_trimmed}" :
@@ -421,7 +413,7 @@ process p11_variant_calling_fdstools_sast_p08 {
     if [ -s "${rtn_fastq}" ]; then
 
     
-        # bases below --baseQ are distrusted, as Mutect2 ignores them: a rarer sequence that differs from a more
+        # bases below --baseQ are distrusted: a rarer sequence that differs from a more
         # abundant one of the same length only at such bases is counted for the more abundant one
         fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt \
             --distrust-base-quality ${(params.baseQ as int) - 1}
@@ -438,94 +430,6 @@ process p11_variant_calling_fdstools_sast_p08 {
     fi
     """
 }
-
-process p12_variant_calling_mutect2_vcfgz_p01_p09 {
-    tag "p12: mutect2 on $sample_id"
-    memory params.mutect2_memory
-    publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.vcf.gz*'
-    publishDir { "$params.outdir/p12_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*bamout.bam*', enabled: params.publish_bams.toString().toBoolean()
-    
-    input:
-    tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts) // the coverages do not need to be passed to mutect2 process
-    path reference
-    path fasta_index
-    path mutect2_index
-    path force_alleles
-
-    output:
-    tuple  val(sample_id), path("${bam_file.baseName}.vcf.gz"), path("${bam_file.baseName}.vcf.gz.tbi"), emit: mutect2_ch
-    path("${bam_file.baseName}_sorted.bamout.bam")
-    path("${bam_file.baseName}_sorted.bamout.bam.bai")
-
-
-    script:
-    def avail_mem = 1024
-    if (task.memory) {
-        avail_mem = (task.memory.mega*0.8).intValue()
-    }    
-    
-    """  
-    mkdir tmp_${sample_id}
-
-    # --alleles needs a bgzipped, indexed VCF; --force_alleles may be plain or bgzipped
-    bcftools view -Oz -o forced_alleles.vcf.gz ${force_alleles}
-    tabix -p vcf forced_alleles.vcf.gz
-
-    # Fixed, not parameters: --initial-tumor-lod 0 and --tumor-lod-to-emit 0 write every candidate, and
-    # --min_vf_MT2 and --minimum decide later; --max-reads-per-alignment-start 0 keeps all reads, as every
-    # read of an amplicon starts at the same position; --min-reads-per-strand 0 (FilterMutectCalls), as
-    # the merged reads all point one way and any other value filters every call
-    # --max-mnp-distance 0: one record per substituted position, as FDSTOOLS reports them
-    # pileup detection: candidates also from the aligned reads, not only from assembly;
-    # proper-pair check off (merged reads are unpaired), same base quality as calling
-    gatk --java-options "-Xmx${avail_mem}m" \
-        Mutect2 \
-        -R ${reference} \
-        -L 'chrM' \
-        --min-base-quality-score ${params.baseQ} \
-        --callable-depth $params.callable_depth \
-        --linked-de-bruijn-graph true \
-        --recover-all-dangling-branches true \
-        --initial-tumor-lod 0 \
-        --tumor-lod-to-emit 0 \
-        --native-pair-hmm-threads "${params.native_pair_hmm_threads}"  \
-        --max-reads-per-alignment-start 0 \
-        --max-mnp-distance 0 \
-        --pileup-detection true \
-        --pileup-detection-enable-indel-pileup-calling true \
-        --pileup-detection-proper-pair-read-badness false \
-        --pileup-detection-snp-basequality-filter ${params.baseQ} \
-        --alleles forced_alleles.vcf.gz \
-        --bam-output ${bam_file.baseName}.bamout.bam \
-        --tmp-dir tmp_${sample_id} \
-        -I ${bam_file} \
-        -O raw.vcf.gz 
-
-    samtools sort -o ${bam_file.baseName}_sorted.bamout.bam ${bam_file.baseName}.bamout.bam
-    samtools index ${bam_file.baseName}_sorted.bamout.bam 
-
-    gatk  --java-options "-Xmx${avail_mem}m" \
-        FilterMutectCalls \
-        -R ${reference} \
-        --min-reads-per-strand 0 \
-        -V raw.vcf.gz \
-        --tmp-dir . \
-        -O ${bam_file.baseName}.vcf.gz
-
-    bcftools norm \
-        -m-any \
-        -f ${reference} \
-        -o ${bam_file.baseName}.norm.vcf.gz -Oz \
-        ${bam_file.baseName}.vcf.gz 
-
-    # every record goes on: --min_vf_MT2 and the length floor apply in p13, after the
-    # records of one change (the alleles of a length variant) are added up
-    mv ${bam_file.baseName}.norm.vcf.gz ${bam_file.baseName}.vcf.gz
-
-    tabix -f ${bam_file.baseName}.vcf.gz 
-    """
-}
-        // --base-quality-score-threshold ${params.baseQ} \
 
 process p13_merge_variants_p10_p11 {
     tag "p13: processing and merging variants on $sample_id"
@@ -593,7 +497,7 @@ workflow {
          --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
 
          MAPPING (with BWA MEM, p07)
-         --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads Mutect2 runs on (bwa default: 5,5)
+         --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads rtn judges (bwa default: 5,5)
          --amplicon_middle_positions      : ${relativePath(params.amplicon_middle_positions)} # Middle position of each amplicon, for its read depth
 
          NUMTs REMOVAL (with RTN)
@@ -609,10 +513,8 @@ workflow {
          VARIANT CALLING (with FDSTOOLS)
          --fdstools_library               : ${relativePath(params.fdstools_library)} # Position and flanks of each amplicon (p11; amplicon ranges p13)
          (tssv)
-         --minimum                        : $params.minimum # Reads a sequence (FDSTOOLS) or a base (MUTECT2, rCRS included) needs
+         --minimum                        : $params.minimum # Reads a sequence needs
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
-
-         VARIANT CALLING (MUTECT2 not run: the report holds FDSTOOLS calls only)
          --baseQ                          : $params.baseQ # Minimum base quality: FDSTOOLS distrusts lower bases
 
          POSTPROCESSING
@@ -653,7 +555,6 @@ workflow {
     // ──────────────── REFERENCE INDEXING ────────────────────
     p01_index_reference_fasta(params.reference)
     p01_index_ch = p01_index_reference_fasta.out.reference
-    p01_index_mutect2_ch = p01_index_reference_fasta.out.reference_dict
 
     // ──────── HUMANS REFERENCE INDEXING (runs once) ─────────
     p01b_prepare_humans_index(humans_index_ch, humans_base_ch)
@@ -685,7 +586,6 @@ workflow {
 
     // ────────────────── VARIANT CALLING ─────────────────────
     p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
-    // Mutect2 (p12) is not run: the report holds FDSTOOLS calls only
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────

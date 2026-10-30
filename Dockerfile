@@ -41,9 +41,7 @@ RUN mamba create -n bioinfo -c bioconda -c conda-forge -y \
     pandas=2.2.3 \
     biopython=1.85 \
     matplotlib=3.9.4 \
-    openpyxl=3.1.5 \
-    gatk4=4.6.2.0 \
-    bcftools=1.24
+    openpyxl=3.1.5
 
 # Clone RtN repository and build it
 RUN git clone https://github.com/Ahhgust/RtN.git /workspace/RtN 
