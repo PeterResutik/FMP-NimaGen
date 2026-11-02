@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds humans_NimaGen_2026-10-19.fa, the human mitogenomes rtn compares reads with, from public
+# Builds humans_NimaGen_2026-10-30.fa, the human mitogenomes rtn compares reads with, from public
 # sources (see README.md). Needs bwa, samtools and the pipeline's conda environment, and downloads
 # from GitHub (mitoLEAF) and NCBI (about 70,000 genomes, one to two hours).
 #
@@ -9,12 +9,13 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 RES=$(cd "$HERE/../../.." && pwd)
 W=$1
 mkdir -p "$W"
-NAME=humans_NimaGen_2026-10-19.fa
+NAME=humans_NimaGen_2026-10-30.fa
 NUMTS=$RES/rtn_files/numts/Calabrese_Dayama_Smart_Numts_modified.fa
 MITOLEAF=https://raw.githubusercontent.com/forensicgenomics/mitoLeaf/25b6076/docs/data
 
 echo "1. mitoLEAF tables (version 1.6.1, commit 25b6076)"
-for f in profiles.csv:f7f00e93575fc70e7052330dfc259437 hgmotifs.json:39521b01741850ece285b4806715bbb7; do
+for f in profiles.csv:f7f00e93575fc70e7052330dfc259437 hgmotifs.json:39521b01741850ece285b4806715bbb7 \
+         tree.json:402b206e62759e2671cdf91ca86af85a; do
     [ -s "$W/${f%%:*}" ] || curl -sfL "$MITOLEAF/${f%%:*}" -o "$W/${f%%:*}"
     python -c "import hashlib, sys; sys.exit(hashlib.md5(open(sys.argv[1], 'rb').read()).hexdigest() != sys.argv[2])" \
         "$W/${f%%:*}" "${f#*:}" || { echo "${f%%:*}: md5 differs from the version used"; exit 1; }
@@ -42,11 +43,8 @@ python "$HERE/people_sequences.py" "$HERE/people_calls.tsv.gz" "$W/ref.fa" > "$W
 python "$HERE/scan_humans.py" "$W/scan_people/singles.fa" "$W/hgmotifs.json" "$W/scan_people"
 python "$HERE/amplicon_check.py" "$W/scan_people" "$NUMTS" "$RES"
 
-echo "6. mitoLEAF haplogroup sequences"
-python "$HERE/haplogroups.py" "$W/hgmotifs.json" "$W/ref.fa" > "$W/mitoleaf.fa"
-
-echo "7. assemble"
+echo "6. mitoLEAF haplogroup sequences from the screened genomes, and assemble"
 python "$HERE/build_humans.py" "$W" "$HERE/people_calls.tsv.gz" "$W/$NAME"
 bzip2 -kf "$W/$NAME"
 md5sum "$W/$NAME" 2> /dev/null || md5 "$W/$NAME"
-echo "done: $W/$NAME.bz2 (copy to ../$NAME.bz2), left_out.tsv and members.tsv (copy here)"
+echo "done: $W/$NAME.bz2 (copy to ../$NAME.bz2), left_out.tsv, members.tsv and haplogroup_marks.tsv (copy here)"

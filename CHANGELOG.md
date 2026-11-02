@@ -16,6 +16,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   `nextflow.config` instead of `main.nf`; their names and values are
   unchanged. Five commented-out parameters and three commented-out commands
   are gone.
+- New human list for the NUMT filter, `humans_NimaGen_2026-10-30.fa` (58,346
+  entries; was `humans_NimaGen_2026-10-19.fa`, 59,243). The mitoLEAF
+  haplogroup sequences now carry the whole motif: insertions and deletions
+  (such as the 9-base deletion at 8281-8289 of haplogroup B) and the
+  lowercase marks (315.1c) are written as present, and a mark with two states
+  (16519Y, 16181M-16183M) gets the state most of the haplogroup's genomes
+  carry, decided by the nearest ancestral clade when the haplogroup has no
+  genomes or they are tied (`haplogroup_marks.tsv` lists every decision; was:
+  substitutions only, two-state marks as the rCRS base). The missing bases of
+  a GenBank genome are filled from its haplogroup's sequence (was: the rCRS
+  base). mitoLEAF's `tree.json` is a source of the build.
 
 ## [0.4.0] – 2026-10-30
 

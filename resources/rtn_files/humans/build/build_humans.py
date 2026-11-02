@@ -3,7 +3,9 @@
 
 Order of the entries: chrM (rCRS), every mitoLEAF haplogroup, the GenBank genomes of
 mitoLEAF's list that pass the screen, the re-called 1000 Genomes and HGDP people that
-pass it. A sequence that occurs more than once is written once, under the first name;
+pass it. The haplogroup sequences are built from the genomes that pass the screen
+(haplogroups.py); every decision on a mark with two states is written to
+haplogroup_marks.tsv. A sequence that occurs more than once is written once, under the first name;
 the other names go to members.tsv. Every entry is followed by its own first 100 bases,
 so reads across the origin align in one piece.
 
@@ -17,13 +19,17 @@ A genome is left out (left_out.tsv, with the reason) when:
   are those of mitoLEAF's list and the re-called people;
 - (GenBank) it has more than 5 bases other than A, C, G, T;
 - (GenBank) the accession belongs to a submission listed in SERIES.
-One to five bases other than A, C, G, T are written as the rCRS base at that position.
+One to five bases other than A, C, G, T (in practice N) are filled from the sequence of the
+genome's haplogroup; the rCRS base where that haplogroup has a deletion there or a code
+excludes its base.
 The people's insertions and deletions in the length regions are not used (whole-genome
 calls are unreliable there), so those stretches have the rCRS length.
 
 usage: build_humans.py workdir people_calls.tsv.gz out.fa
-  workdir holds ref.fa, mitoleaf.fa, scan/ and scan_people/ (scan_humans.py, amplicon_check.py)
+  workdir holds ref.fa, hgmotifs.json and tree.json (mitoLEAF), scan/ and scan_people/
+  (scan_humans.py, amplicon_check.py)
 """
+import json
 import re
 import sys
 from collections import Counter, defaultdict
@@ -31,6 +37,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import haplogroups
 import people
 
 W, CALLS, OUT = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
@@ -131,9 +138,10 @@ def screen(scan_dir, stats=None):
     return why
 
 
-def oriented(sam, names):
-    """sequence of each wanted genome in rCRS orientation, bases other than ACGT written as the rCRS base"""
-    out, fixed, removed = {}, 0, 0
+def oriented(sam, names, fill):
+    """sequence of each wanted genome in rCRS orientation, bases other than ACGT filled by fill(genome,
+    position on ref.fa, base); in an insertion or clipped they are removed"""
+    out, fixed, removed = {}, Counter(), 0
     for line in open(sam):
         if line[0] == "@":
             continue
@@ -148,8 +156,8 @@ def oriented(sam, names):
                 if op == "M":
                     for i in range(n):
                         if seq[q + i] not in "ACGT":
-                            seq[q + i] = ref[r + i]
-                            fixed += 1
+                            seq[q + i] = fill(f[0], r + i, seq[q + i])
+                            fixed["rCRS base" if seq[q + i] == ref[r + i] else "haplogroup base"] += 1
                     r, q = r + n, q + n
                 elif op in "IS":
                     for i in range(n):
@@ -175,20 +183,35 @@ def add(name, seq):
     return True
 
 
-add("chrM", ref)
-n_hg, name = 0, None
-for line in open(W / "mitoleaf.fa"):
-    if line[0] == ">":
-        name = line[1:].strip()
-    else:
-        n_hg += add(name, line.strip())
+rcrs = ref[:3106] + "N" + ref[3106:]
 stats = pd.read_csv(W / "scan/sequence_stats.tsv", sep="\t").set_index("genome")
 why = screen(W / "scan", stats)
 keep = set(stats.index) - set(why)
-seqs, fixed, removed = oriented(W / "scan/aln.sam", keep)
-n_gb = sum(add(g, seqs[g]) for g in sorted(seqs))
 why_p = screen(W / "scan_people")
-rcrs = ref[:3106] + "N" + ref[3106:]
+
+# the haplogroup sequences, decided from the genomes that pass the screen
+hg_of = {}
+for d in ("scan", "scan_people"):
+    s = pd.read_csv(W / d / "scan.tsv", sep="\t", keep_default_na=False)
+    for g, h in zip(s.genome, s.haplogroup):
+        if (g in keep) if d == "scan" else (g not in why_p):
+            hg_of[g] = h
+motifs = json.load(open(W / "hgmotifs.json"))
+states = haplogroups.genome_states([W / "scan/aln.sam", W / "scan_people/aln.sam"], set(hg_of), ref)
+tree = haplogroups.Tree(json.load(open(W / "tree.json")), hg_of)
+hg_seqs, hg_changed, hg_rows = haplogroups.build(motifs, tree, states, rcrs)
+
+
+def fill(g, r, b):
+    """an ambiguous base b at r (position on ref.fa) of genome g: the base of g's haplogroup there"""
+    hb = hg_changed.get(hg_of.get(g), {}).get(haplogroups.rcrs_pos(r + 1), ref[r])
+    return hb if hb and hb in haplogroups.IUPAC.get(b.upper(), "ACGT") else ref[r]
+
+
+add("chrM", ref)
+n_hg = sum(add("mitoLEAF_" + re.sub(r"[^A-Za-z0-9]", "_", h), s) for h, s in hg_seqs.items())
+seqs, fixed, removed = oriented(W / "scan/aln.sam", keep, fill)
+n_gb = sum(add(g, seqs[g]) for g in sorted(seqs))
 n_pp = 0
 for sample, calls in people.read_calls(CALLS).items():
     if sample in why_p:
@@ -202,6 +225,10 @@ with open(OUT.parent / "left_out.tsv", "w") as f:
     f.write("sequence\treason\n")
     for g, r in sorted({**why, **why_p}.items()):
         f.write(f"{g}\t{r}\n")
+with open(OUT.parent / "haplogroup_marks.tsv", "w") as f:
+    f.write("haplogroup\tmark\tdecided_by\tgenome_states\twritten\n")
+    for row in hg_rows:
+        f.write("\t".join(row) + "\n")
 with open(OUT.parent / "members.tsv", "w") as f:
     f.write("entry\tidentical_sequences\n")
     for k, v in members.items():
@@ -209,7 +236,8 @@ with open(OUT.parent / "members.tsv", "w") as f:
 print("entries written:", len(entries), "(chrM 1, mitoLEAF haplogroups", n_hg, ", GenBank genomes", n_gb,
       ", re-called people", n_pp, ")")
 print("GenBank: on the list", len(stats), ", left out", len(why), ", kept", len(seqs), ", of those distinct and new", n_gb)
-print("   bases written as the rCRS base:", fixed, "; removed (in an insertion or clipped):", removed)
+print("   ambiguous bases filled:", dict(fixed), "; removed (in an insertion or clipped):", removed)
+print("two-state marks decided:", dict(Counter(r[2].split(" ")[0].rstrip(",") for r in hg_rows)))
 print("re-called people: left out", len(why_p), ", distinct and new", n_pp)
 print("identical sequences folded into an entry:", sum(len(v) for v in members.values()))
 c = Counter()

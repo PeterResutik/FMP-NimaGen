@@ -32,7 +32,7 @@ The pipeline automates the following steps:
 2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
 3. **Primer trimming** (`p05`): Cutadapt removes the primers and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
 4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
-5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-19.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
+5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
 6. **Quality control** (`p10`): read depth per amplicon.  
 7. **Variant calling** (`p11`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
@@ -307,7 +307,8 @@ FMP-NimaGen is released under the [MIT License](LICENSE).
 
 Third-party material in this repository keeps its own terms:
 
-- `resources/rtn_files/humans/humans_NimaGen_2026-10-19.fa.bz2` is built from
+- `resources/rtn_files/humans/humans_NimaGen_2026-10-30.fa.bz2` (and the earlier
+  `humans_NimaGen_2026-10-19.fa.bz2`) are built from
   [mitoLEAF](https://github.com/forensicgenomics/mitoLeaf) (Mozilla Public
   License 2.0), GenBank, and the 1000 Genomes Project and HGDP data (see
   `resources/rtn_files/humans/build/README.md`).
