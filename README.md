@@ -231,8 +231,10 @@ green background.
 | `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p11`); Nextflow reserves as many cores for each task, at most as many as the computer has |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
 
-All options and their values are printed at the start of each run and saved in
-`p00_parameters.txt`.
+All options and their defaults are in the `params` block of `nextflow.config`. A
+value given on the command line (`--name value`) or in a file passed with
+`-params-file` overrides the default. All options and their values are printed at
+the start of each run and saved in `p00_parameters.txt`.
 
 ## Configuration
 
