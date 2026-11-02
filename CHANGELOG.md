@@ -27,6 +27,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   substitutions only, two-state marks as the rCRS base). The missing bases of
   a GenBank genome are filled from its haplogroup's sequence (was: the rCRS
   base). mitoLEAF's `tree.json` is a source of the build.
+- The Docker image is rebuilt from `FMP-NimaGen.yml` and rtn with its three
+  fixes (fork `PeterResutik/RtN`, branch `fixes`), and is tagged with the
+  pipeline version (`peterresutik/nimagen-pipeline:0.5.0`; was `latest`, from
+  May 2025, with rtn as released). It holds the chrM reference sequence that
+  FDSTOOLS otherwise downloads from Ensembl, so a run in a container needs no
+  internet access or home folder. `-profile docker` mounts the pipeline folder
+  and runs as the calling user. `FMP-NimaGen.yml` no longer lists Anaconda's
+  `defaults` channel; every package comes from conda-forge or bioconda.
+
+### Added
+- `-profile singularity`: the same image with Singularity or Apptainer.
 
 ## [0.4.0] – 2026-10-30
 

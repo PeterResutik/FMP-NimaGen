@@ -11,7 +11,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
   - [Organize Input Data](#organize-input-data)  
 - [Running the Pipeline](#running-the-pipeline)  
   - [Running Locally with Conda (Recommended)](#running-locally-with-conda-recommended)  
-  - [Running with Docker](#running-with-docker)  
+  - [Running with Docker or Singularity](#running-with-docker-or-singularity)  
 - [Input and Output](#input-and-output)  
 - [Reading the Report](#reading-the-report)  
 - [Main Options](#main-options)  
@@ -137,15 +137,34 @@ To resume a previous run and skip already completed steps, add `-resume`.
 Nextflow runs as many tasks at once as the computer has cores; to keep the
 computer responsive during a run, limit them with `-qs`, e.g. `-qs 4`.
 
-### Running with Docker
+### Running with Docker or Singularity
+
+The image `peterresutik/nimagen-pipeline:0.5.0` holds every tool the pipeline
+runs (the Conda environment and rtn with its three fixes); Nextflow, Java and the
+pipeline folder stay outside it. FDSTOOLS downloads the chrM reference sequence
+from Ensembl the first time it runs and keeps it in `~/.strnaming-cache`; the
+image already holds it, so the containers need neither internet access nor a
+home folder. With Docker:
 
 ```bash
 nextflow run main.nf -profile docker
 ```
 
-> **Note**: the Docker image (`peterresutik/nimagen-pipeline:latest`) dates from May 2025
-> and has not been tested with this version of the pipeline. Use Conda until a new
-> image is published.
+With Singularity (or Apptainer), for example on a cluster without Docker:
+
+```bash
+nextflow run main.nf -profile singularity
+```
+
+Nextflow pulls the image on the first run (Singularity converts it and keeps it in
+`work/singularity/`, or in `NXF_SINGULARITY_CACHEDIR` if set). The image is built
+for x86-64 Linux, because rtn's alignment library uses x86 instructions; on Apple
+Silicon, Docker runs it through emulation, which is slower but gives the same
+results. To build the image yourself:
+
+```bash
+docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:0.5.0 .
+```
 
 ## Input and Output
 
@@ -240,8 +259,9 @@ the start of each run and saved in `p00_parameters.txt`.
 
 ### Profiles
 
-* `-profile docker`: Runs the pipeline using Docker with all dependencies pre-installed.
-* `-profile local`: Runs the pipeline using locally installed tools (requires Conda environment).
+* `-profile local`: runs the tools installed in the active Conda environment (`FMP-NimaGen.yml`) and rtn.
+* `-profile docker`: runs every tool in the Docker image (see Running with Docker or Singularity).
+* `-profile singularity`: the same image with Singularity or Apptainer.
 
 ## Tests
 
