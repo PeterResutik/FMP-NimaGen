@@ -14,6 +14,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   lineages that differ a little from every genome in the human list are
   removed. The new option `--rtn_likelihood` sets it.
 
+### Added
+- `--baseQ 0` switches the base-quality check off: TSSV runs without
+  `--distrust-base-quality`, and every base is trusted, as before 0.3.0.
+  There was no way to do this: `--baseQ 1` passed 0, which FDSTOOLS refuses;
+  it now also means off. `--baseQ` is listed under Main Options.
+
 ## [0.5.0] – 2026-11-02
 
 ### Added

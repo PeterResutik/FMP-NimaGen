@@ -11,14 +11,17 @@ process p12_fdstools {
     tuple  val(sample_id), path("${sample_id}.tssv.csv"), path("${sample_id}.report.txt"), path("${sample_id}.sc.csv"), path("${sample_id}.sast.csv"), path("${sample_id}.html")
 
     script:
+    // --baseQ is the lowest quality TSSV trusts, passed as the highest it distrusts (30 becomes 29);
+    // 0 or 1 trusts every base: TSSV runs without --distrust-base-quality, which takes only 1 and up
+    def distrust = (params.baseQ as int) > 1 ? "--distrust-base-quality ${(params.baseQ as int) - 1}" : ""
     """
     if [ -s "${rtn_fastq}" ]; then
 
     
-        # bases below --baseQ are distrusted: a rarer sequence that differs from a more
+        # bases below --baseQ are distrusted (--baseQ 0: none): a rarer sequence that differs from a more
         # abundant one of the same length only at such bases is counted for the more abundant one
         fdstools tssv $fdstools_library ${rtn_fastq} ${sample_id}.tssv.csv --minimum $params.minimum --num-threads ${task.cpus} --report ${sample_id}.report.txt \
-            --distrust-base-quality ${(params.baseQ as int) - 1}
+            ${distrust}
         fdstools seqconvert allelename ${sample_id}.tssv.csv ${sample_id}.sc.csv --library $params.fdstools_library
         # samplestats names the alleles itself from the TSSV output: FDSTOOLS 2.2 cannot read back
         # N3107DEL, the name seqconvert writes for the rCRS placeholder at 3107

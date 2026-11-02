@@ -34,7 +34,7 @@ The pipeline automates the following steps:
 4. **Mapping** (`p07`–`p08`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
 5. **NUMT filtering** (`p09`–`p10`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough (`--rtn_likelihood`), which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p10` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
 6. **Quality control** (`p11`): read depth per amplicon.  
-7. **Variant calling** (`p12`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
+7. **Variant calling** (`p12`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30; 0 switches this off): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
 
 Each step is a module in `modules/` (one Nextflow process per file), numbered in the order the steps run (`p00` to `p13`); `main.nf` connects them, and each result folder has the name of its step.
@@ -238,6 +238,7 @@ green background.
 | `--reads` | `raw_data/*_{R1,R2}_001.fastq.gz` | input files |
 | `--outdir` | `results` | output folder |
 | `--min_vf_FDS` | 2 | a base counts as present from this share (%) |
+| `--baseQ` | 30 | the lowest base quality FDSTOOLS trusts: a read that differs from a more common sequence of the same length only at lower-quality bases counts for that sequence; 0 trusts every base |
 | `--max_overlap` | 226 | FLASH counts the mismatches of an overlap over at most this many bases; set it to the read length, so that the whole overlap is checked |
 | `--lh_thresh` | 10 | length variants: under 10% not reported, 10–90% minor (lowercase), above 90% major |
 | `--depth` | 20 | amplicons with fewer reads are marked LOW |

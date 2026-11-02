@@ -63,7 +63,7 @@ workflow {
          (tssv)
          --minimum                        : $params.minimum # Reads a sequence needs
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
-         --baseQ                          : $params.baseQ # Minimum base quality: FDSTOOLS distrusts lower bases
+         --baseQ                          : $params.baseQ # Minimum base quality: FDSTOOLS distrusts lower bases (0 = off)
 
          POSTPROCESSING
          --depth                          : $params.depth # Read depth below which an amplicon is reported as LOW; its calls are kept
