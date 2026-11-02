@@ -37,7 +37,7 @@ The pipeline automates the following steps:
 7. **Variant calling** (`p11`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
 
-The workflow is designed for reproducibility and scalability.
+Each step is a module in `modules/` (one Nextflow process per file); `main.nf` connects them.
 
 ## Installation and Setup
 

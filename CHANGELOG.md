@@ -8,6 +8,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- Each step (process) is a module of its own in `modules/`, one file per
+  step; `main.nf` includes them and holds the workflow. The steps and their
+  results are unchanged.
+
 ## [0.4.0] – 2026-10-30
 
 ### Changed
