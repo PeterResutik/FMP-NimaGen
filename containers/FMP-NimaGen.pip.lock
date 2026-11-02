@@ -1,0 +1,14 @@
+# Exact packages of the Docker image (exported from peterresutik/nimagen-pipeline:0.5.1; see README.md here)
+# The packages pip installs into the FMP-NimaGen environment, with their dependencies
+backports.zstd==1.8.0
+cutadapt==5.2
+dnaio==1.2.4
+fdstools==2.2.1
+iniconfig==2.3.1
+isal==1.8.0
+pluggy==1.7.0
+Pygments==2.21.0
+pytest==8.4.2
+strnaming==1.2.1
+xopen==2.1.0
+zlib-ng==1.0.0

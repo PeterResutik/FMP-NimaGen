@@ -13,6 +13,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (was `398ecd7`), which also carries the upstream commits of
   `Ahhgust/RtN` up to `4883c67`. rtn's code is unchanged, so rtn works as
   before.
+- The Docker image is built from lock files with the exact version of every
+  package (`containers/`, taken from the 0.5.1 image) and from the base image
+  by its digest, so that a new build gets the same tools. `FMP-NimaGen.yml`
+  still names only the main versions, for Conda on any platform.
 
 ## [0.5.1] – 2026-11-02
 

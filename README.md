@@ -160,7 +160,9 @@ Nextflow pulls the image on the first run (Singularity converts it and keeps it 
 `work/singularity/`, or in `NXF_SINGULARITY_CACHEDIR` if set). The image is built
 for x86-64 Linux, because rtn's alignment library uses x86 instructions; on Apple
 Silicon, Docker runs it through emulation, which is slower but gives the same
-results. To build the image yourself:
+results. The image is built from lock files with the exact version of every
+package (`containers/`), so every build gets the same tools; `FMP-NimaGen.yml`
+names only the main versions. To build the image yourself:
 
 ```bash
 docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:0.5.1 .
