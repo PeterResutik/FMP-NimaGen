@@ -8,6 +8,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-11-02
+
+### Added
+- `-profile singularity`: the same image with Singularity or Apptainer.
+
 ### Changed
 - Each step (process) is a module of its own in `modules/`, one file per
   step; `main.nf` includes them and holds the workflow. The steps and their
@@ -44,9 +49,6 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   internet access or home folder. `-profile docker` mounts the pipeline folder
   and runs as the calling user. `FMP-NimaGen.yml` no longer lists Anaconda's
   `defaults` channel; every package comes from conda-forge or bioconda.
-
-### Added
-- `-profile singularity`: the same image with Singularity or Apptainer.
 
 ## [0.4.0] – 2026-10-30
 
