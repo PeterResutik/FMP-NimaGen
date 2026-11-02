@@ -26,10 +26,11 @@ RUN export HOME=/tmp/strnaming-home \
        "$(/opt/conda/envs/FMP-NimaGen/bin/python -c 'import pathlib, strnaming; print(pathlib.Path(strnaming.__file__).parent / "data")')" \
     && rm -rf $HOME
 
-# rtn with the three fixes (fork PeterResutik/RtN, branch fixes), built for any x86-64 CPU
+# rtn with the three fixes (fork PeterResutik/RtN, branch fixes, with the upstream commits up to 4883c67),
+# built for any x86-64 CPU; its source stays in /opt/RtN
 RUN micromamba create -y -n rtn-build -c conda-forge jsoncpp=1.9.8 && micromamba clean -a -y \
     && git clone -b fixes https://github.com/PeterResutik/RtN.git /opt/RtN \
-    && cd /opt/RtN && git checkout 398ecd7 \
+    && cd /opt/RtN && git checkout 1287f8d \
     && PREFIX=/opt/conda/envs/rtn-build MARCH=-march=x86-64-v2 ./build.sh \
     && cp rtn /usr/local/bin/rtn
 

@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- The Docker image builds rtn from the fork's branch `fixes` at `1287f8d`
+  (was `398ecd7`), which also carries the upstream commits of
+  `Ahhgust/RtN` up to `4883c67`. rtn's code is unchanged, so rtn works as
+  before.
+
 ## [0.5.1] – 2026-11-02
 
 ### Added
