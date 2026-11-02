@@ -53,6 +53,7 @@ workflow {
          --numts_index_dir                : ${relativePath(params.numts_index_dir)} # Folder of the NUMT sequences rtn compares reads with
          --numts_index_base               : $params.numts_index_base # NUMT sequences (from rtn)
          --rtn_positions                  : ${relativePath(params.rtn_positions)} # positions rtn sees at quality 2 (none = off)
+         --rtn_likelihood                 : $params.rtn_likelihood # minimum likelihood of a read under the human mitogenomes (rtn -L; rtn default 1e-5)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
          --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
          --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)

@@ -20,8 +20,9 @@ process p09_filter_numts {
 
     script:
     // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
+    // rtn -L: the minimum likelihood a read must have under the human mitogenomes (--rtn_likelihood)
     def base = bam_wo_scb_merged_trimmed.baseName
-    def rtn = "rtn -i -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b"
+    def rtn = "rtn -i -L ${params.rtn_likelihood} -h \"${humans_index}/${humans_base}\" -n \"${numts_index}/${numts_base}\" -b"
     // rtn_lowq: rtn evaluates a copy of the reads with base quality 2 at these positions; its decision
     // (MAPQ, tags) is kept and the reads get their own qualities back
     def numt_filter = params.skip_numt_filter.toString().toBoolean() ?

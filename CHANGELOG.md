@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- rtn removes a read when its likelihood under the human mitogenomes is below
+  1e-7 (rtn's `-L`; was rtn's default, 1e-5), so that fewer reads of real
+  lineages that differ a little from every genome in the human list are
+  removed. The new option `--rtn_likelihood` sets it.
+
 ## [0.5.0] – 2026-11-02
 
 ### Added
