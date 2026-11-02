@@ -1,6 +1,6 @@
-process p10_quality_control_p09 {
-    tag "p10: read depth on $sample_id"
-    publishDir { "${params.outdir}/p10_quality_control/${sample_id}" }, mode: 'copy', overwrite: true
+process p11_read_depth {
+    tag "p11: read depth on $sample_id"
+    publishDir { "${params.outdir}/p11_read_depth/${sample_id}" }, mode: 'copy', overwrite: true
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(read_depth_txt), path(read_depth_txt_numts)

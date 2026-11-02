@@ -1,4 +1,4 @@
-process p00_pipeline_parameters{
+process p00_parameters{
     publishDir "$params.outdir",  mode: 'copy', overwrite: true
 
     input:

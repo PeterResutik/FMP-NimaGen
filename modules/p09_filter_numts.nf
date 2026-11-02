@@ -1,7 +1,7 @@
-process p09_filter_numts_trimmed_merged_bam_p07 {
+process p09_filter_numts {
     tag "p09: rtn on $sample_id"
     memory params.rtn_memory
-    publishDir { "$params.outdir/p09_filtered_numts_bam_for_mutect2/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
+    publishDir { "$params.outdir/p09_filter_numts/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged_trimmed), path(bam_wo_scb_merged_trimmed_index), path(read_depth_txt)

@@ -1,20 +1,20 @@
 nextflow.enable.dsl=2
 
-// Each step is a module in modules/ (one process per file); the parameters are in nextflow.config.
-include { p00_pipeline_parameters } from './modules/p00_pipeline_parameters'
-include { p01_index_reference_fasta } from './modules/p01_index_reference_fasta'
-include { p01b_prepare_humans_index } from './modules/p01b_prepare_humans_index'
-include { p02_map_raw_fastq_p01 } from './modules/p02_map_raw_fastq_p01'
-include { p03_filter_softclipped_fastq_p01_p02 } from './modules/p03_filter_softclipped_fastq_p01_p02'
-include { p04_merge_fastq_p03 } from './modules/p04_merge_fastq_p03'
-include { p05_trim_merged_fastq_p04 } from './modules/p05_trim_merged_fastq_p04'
-include { p06_map_merged_bam_p01_p04 } from './modules/p06_map_merged_bam_p01_p04'
-include { p07_map_merged_trimmed_bam_p01_p05 } from './modules/p07_map_merged_trimmed_bam_p01_p05'
-include { p08_filter_numts_merged_fastq_p06 } from './modules/p08_filter_numts_merged_fastq_p06'
-include { p09_filter_numts_trimmed_merged_bam_p07 } from './modules/p09_filter_numts_trimmed_merged_bam_p07'
-include { p10_quality_control_p09 } from './modules/p10_quality_control_p09'
-include { p11_variant_calling_fdstools_sast_p08 } from './modules/p11_variant_calling_fdstools_sast_p08'
-include { p13_merge_variants_p10_p11 } from './modules/p13_merge_variants_p10_p11'
+// Each step is a module in modules/ (one process per file, numbered in the order the steps run); the parameters are in nextflow.config.
+include { p00_parameters } from './modules/p00_parameters'
+include { p01_index_reference } from './modules/p01_index_reference'
+include { p02_index_humans } from './modules/p02_index_humans'
+include { p03_map_read_pairs } from './modules/p03_map_read_pairs'
+include { p04_remove_soft_clips } from './modules/p04_remove_soft_clips'
+include { p05_merge_read_pairs } from './modules/p05_merge_read_pairs'
+include { p06_trim_primers } from './modules/p06_trim_primers'
+include { p07_map_merged_reads } from './modules/p07_map_merged_reads'
+include { p08_map_trimmed_reads } from './modules/p08_map_trimmed_reads'
+include { p09_filter_numts } from './modules/p09_filter_numts'
+include { p10_reads_for_fdstools } from './modules/p10_reads_for_fdstools'
+include { p11_read_depth } from './modules/p11_read_depth'
+include { p12_fdstools } from './modules/p12_fdstools'
+include { p13_report } from './modules/p13_report'
 
 // A path inside the pipeline folder, written relative to it, so the parameter log stays short
 def relativePath(path) {
@@ -35,15 +35,15 @@ workflow {
          --max_mismatch_density           : $params.max_mismatch_density # Maximum allowed ratio between the number of mismatched base pairs and the overlap length 
 
          TRIMMING (with CUTADAPT) 
-         --adapter                        : $params.adapter # Anchor before the poly-C tract (278-302); R1 is cut after it (p02)
-         --left_primers                   : ${relativePath(params.left_primers)} # Left primers (soft clips p03, trimming p05)
-         --right_primers_rc               : ${relativePath(params.right_primers_rc)} # Right primers, reverse complement (p03, p05)
+         --adapter                        : $params.adapter # Anchor before the poly-C tract (278-302); R1 is cut after it (p03)
+         --left_primers                   : ${relativePath(params.left_primers)} # Left primers (soft clips p04, trimming p06)
+         --right_primers_rc               : ${relativePath(params.right_primers_rc)} # Right primers, reverse complement (p04, p06)
          --primer_min_overlap             : $params.primer_min_overlap # Bases of a primer that must be in the read when it is incomplete at the read end.
          --minimum_length                 : $params.minimum_length # Reads shorter than this are discarded
          --maximum_length                 : $params.maximum_length # Reads longer than this are discarded
          --discard-untrimmed              : enabled (hard coded) # Discard reads that do not contain an adapter/primer.
 
-         MAPPING (with BWA MEM, p07)
+         MAPPING (with BWA MEM, p08)
          --clipping_penalty               : $params.clipping_penalty # Clipping penalty (-L) for the primer-trimmed merged reads rtn judges (bwa default: 5,5)
          --amplicon_middle_positions      : ${relativePath(params.amplicon_middle_positions)} # Middle position of each amplicon, for its read depth
 
@@ -58,7 +58,7 @@ workflow {
          --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)
 
          VARIANT CALLING (with FDSTOOLS)
-         --fdstools_library               : ${relativePath(params.fdstools_library)} # Position and flanks of each amplicon (p11; amplicon ranges p13)
+         --fdstools_library               : ${relativePath(params.fdstools_library)} # Position and flanks of each amplicon (p12; amplicon ranges p13)
          (tssv)
          --minimum                        : $params.minimum # Reads a sequence needs
          --num_threads                    : $params.num_threads # Threads of FDSTOOLS tssv, at most the cores of the computer
@@ -97,46 +97,45 @@ workflow {
     numts_base_ch  = channel.value(params.numts_index_base)
 
     // ────────────────── LOG PARAMETERS ──────────────────────
-    p00_pipeline_parameters(log_text)
+    p00_parameters(log_text)
  
     // ──────────────── REFERENCE INDEXING ────────────────────
-    p01_index_reference_fasta(params.reference)
-    p01_index_ch = p01_index_reference_fasta.out.reference
+    p01_index_reference(params.reference)
+    reference_index_ch = p01_index_reference.out.reference
 
     // ──────── HUMANS REFERENCE INDEXING (runs once) ─────────
-    p01b_prepare_humans_index(humans_index_ch, humans_base_ch)
-    humans_index_ready_ch = p01b_prepare_humans_index.out.humans_index_ready
+    p02_index_humans(humans_index_ch, humans_base_ch)
+    humans_index_ready_ch = p02_index_humans.out.humans_index_ready
 
     // ─────────── RAW READ MAPPING & FILTERING ───────────────
-    p02_map_raw_fastq_p01(read_pairs_ch, params.reference, p01_index_ch)
-    p03_filter_softclipped_fastq_p01_p02(p02_map_raw_fastq_p01.out.p02_raw_sam_ch, params.python_script_remove_scb, params.reference, p01_index_ch, params.left_primers, params.right_primers_rc)
-    // p04_convert_bam_2_fastq_p03(p03_filter_softclipped_sam_p02.out.p03_bam_files_wo_scb_ch)
+    p03_map_read_pairs(read_pairs_ch, params.reference, reference_index_ch)
+    p04_remove_soft_clips(p03_map_read_pairs.out.raw_sam_ch, params.python_script_remove_scb, params.reference, reference_index_ch, params.left_primers, params.right_primers_rc)
 
     // ──────────────── MERGING & TRIMMING ────────────────────
-    p04_merge_fastq_p03(p03_filter_softclipped_fastq_p01_p02.out.p03_fastq_files_wo_scb_ch)
-    p05_trim_merged_fastq_p04(p04_merge_fastq_p03.out, params.left_primers, params.right_primers_rc)
+    p05_merge_read_pairs(p04_remove_soft_clips.out.fastq_wo_scb_ch)
+    p06_trim_primers(p05_merge_read_pairs.out, params.left_primers, params.right_primers_rc)
 
     // ────────────────── FINAL MAPPING ───────────────────────
-    p06_map_merged_bam_p01_p04(p04_merge_fastq_p03.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
-    p07_map_merged_trimmed_bam_p01_p05(p05_trim_merged_fastq_p04.out, params.reference, p01_index_ch, params.amplicon_middle_positions)
+    p07_map_merged_reads(p05_merge_read_pairs.out, params.reference, reference_index_ch, params.amplicon_middle_positions)
+    p08_map_trimmed_reads(p06_trim_primers.out, params.reference, reference_index_ch, params.amplicon_middle_positions)
 
     // ────────────────── NUMTs FILTERING ─────────────────────
-    // rtn runs once, on the primer-trimmed reads (p09); p08 keeps the same reads for FDSTOOLS
-    // rtn takes the humans folder itself and the file name from p01b once the index is ready
-    p09_filter_numts_trimmed_merged_bam_p07(p07_map_merged_trimmed_bam_p01_p05.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch,
+    // rtn runs once, on the primer-trimmed reads (p09); p10 keeps the same reads for FDSTOOLS
+    // rtn takes the humans folder itself and the file name from p02 once the index is ready
+    p09_filter_numts(p08_map_trimmed_reads.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch,
                                             rtn_lowq, params.python_script_rtn_qualities)
-    p08_filter_numts_merged_fastq_p06(p06_map_merged_bam_p01_p04.out.join(p09_filter_numts_trimmed_merged_bam_p07.out.kept_names, by: 0))
+    p10_reads_for_fdstools(p07_map_merged_reads.out.join(p09_filter_numts.out.kept_names, by: 0))
     
     // ────────────────── QUALITY CONTROL ─────────────────────
-    p10_quality_control_p09(p09_filter_numts_trimmed_merged_bam_p07.out.bams, params.python_script_generate_read_depth_plot)
+    p11_read_depth(p09_filter_numts.out.bams, params.python_script_generate_read_depth_plot)
     
 
     // ────────────────── VARIANT CALLING ─────────────────────
-    p10_fdstools_ch = p11_variant_calling_fdstools_sast_p08(p08_filter_numts_merged_fastq_p06.out, params.fdstools_library)
+    fdstools_ch = p12_fdstools(p10_reads_for_fdstools.out, params.fdstools_library)
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────
-    p13_merge_variants_p10_p11(p10_fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
+    p13_report(fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
 
 }

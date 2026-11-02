@@ -28,16 +28,16 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
 
 The pipeline automates the following steps:
 
-1. **Mapping and soft-clip removal** (`p02`–`p03`): read pairs are mapped to rCRS with bwa, and soft-clipped bases are removed.  
-2. **Read merging** (`p04`): FLASH merges each read pair into one read.  
-3. **Primer trimming** (`p05`): Cutadapt removes the primers and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
-4. **Mapping** (`p06`–`p07`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
-5. **NUMT filtering** (`p08`–`p09`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p08` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
-6. **Quality control** (`p10`): read depth per amplicon.  
-7. **Variant calling** (`p11`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
+1. **Mapping and soft-clip removal** (`p03`–`p04`): read pairs are mapped to rCRS with bwa, and soft-clipped bases are removed.  
+2. **Read merging** (`p05`): FLASH merges each read pair into one read.  
+3. **Primer trimming** (`p06`): Cutadapt removes the primers and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
+4. **Mapping** (`p07`–`p08`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
+5. **NUMT filtering** (`p09`–`p10`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough, which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p10` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
+6. **Quality control** (`p11`): read depth per amplicon.  
+7. **Variant calling** (`p12`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
 
-Each step is a module in `modules/` (one Nextflow process per file); `main.nf` connects them.
+Each step is a module in `modules/` (one Nextflow process per file), numbered in the order the steps run (`p00` to `p13`); `main.nf` connects them, and each result folder has the name of its step.
 
 ## Installation and Setup
 
@@ -174,9 +174,9 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | Folder | Contents |
 |---|---|
 | `p00_parameters.txt` | the options of the run |
-| `p10_quality_control/<sample>/` | read depth per amplicon (plot and tables) |
-| `p11_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
-| `p13_merged_variants_xlsx/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
+| `p11_read_depth/<sample>/` | read depth per amplicon (plot and tables) |
+| `p12_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
+| `p13_report/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
 
@@ -247,7 +247,7 @@ green background.
 | `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
 | `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
 | `--rtn_memory` | `4 GB` | memory per rtn task (`p09`), which holds the humans index (about 2 GB); Nextflow starts no more tasks than the computer's memory holds |
-| `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p11`); Nextflow reserves as many cores for each task, at most as many as the computer has |
+| `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p12`); Nextflow reserves as many cores for each task, at most as many as the computer has |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
 
 All options and their defaults are in the `params` block of `nextflow.config`. A

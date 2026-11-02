@@ -16,7 +16,7 @@ OUT_PREFIX.length.tsv instead).
 
 Expected: the share of reads from each sample at the position, counted from the read-name
 tags in the BAM of p09 (the reads after the NUMT filter); the frequency expected for the
-non-rCRS base(s) follows from it. FDSTOOLS counts its reads per amplicon from p08, the same
+non-rCRS base(s) follows from it. FDSTOOLS counts its reads per amplicon from p10, the same
 reads with their primers, so its expected share is about the same.
 """
 import argparse
@@ -49,7 +49,7 @@ def report(path):
 
 
 def report_of(out, sample, frame):
-    found = glob.glob(os.path.join(out, "p13_merged_variants_xlsx", f"{sample}_*{frame}_frame.xlsx"))
+    found = glob.glob(os.path.join(out, "p13_report", f"{sample}_*{frame}_frame.xlsx"))
     if len(found) != 1:
         sys.exit(f"no single report for {sample} in {out}: {found}")
     return report(found[0])
@@ -117,7 +117,7 @@ def main():
 
     site_rows, extra_rows, length_rows, summary = [], [], [], []
     suffix = f"_{args.frame}_frame.xlsx"
-    for xlsx in sorted(glob.glob(os.path.join(mix_out, "p13_merged_variants_xlsx", "mix-*" + suffix))):
+    for xlsx in sorted(glob.glob(os.path.join(mix_out, "p13_report", "mix-*" + suffix))):
         sample = os.path.basename(xlsx)[: -len(suffix)]
         m = MIXTURE.fullmatch(sample)
         if not m:
@@ -131,7 +131,7 @@ def main():
             if str(r["FMP"]) != "LOW" and position(r["FMP"]) is not None:
                 by_pos[position(r["FMP"])].append(r)
 
-        bam = glob.glob(os.path.join(mix_out, "p09_filtered_numts_bam_for_mutect2", sample, "*.bam"))[0]
+        bam = glob.glob(os.path.join(mix_out, "p09_filter_numts", sample, "*.bam"))[0]
         depth = depth_by_source(bam)
 
         (bases_a, unclear_a), (bases_b, unclear_b) = pure_a, pure_b

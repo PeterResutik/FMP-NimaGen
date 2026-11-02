@@ -1,5 +1,5 @@
-process p01b_prepare_humans_index {
-    tag "p01b: prepare BWA index for humans reference (runs once)"
+process p02_index_humans {
+    tag "p02: prepare BWA index for humans reference (runs once)"
 
     input:
     path humans_index_dir

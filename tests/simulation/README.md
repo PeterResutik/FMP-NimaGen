@@ -27,7 +27,7 @@ into this repository.
   (lines `major minor share`, share in %); both haplogroups take the same
   ambiguous states as on their own, and the noise of one run.
 - `build_error_profile.py` makes that profile from real samples: per sample the
-  raw FASTQ pair and the pipeline's `p02` and `p09` BAMs, the sequencing run
+  raw FASTQ pair and the pipeline's `p03` and `p09` BAMs, the sequencing run
   it belongs to (`--source`), and, to keep heteroplasmies out of the noise,
   its whole-genome calls (`--wgs-vcf`, mitopy VCF) or known heteroplasmic
   positions (`--mask-positions`). Read pairs are pooled per run, because

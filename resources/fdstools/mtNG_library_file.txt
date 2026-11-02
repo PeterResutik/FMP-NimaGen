@@ -105,7 +105,7 @@ mtNG_100 = chrM, 16471, 16569, 1, 33
 
 [flanks]
 ; mtNG_001's left oligo begins 5 bases before position 1 (CGATG, 16565-16569). bwa soft-clips
-; them and p03 removes them, so the flank, like the primer file, begins at position 1
+; them and p04 removes them, so the flank, like the primer file, begins at position 1
 mtNG_001 = GATCACAGGTCTATCACC, ATTTATCGCACCTACGTTCAATATTAC
 mtNG_002 = GCACCCTATGTCGCAGTATCTGTC, CCACACAGACATCATAACAAAAAATTTCC
 mtNG_003 = ATAATAATAACAATTRAAYGTCTGCAC, ACCCTAACACCAGCCTAACCAG

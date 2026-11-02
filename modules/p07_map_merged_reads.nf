@@ -1,6 +1,6 @@
-process p06_map_merged_bam_p01_p04 {
-    tag "p06: bwa mem on $sample_id"
-    // publishDir "$params.outdir/p06_mapped_wo_scb_merged_bam/${sample_id}", mode: 'copy', pattern: '*.bam*'
+process p07_map_merged_reads {
+    tag "p07: bwa mem on $sample_id"
+    // publishDir "$params.outdir/p07_map_merged_reads/${sample_id}", mode: 'copy', pattern: '*.bam*'
 
     input:
     tuple val(sample_id), path(fastq_wo_scb_merged)

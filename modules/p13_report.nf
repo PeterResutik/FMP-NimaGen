@@ -1,6 +1,6 @@
-process p13_merge_variants_p10_p11 {
+process p13_report {
     tag "p13: processing and merging variants on $sample_id"
-    publishDir "$params.outdir/p13_merged_variants_xlsx", mode: 'copy', overwrite: true
+    publishDir "$params.outdir/p13_report", mode: 'copy', overwrite: true
 
     input:
     tuple val(sample_id), path(tssv_file), path(report_file), path(sc_file), path(sast_file), path(html_file)

@@ -12,6 +12,15 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - Each step (process) is a module of its own in `modules/`, one file per
   step; `main.nf` includes them and holds the workflow. The steps and their
   results are unchanged.
+- The steps are numbered in the order they run, `p00` to `p13` without gaps,
+  and named after what they do (was: the human list indexed in `p01b`, no
+  `p12` since Mutect2 was removed, and rtn as `p09` running before `p08`).
+  Each result folder has the name of its step: the report is in
+  `p13_report/` (was `p13_merged_variants_xlsx/`), the FDSTOOLS files in
+  `p12_fdstools/` (was `p11_fdstools/`) and the read depth in
+  `p11_read_depth/` (was `p10_quality_control/`); the BAM and FASTQ folders
+  are `p03_map_read_pairs/`, `p04_remove_soft_clips/`, `p09_filter_numts/`
+  and `p10_reads_for_fdstools/`.
 - The parameters and their defaults are in the `params` block of
   `nextflow.config` instead of `main.nf`; their names and values are
   unchanged. Five commented-out parameters and three commented-out commands

@@ -1,6 +1,6 @@
-process p02_map_raw_fastq_p01 {
-    tag "p02: bwa mem on $sample_id"
-    publishDir { "$params.outdir/p02_mapped_w_scb_bam/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
+process p03_map_read_pairs {
+    tag "p03: bwa mem on $sample_id"
+    publishDir { "$params.outdir/p03_map_read_pairs/${sample_id}" }, mode: 'copy', overwrite: true, pattern: '*.bam*', enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(reads)
@@ -8,7 +8,7 @@ process p02_map_raw_fastq_p01 {
     path index_files
 
     output:
-    tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: p02_raw_sam_ch
+    tuple val(sample_id), path("${sample_id}_R1.sam"), path("${sample_id}_R2.sam"), emit: raw_sam_ch
     tuple path("${sample_id}_R1.bam"), path("${sample_id}_R2.bam"), path("${sample_id}_R1.bam.bai"), path("${sample_id}_R2.bam.bai")
     tuple path("${sample_id}_R1_R2.bam"), path("${sample_id}_R1_R2.bam.bai")
 

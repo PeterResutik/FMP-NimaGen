@@ -7,10 +7,10 @@ somewhere.
 
 | File | Used by | What it holds |
 |---|---|---|
-| `left_primers.fasta` | `p03`, `p05` | left oligos, 5' to 3' |
-| `right_primers_rc.fasta` | `p03`, `p05` | right oligos as on the forward strand (reverse complement) |
-| `../fdstools/mtNG_library_file.txt` | `p11`, `p13` | each amplicon's insert, with its primers as flanks |
-| `../amplicon_bed/amplicons_bed.txt` | `p07`, `p09` | one middle position per amplicon, for read depth |
+| `left_primers.fasta` | `p04`, `p06` | left oligos, 5' to 3' |
+| `right_primers_rc.fasta` | `p04`, `p06` | right oligos as on the forward strand (reverse complement) |
+| `../fdstools/mtNG_library_file.txt` | `p12`, `p13` | each amplicon's insert, with its primers as flanks |
+| `../amplicon_bed/amplicons_bed.txt` | `p08`, `p09` | one middle position per amplicon, for read depth |
 | `../amplicon_bed/NimaGen_primers.bed` | IGV only | primer sites and wobble positions |
 
 Positions are rCRS. `rCRS_NimaGen.fasta` repeats positions 1-53 after 16569, so
@@ -37,7 +37,7 @@ that amplicon 100, which crosses the origin, maps in one piece. The BED draws
 Some primers also bind elsewhere in the mtDNA: reads that start at 3318 begin
 with amplicon 083's left primer (home 13644), and the same happens at 12976
 (025), 13367 (077) and 16250 (006). bwa clips the part of the primer that does
-not fit there and p03 removes it; the part that fits stays in the read, but it
+not fit there and p04 removes it; the part that fits stays in the read, but it
 comes from the oligo, not the sample. cutadapt finds no primer at the start of
 such a read and drops it, so these reads do not reach the callers.
 
@@ -62,7 +62,7 @@ stay until NimaGen confirms; a code only lets cutadapt accept either base.
 ## Exceptions
 
 - **001**: the left oligo begins 5 bases before position 1 (CGATG,
-  16565-16569). bwa soft-clips them and `p03` removes them, so the primer file
+  16565-16569). bwa soft-clips them and `p04` removes them, so the primer file
   and the library flank begin at position 1.
 - **045**: the current left oligo covers 7086-7112 (its 3' end is not known
   to the base; the longer of two possible ends is used). The earlier
@@ -71,7 +71,7 @@ stay until NimaGen confirms; a code only lets cutadapt accept either base.
   it reads both chemistries; there 7113-7130 come from amplicon 044.
 - **046**: the kit has two left oligos, one from 7273 with C at 7274 and one
   from 7272 with T at 7274. The primer file lists the first, with Y at 7274;
-  `p03` cuts the extra first base of the second as read-through. The BED shows
+  `p04` cuts the extra first base of the second as read-through. The BED shows
   both.
 - **100**: the insert runs from 16471 across the origin to 33.
 

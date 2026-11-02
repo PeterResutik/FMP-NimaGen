@@ -1,6 +1,6 @@
-process p04_merge_fastq_p03 {
-    tag "p04: flash on $sample_id"
-    // publishDir "$params.outdir/p04_wo_scb_merged_fastq/${sample_id}", mode: 'copy'
+process p05_merge_read_pairs {
+    tag "p05: flash on $sample_id"
+    // publishDir "$params.outdir/p05_merge_read_pairs/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq_r1_wo_scb), path(fastq_r2_wo_scb)

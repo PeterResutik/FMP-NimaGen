@@ -49,8 +49,8 @@ SESSION=$(awk -F'\t' -v n="$RUN" '$3 == n {print $6}' "$REPO/.nextflow/history" 
 
 KEEP="$BATCH/keep"
 mkdir -p "$KEEP/sast" "$KEEP/merged" "$KEEP/truth"
-cp "$BATCH"/out/p11_fdstools/*/*.sast.csv "$KEEP/sast/"
-cp "$BATCH"/out/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged/"
+cp "$BATCH"/out/p12_fdstools/*/*.sast.csv "$KEEP/sast/"
+cp "$BATCH"/out/p13_report/*.xlsx "$KEEP/merged/"
 cp "$BATCH"/reads/*_truth.tsv "$KEEP/truth/"
 cp "$BATCH/out/p00_parameters.txt" "$KEEP/"
 
@@ -69,7 +69,7 @@ for t in ${EXTRA_THRESHOLDS-3 4 5}; do
         --min_vf_FDS "$t" "${FLAGS[@]}") > "$BATCH/nextflow_$t.log" 2>&1
     echo "report step at $t%, seconds: $(( $(date +%s) - start ))" >> "$BATCH/timing.txt"
     mkdir -p "$KEEP/merged_$t"
-    cp "$BATCH/out_$t"/p13_merged_variants_xlsx/*.xlsx "$KEEP/merged_$t/"
+    cp "$BATCH/out_$t"/p13_report/*.xlsx "$KEEP/merged_$t/"
     score "$KEEP/merged_$t" "$KEEP/score_$t"
 done
 

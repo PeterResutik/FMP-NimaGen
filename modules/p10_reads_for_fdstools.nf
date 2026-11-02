@@ -1,6 +1,6 @@
-process p08_filter_numts_merged_fastq_p06 {
-    tag "p08: reads rtn kept on $sample_id"
-    publishDir { "$params.outdir/p08_filtered_numts_bam_for_fdstoold/${sample_id}" }, mode: 'copy', overwrite: true, enabled: params.publish_bams.toString().toBoolean()
+process p10_reads_for_fdstools {
+    tag "p10: reads rtn kept on $sample_id"
+    publishDir { "$params.outdir/p10_reads_for_fdstools/${sample_id}" }, mode: 'copy', overwrite: true, enabled: params.publish_bams.toString().toBoolean()
 
     input:
     tuple val(sample_id), path(bam_wo_scb_merged), path(bam_wo_scb_merged_index), path(kept_names)

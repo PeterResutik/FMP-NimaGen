@@ -1,6 +1,6 @@
-process p01_index_reference_fasta {
+process p01_index_reference {
     tag "p01: bwa index on $reference"   
-    publishDir "$params.outdir/p01_index", mode: 'copy', overwrite: true
+    publishDir "$params.outdir/p01_index_reference", mode: 'copy', overwrite: true
 
     input:
     path reference

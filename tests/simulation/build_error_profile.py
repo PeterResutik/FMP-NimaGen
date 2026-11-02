@@ -10,7 +10,7 @@ quality decline along the read, its read-to-read variation, the link between the
 that recur at fixed cycles in that run. Pools are per run, not per sample: an amplicon with few reads in one sample
 would otherwise give the same few real reads to many simulated reads.
 
-Input per sample: the raw FASTQ pair, the pipeline's p02 BAM (raw reads aligned to rCRS) and p09 BAM (reads kept
+Input per sample: the raw FASTQ pair, the pipeline's p03 BAM (raw reads aligned to rCRS) and p09 BAM (reads kept
 after the NUMT filter and primer trimming). Only pairs kept in p09 are used, so NUMT reads and reads the pipeline
 discards do not count as noise. A read's amplicon is the primer it starts with (first 15 bases, within the read's
 first 6; cycles are counted from the primer's first base, as simulate_reads.py writes the reads). The true

@@ -1,7 +1,7 @@
-process p11_variant_calling_fdstools_sast_p08 {
-    tag "p11: fdstools on $sample_id"
+process p12_fdstools {
+    tag "p12: fdstools on $sample_id"
     cpus { Math.min(params.num_threads as int, Runtime.runtime.availableProcessors()) }  // never more cores than the computer has
-    publishDir { "$params.outdir/p11_fdstools/${sample_id}" }, mode: 'copy', overwrite: true
+    publishDir { "$params.outdir/p12_fdstools/${sample_id}" }, mode: 'copy', overwrite: true
     
     input:
     tuple val(sample_id), path(bam_file), path(bam_index), path(rtn_fastq)
