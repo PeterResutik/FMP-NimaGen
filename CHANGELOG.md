@@ -8,17 +8,20 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
-### Changed
-- rtn removes a read when its likelihood under the human mitogenomes is below
-  1e-7 (rtn's `-L`; was rtn's default, 1e-5), so that fewer reads of real
-  lineages that differ a little from every genome in the human list are
-  removed. The new option `--rtn_likelihood` sets it.
+## [0.5.1] – 2026-11-02
 
 ### Added
 - `--baseQ 0` switches the base-quality check off: TSSV runs without
   `--distrust-base-quality`, and every base is trusted, as before 0.3.0.
   There was no way to do this: `--baseQ 1` passed 0, which FDSTOOLS refuses;
   it now also means off. `--baseQ` is listed under Main Options.
+
+### Changed
+- rtn removes a read when its likelihood under the human mitogenomes is below
+  1e-7 (rtn's `-L`; was rtn's default, 1e-5), so that fewer reads of real
+  lineages that differ a little from every genome in the human list are
+  removed. The new option `--rtn_likelihood` sets it.
+- The Docker image is tagged `0.5.1`; its tools are those of `0.5.0`.
 
 ## [0.5.0] – 2026-11-02
 
