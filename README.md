@@ -139,7 +139,7 @@ computer responsive during a run, limit them with `-qs`, e.g. `-qs 4`.
 
 ### Running with Docker or Singularity
 
-The image `peterresutik/nimagen-pipeline:0.5.2` holds every tool the pipeline
+The image `peterresutik/nimagen-pipeline:0.5.3` holds every tool the pipeline
 runs (the Conda environment and rtn with its three fixes); Nextflow, Java and the
 pipeline folder stay outside it. FDSTOOLS downloads the chrM reference sequence
 from Ensembl the first time it runs and keeps it in `~/.strnaming-cache`; the
@@ -165,7 +165,7 @@ package (`containers/`), so every build gets the same tools; `FMP-NimaGen.yml`
 names only the main versions. To build the image yourself:
 
 ```bash
-docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:0.5.2 .
+docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:0.5.3 .
 ```
 
 ## Input and Output
