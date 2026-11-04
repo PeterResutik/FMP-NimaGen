@@ -32,7 +32,7 @@ The pipeline automates the following steps:
 2. **Read merging** (`p05`): FLASH merges each read pair into one read.  
 3. **Primer trimming** (`p06`): Cutadapt removes the primers and drops reads without a primer or outside the length limits. The primer files are described in `resources/primers/README.md`.  
 4. **Mapping** (`p07`–`p08`): the merged reads are mapped to rCRS with their primers (for FDSTOOLS) and without (for rtn).  
-5. **NUMT filtering** (`p09`–`p10`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough (`--rtn_likelihood`), which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too. rtn judges the reads without their primers (`p09`); `p10` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
+5. **NUMT filtering** (`p09`–`p10`): rtn removes reads that no human mitogenome in `humans_NimaGen_2026-10-30.fa` explains closely enough (`--rtn_likelihood`), which removes reads from nuclear copies of mtDNA (NUMTs); reads below `--mapQ` are removed too, and so are reads that the mapping cannot align end to end, as rtn judges only the aligned part of a read. rtn judges the reads without their primers (`p09`); `p10` keeps the same reads, by name, for FDSTOOLS. At the 50 positions that change most often in human mtDNA (`resources/rtn_files/positions/`), rtn sees the reads at base quality 2, so that differences there count little; FDSTOOLS keeps the original qualities.  
 6. **Quality control** (`p11`): read depth per amplicon.  
 7. **Variant calling** (`p12`): **FDSTOOLS** on the reads with primers. It distrusts bases below `--baseQ` (30; 0 switches this off): a read that differs from a more common sequence of the same length only at such bases counts for that sequence.  
 8. **Report** (`p13`): FDSTOOLS' calls are written in one notation into one Excel table per sample.  
@@ -247,7 +247,7 @@ green background.
 | `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
 | `--variant_note` | `true` | `false` leaves the `variant_note` column out of the report |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
-| `--skip_numt_filter` | `false` | skip rtn (for simulated reads) |
+| `--skip_numt_filter` | `false` | skip rtn and the removal of reads that cannot be aligned end to end (for simulated reads) |
 | `--rtn_positions` | `resources/rtn_files/positions/recurrent_positions.tsv` | positions rtn sees at base quality 2 (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |
 | `--rtn_likelihood` | `1e-7` | the minimum likelihood a read must have under the human mitogenomes (rtn `-L`; rtn's own default is 1e-5); a lower value removes fewer reads |
 | `--rtn_memory` | `4 GB` | memory per rtn task (`p09`), which holds the humans index (about 2 GB); Nextflow starts no more tasks than the computer's memory holds |

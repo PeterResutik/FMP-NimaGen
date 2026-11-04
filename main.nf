@@ -55,7 +55,7 @@ workflow {
          --rtn_positions                  : ${relativePath(params.rtn_positions)} # positions rtn sees at quality 2 (none = off)
          --rtn_likelihood                 : $params.rtn_likelihood # minimum likelihood of a read under the human mitogenomes (rtn -L; rtn default 1e-5)
          --mapQ                           : $params.mapQ # Used to filter out reads assigned as NUMTs by RTN 
-         --skip_numt_filter               : $params.skip_numt_filter # true skips rtn (simulated reads contain no NUMTs); the MAPQ filter still applies
+         --skip_numt_filter               : $params.skip_numt_filter # true skips rtn and the end-to-end check (simulated reads contain no NUMTs); the MAPQ filter still applies
          --rtn_memory                     : $params.rtn_memory # memory per rtn task, which holds the humans index (about 2 GB)
 
          VARIANT CALLING (with FDSTOOLS)

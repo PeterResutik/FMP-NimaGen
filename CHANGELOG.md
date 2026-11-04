@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- Reads that the mapping for rtn (`p08`) cannot align end to end are
+  removed (`p09`): rtn compares only the aligned part of a read with the
+  human mitogenomes, so a read from a nuclear copy that matches the mtDNA
+  over a short stretch could pass. Not with `--skip_numt_filter`.
+
 ## [0.5.2] – 2026-11-02
 
 ### Changed

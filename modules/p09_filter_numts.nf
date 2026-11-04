@@ -35,10 +35,13 @@ process p09_filter_numts {
     samtools view -h ${base}.lowq.rtn.bam | python ${python_script_rtn_qualities} restore ${bam_wo_scb_merged_trimmed} > ${base}.restored.sam
     samtools view -b -o ${base}.rtn.bam ${base}.restored.sam && samtools index ${base}.rtn.bam
     rm -f ${base}.lowq.* ${base}.restored.sam"""
+    // reads that the mapping (p08) could not align end to end go too: rtn judges only the aligned part of a read (it
+    // cuts soft-clipped bases off first); a split read is clipped in every record, so all its parts go
+    def clipped = params.skip_numt_filter.toString().toBoolean() ? "" : "| awk -F'\\t' '/^@/ || \$6 !~ /[SH]/' "
     """
     ${numt_filter}
 
-    samtools view -b -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
+    samtools view -h -q $params.mapQ ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam ${clipped}| samtools view -b -o ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools index ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam
     samtools view ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam | cut -f1 | sort -u > ${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
