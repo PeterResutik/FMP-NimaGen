@@ -189,7 +189,7 @@ def replace_labels(table, old, new, note):
 
 def respell_rows(table, reference):
     """Groups of major labels outside the frame regions written again by the general
-    rule (notation.respell_majors), so both callers spell a molecule alike."""
+    rule (notation.respell_majors), so that a molecule is always spelled alike."""
     protected = [(r.first, r.last) for r in frames.REGIONS.values()]
     for old, new in notation.respell_majors(table["sequence"], reference, protected):
         rows = {i: label for i, label in table["sequence"].items() if label in old}

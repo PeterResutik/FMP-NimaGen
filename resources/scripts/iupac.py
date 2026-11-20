@@ -1,5 +1,5 @@
-"""IUPAC codes for the bases present at one position, shared by both callers' scripts,
-the frames and the merge: two bases R Y M K S W, three bases V H D B, all four N.
+"""IUPAC codes for the bases present at one position, shared by the report scripts
+and the frames: two bases R Y M K S W, three bases V H D B, all four N.
 
 A substitution label carries the base itself when it is the only one present (A73G),
 otherwise the code of all bases present, rCRS included when present (T16189Y for

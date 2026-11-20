@@ -136,8 +136,8 @@ workflow {
     fdstools_ch = p12_fdstools(p10_reads_for_fdstools.out.reads, params.fdstools_library)
 
 
-    // ────────────── PROCESS & MERGE VARIANTS ────────────────
-    p13_report(fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_merge_fdstools_mutect2,
+    // ──────────────────────── REPORT ─────────────────────────
+    p13_report(fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_write_report,
                                files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
 
 }

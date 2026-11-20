@@ -24,6 +24,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   folder.
 
 ### Changed
+- The report script is `resources/scripts/write_report.py` (was
+  `merge_fdstools_mutect2_improved.py`, from when the report merged two
+  callers), and the option that names it is `--python_script_write_report`
+  (was `--python_script_merge_fdstools_mutect2`). Wording elsewhere that
+  still spoke of two callers or of merging them is updated.
 - rtn removes a read when its likelihood under the human mitogenomes is below
   1e-9 (`--rtn_likelihood`; was 1e-7), and it sees every base at its own
   quality (`--rtn_positions` is `none`; was the 50 positions that change most

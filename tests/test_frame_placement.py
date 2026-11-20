@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import frames
-import merge_fdstools_mutect2_improved as merge
+import write_report as wr
 
 HERE = Path(__file__).parent
 AMPLICONS = json.loads((HERE / "fixtures" / "placement_mitoleaf_amplicons.json").read_text())
@@ -24,7 +24,7 @@ def amplicon(rcrs, start, end, edits={}):
 
 
 def test_each_region_lies_in_one_amplicon():
-    ranges = merge.load_amplicon_ranges(LIBRARY)
+    ranges = wr.load_amplicon_ranges(LIBRARY)
     assert frames.covering(R57, ranges) == ["mtNG_001"]
     assert frames.covering(R310, ranges) == ["mtNG_003"]
     assert frames.covering(R16189, ranges) == ["mtNG_097"]

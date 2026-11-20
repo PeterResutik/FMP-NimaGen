@@ -1,4 +1,4 @@
-"""merge_fdstools_mutect2_improved.py: FDSTOOLS' table -> the report."""
+"""write_report.py: FDSTOOLS' table -> the report."""
 import subprocess
 import sys
 
@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from openpyxl import load_workbook
 
-import merge_fdstools_mutect2_improved as merge
+import write_report as wr
 
 AMPLICONS = {"mtNG_001": (19, 155), "mtNG_002": (133, 267), "mtNG_003": (259, 367),
              "mtNG_005": (470, 610), "mtNG_097": (16094, 16276)}
@@ -41,7 +41,7 @@ def write_inputs(tmp_path, fds_rows):
 
 def run(tmp_path, fds_rows, min_vf=5.0):
     fds_file, library = write_inputs(tmp_path, fds_rows)
-    return merge.fdstools_report(str(fds_file), min_vf=min_vf, marker_map=str(library))
+    return wr.fdstools_report(str(fds_file), min_vf=min_vf, marker_map=str(library))
 
 
 def calls(report):
@@ -51,7 +51,7 @@ def calls(report):
 def run_script(tmp_path, fds_rows, *options):
     fds_file, library = write_inputs(tmp_path, fds_rows)
     xlsx = tmp_path / "report.xlsx"
-    subprocess.run([sys.executable, merge.__file__, str(fds_file), str(xlsx), "--marker_map", str(library),
+    subprocess.run([sys.executable, wr.__file__, str(fds_file), str(xlsx), "--marker_map", str(library),
                     *options], check=True)
     ws = load_workbook(xlsx).active
     return [c.value for c in ws[1]], list(ws.iter_rows(min_row=2))
@@ -60,7 +60,7 @@ def run_script(tmp_path, fds_rows, *options):
 @pytest.mark.parametrize("a, b", [("T16189C", "T16189Y"), ("T16189Y", "T16189H"), ("C756M", "C756Y"),
                                   ("A523-", "A523a")])
 def test_order_key_same_locus_any_spelling(a, b):
-    assert merge.order_key(a) == merge.order_key(b)
+    assert wr.order_key(a) == wr.order_key(b)
 
 
 def test_rows_by_position_deletion_before_substitution(tmp_path):
@@ -127,7 +127,7 @@ def test_low_rows_per_amplicon_at_the_end(tmp_path):
 def test_empty_table_gives_an_empty_report(tmp_path):
     fds_file, library = write_inputs(tmp_path, [])
     fds_file.write_text("FDSTOOLS\tvf_FDS\trd_FDS\trd_total_FDS\tmarker\tmarker_range\tnum_markers\n")
-    assert merge.fdstools_report(str(fds_file), marker_map=str(library)).empty
+    assert wr.fdstools_report(str(fds_file), marker_map=str(library)).empty
 
 
 def test_script_writes_excel_coloured_by_kind(tmp_path):

@@ -239,8 +239,8 @@ def apply_labels(labels, reference, start, end):
 
 
 def respell_majors(labels, reference, protected=()):
-    """Major labels written again by the general rule, so both callers spell one
-    molecule alike. Labels within 10 bases of each other form a group, which is applied
+    """Major labels written again by the general rule, so that a molecule is always
+    spelled alike. Labels within 10 bases of each other form a group, which is applied
     to rCRS and described anew; a group reaching (with 12 bases on each side) into a
     protected region (first, last) is left alone. Returns [(old labels, new labels)]
     for the groups whose spelling changes."""
