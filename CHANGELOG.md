@@ -24,6 +24,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   folder.
 
 ### Changed
+- README: `--minimum` in Main Options; the first run with Conda needs internet
+  access; Docker on Apple Silicon is not tested, and Docker Desktop needs enough
+  memory for the rtn tasks; Windows only with WSL2; where the simulation and
+  evaluation tools are; how to see every removed read in IGV; "Install rtn" in
+  the table of contents.
 - The parameter log's line for `--skip_numt_filter` is shorter.
 - The report script is `resources/scripts/write_report.py` (was
   `merge_fdstools_mutect2_improved.py`, from when the report merged two

@@ -8,6 +8,7 @@ This pipeline processes mitochondrial DNA (mtDNA) sequencing data generated usin
 - [Installation and Setup](#installation-and-setup)  
   - [Nextflow Requirements and Installation](#nextflow-requirements-and-installation)  
   - [Clone the Repository](#clone-the-repository)  
+  - [Install rtn](#install-rtn)  
   - [Organize Input Data](#organize-input-data)  
 - [Running the Pipeline](#running-the-pipeline)  
   - [Running Locally with Conda (Recommended)](#running-locally-with-conda-recommended)  
@@ -48,11 +49,13 @@ Nextflow requires:
 * **Bash 3.2 or later**  
 * **Java 17 (or later, up to Java 24)**
 
+It runs on Linux and macOS; on Windows, only inside WSL2.
+
 Check your Java version:
 
 ```bash
 java -version
-````
+```
 
 If not installed, the easiest way is via [SDKMAN!](https://sdkman.io/):
 
@@ -133,6 +136,9 @@ conda activate FMP-NimaGen
 nextflow run main.nf -profile local
 ```
 
+The first run needs internet access: FDSTOOLS downloads the chrM reference
+sequence from Ensembl and keeps it in `~/.strnaming-cache`.
+
 To resume a previous run and skip already completed steps, add `-resume`.
 Nextflow runs as many tasks at once as the computer has cores; to keep the
 computer responsive during a run, limit them with `-qs`, e.g. `-qs 4`.
@@ -159,10 +165,14 @@ nextflow run main.nf -profile singularity
 Nextflow pulls the image on the first run (Singularity converts it and keeps it in
 `work/singularity/`, or in `NXF_SINGULARITY_CACHEDIR` if set). The image is built
 for x86-64 Linux, because rtn's alignment library uses x86 instructions; on Apple
-Silicon, Docker runs it through emulation, which is slower but gives the same
-results. The image is built from lock files with the exact version of every
-package (`containers/`), so every build gets the same tools; `FMP-NimaGen.yml`
-names only the main versions. To build the image yourself:
+Silicon, Docker can run it through emulation, which is slower and has not been
+tested. Docker Desktop runs the containers in a virtual machine with its own
+memory limit (Settings, Resources), while Nextflow plans the rtn tasks
+(`--rtn_memory`, 4 GB each) by the computer's memory: give Docker enough memory,
+or run fewer tasks at once with `-qs`. The image is built from lock files with the
+exact version of every package (`containers/`), so every build gets the same
+tools; `FMP-NimaGen.yml` names only the main versions. To build the image
+yourself:
 
 ```bash
 docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:0.5.3 .
@@ -183,12 +193,18 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
 Two of them hold every mapped read of the NUMT filter, so that the removed reads
-can be seen next to the kept ones: `p09_filter_numts/<sample>/*_all_reads.rtn.bam` (the
-reads without primers, as rtn judged them, with rtn's tags `ZH` and `ZN`: the
-number of mismatches from the closest human mitogenome and from the closest NUMT)
-and `p10_reads_for_fdstools/<sample>/*_all_reads.rtn.bam` (the same reads with
-their primers). A removed read has MAPQ 0, and every read has a tag `ZF` with the
-reason; in IGV, colour or group the alignments by the tag `ZF`.
+can be seen next to the kept ones:
+
+- `p09_filter_numts/<sample>/*_all_reads.rtn.bam`: the reads without primers, as
+  rtn judged them, with rtn's tags `ZH` and `ZN` (the number of mismatches from
+  the closest human mitogenome and from the closest NUMT);
+- `p10_reads_for_fdstools/<sample>/*_all_reads.rtn.bam`: the same reads with
+  their primers.
+
+A removed read has MAPQ 0, and every read has a tag `ZF` with the reason. In IGV,
+group or colour the alignments by the tag `ZF`. IGV shows at most 100 reads per
+50 bases by default, so most removed reads stay hidden at a high depth; to see
+them all, untick "Downsample reads" (View, Preferences, Alignments).
 
 | `ZF` | Meaning |
 |---|---|
@@ -257,6 +273,7 @@ green background.
 | `--reads` | `raw_data/*_{R1,R2}_001.fastq.gz` | input files |
 | `--outdir` | `results` | output folder |
 | `--min_vf_FDS` | 2 | a base counts as present from this share (%) |
+| `--minimum` | 2 | FDSTOOLS counts a sequence only if at least this many reads have it |
 | `--baseQ` | 30 | the lowest base quality FDSTOOLS trusts: a read that differs from a more common sequence of the same length only at lower-quality bases counts for that sequence; 0 trusts every base |
 | `--max_overlap` | 226 | FLASH counts the mismatches of an overlap over at most this many bases; set it to the read length, so that the whole overlap is checked |
 | `--lh_thresh` | 10 | length variants: under 10% not reported, 10–90% minor (lowercase), above 90% major |
@@ -294,6 +311,9 @@ from the repository root in the Conda environment:
 conda activate FMP-NimaGen
 pytest
 ```
+
+The tools that run the pipeline on simulated reads and evaluate it on real
+samples are in `tests/simulation/` and `tests/evaluation/`, each with a README.
 
 ## Known Limitations
 

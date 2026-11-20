@@ -3,8 +3,8 @@
 #
 #   docker build --platform linux/amd64 -t peterresutik/nimagen-pipeline:<version> .
 #
-# Built for linux/amd64 only: rtn's SeqLib uses x86 SSE instructions. On Apple Silicon, Docker runs
-# the image through emulation (slower, same results).
+# Built for linux/amd64 only: rtn's SeqLib uses x86 SSE instructions. On Apple Silicon, Docker can run
+# the image through emulation (slower; not tested).
 FROM mambaorg/micromamba:2.0.5@sha256:8d0d4cad074afe3ac93b58dce88bd2659153d3fa6de3a6968f501710e8d3c832
 
 USER root
