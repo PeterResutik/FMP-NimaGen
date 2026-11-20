@@ -45,10 +45,10 @@ into this repository.
   far the reported frequency is from the true share; calls where neither
   haplogroup has a variant are counted as extra calls.
 - `run_batch.sh` simulates a list of haplogroups, runs the pipeline with
-  `--skip_numt_filter --publish_bams false` (`NUMT_FILTER=1` keeps rtn),
-  keeps the small outputs
-  (`sast.csv`, merged Excel, truth, parameter log), scores them
-  and deletes reads, work folder and full output. `QUEUE_SIZE` (default 6)
+  `--skip_numt_filter --publish_bams false --pipeline_info false`
+  (`NUMT_FILTER=1` keeps rtn), keeps the small outputs (`sast.csv`, merged
+  Excel, truth, parameter log), scores them and deletes reads, work folder and
+  full output. `QUEUE_SIZE` (default 6)
   and `SIM_PROCESSES` (default 8) set the parallelism; `ERROR_PROFILE` passes
   an error profile to `simulate_reads.py`. With `MIXTURES=1` the list holds
   mixtures and `score_mixtures.py` scores them.

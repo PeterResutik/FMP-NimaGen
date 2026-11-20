@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Added
+- Run reports in `pipeline_info/` of the results folder: the time, CPU and
+  memory of every task (`trace.txt`), a timeline (`timeline.html`) and
+  Nextflow's summary of the run (`report.html`). `--pipeline_info false`
+  leaves them out; the simulations (`tests/simulation/run_batch.sh`) do.
 - Two BAMs with every mapped read of the NUMT filter (unless `--publish_bams false`):
   `p09_filter_numts/<sample>/*_all_reads.rtn.bam` (the reads without primers,
   as rtn judged them) and `p10_reads_for_fdstools/<sample>/*_all_reads.rtn.bam`

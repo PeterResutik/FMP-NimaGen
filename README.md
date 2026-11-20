@@ -179,6 +179,7 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | `p11_read_depth/<sample>/` | read depth per amplicon (plot and tables) |
 | `p12_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
 | `p13_report/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
+| `pipeline_info/` | run reports: time, CPU and memory of every task (`trace.txt`), a timeline (`timeline.html`) and a summary (`report.html`); none with `--pipeline_info false` |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
 Two of them hold every mapped read of the NUMT filter, so that the removed reads
@@ -269,6 +270,7 @@ green background.
 | `--rtn_memory` | `4 GB` | memory per rtn task (`p09`), which holds the humans index (about 2 GB); Nextflow starts no more tasks than the computer's memory holds |
 | `--num_threads` | 6 | threads of FDSTOOLS `tssv` (`p12`); Nextflow reserves as many cores for each task, at most as many as the computer has |
 | `--publish_bams` | `true` | copy BAM and FASTQ intermediates to the results folder |
+| `--pipeline_info` | `true` | write the run reports into `pipeline_info/` |
 
 All options and their defaults are in the `params` block of `nextflow.config`. A
 value given on the command line (`--name value`) or in a file passed with

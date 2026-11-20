@@ -33,7 +33,7 @@ python "$HERE/simulate_reads.py" --motifs "$MOTIFS" "${INPUT[@]}" \
     --right-primers "$REPO/resources/primers/right_primers_rc.fasta" \
     ${ERROR_PROFILE:+--error-profile "$ERROR_PROFILE"} > "$BATCH/simulate.log"
 
-FLAGS=(--publish_bams false)
+FLAGS=(--publish_bams false --pipeline_info false)
 [ "${NUMT_FILTER:-0}" = 1 ] || FLAGS+=(--skip_numt_filter)
 
 # a run name of our own, to resume exactly this run for the other thresholds
