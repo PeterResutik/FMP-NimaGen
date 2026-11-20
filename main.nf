@@ -124,15 +124,15 @@ workflow {
     // rtn runs once, on the primer-trimmed reads (p09); p10 keeps the same reads for FDSTOOLS
     // rtn takes the humans folder itself and the file name from p02 once the index is ready
     p09_filter_numts(p08_map_trimmed_reads.out, params.amplicon_middle_positions,  humans_index_ch, humans_index_ready_ch, numts_index_ch, numts_base_ch,
-                                            rtn_lowq, params.python_script_rtn_qualities)
-    p10_reads_for_fdstools(p07_map_merged_reads.out.join(p09_filter_numts.out.kept_names, by: 0))
+                                            rtn_lowq, params.python_script_rtn_qualities, params.python_script_mark_removed_reads)
+    p10_reads_for_fdstools(p07_map_merged_reads.out.join(p09_filter_numts.out.read_names, by: 0), params.python_script_mark_removed_reads)
     
     // ────────────────── QUALITY CONTROL ─────────────────────
     p11_read_depth(p09_filter_numts.out.bams, params.python_script_generate_read_depth_plot)
     
 
     // ────────────────── VARIANT CALLING ─────────────────────
-    fdstools_ch = p12_fdstools(p10_reads_for_fdstools.out, params.fdstools_library)
+    fdstools_ch = p12_fdstools(p10_reads_for_fdstools.out.reads, params.fdstools_library)
 
 
     // ────────────── PROCESS & MERGE VARIANTS ────────────────

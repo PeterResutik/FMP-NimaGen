@@ -181,6 +181,22 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | `p13_report/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
+Two of them hold every mapped read of the NUMT filter, so that the removed reads
+can be seen next to the kept ones: `p09_filter_numts/<sample>/*_all_reads.rtn.bam` (the
+reads without primers, as rtn judged them, with rtn's tags `ZH` and `ZN`: the
+number of mismatches from the closest human mitogenome and from the closest NUMT)
+and `p10_reads_for_fdstools/<sample>/*_all_reads.rtn.bam` (the same reads with
+their primers). A removed read has MAPQ 0, and every read has a tag `ZF` with the
+reason; in IGV, colour or group the alignments by the tag `ZF`.
+
+| `ZF` | Meaning |
+|---|---|
+| `kept` | the read is used |
+| `numt` | rtn removed the read: no human mitogenome explains it closely enough (`--rtn_likelihood`) |
+| `clipped` | the mapping without primers (`p08`) could not align the read end to end, e.g. a chimera that holds part of the mtDNA twice |
+| `mapq` | mapping quality below `--mapQ`, and rtn did not remove the read |
+| `trimmed` | (`p10` only) primer trimming (`p06`) removed the read, so rtn never judged it |
+| `unmapped` | (`p10` only) the read maps with its primers but not without them, so rtn never judged it |
 
 ## Reading the Report
 

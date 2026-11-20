@@ -8,6 +8,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Added
+- Two BAMs with every mapped read of the NUMT filter (unless `--publish_bams false`):
+  `p09_filter_numts/<sample>/*_all_reads.rtn.bam` (the reads without primers,
+  as rtn judged them) and `p10_reads_for_fdstools/<sample>/*_all_reads.rtn.bam`
+  (the same reads with their primers). A read the pipeline removes has MAPQ 0,
+  and every read has a tag `ZF` with the reason (`kept`, `numt`, `clipped`,
+  `mapq`, and in `p10` `trimmed` and `unmapped`), so that the removed reads can be
+  seen in IGV next to the kept ones. Before, only the kept reads were copied;
+  rtn's own BAM, with the reads it removes at MAPQ 0, stayed in Nextflow's work
+  folder.
+
 ### Changed
 - rtn removes a read when its likelihood under the human mitogenomes is below
   1e-9 (`--rtn_likelihood`; was 1e-7), and it sees every base at its own

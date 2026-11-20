@@ -12,11 +12,13 @@ process p09_filter_numts {
     val numts_base
     val rtn_lowq
     path python_script_rtn_qualities
+    path python_script_mark_removed_reads
 
 
     output:
     tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam.bai"), path(read_depth_txt), path("${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt"), emit: bams
-    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt"), emit: kept_names
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt"), path("${bam_wo_scb_merged_trimmed.baseName}_removed_reads.tsv"), emit: read_names
+    tuple val(sample_id), path("${bam_wo_scb_merged_trimmed.baseName}_all_reads.rtn.bam"), path("${bam_wo_scb_merged_trimmed.baseName}_all_reads.rtn.bam.bai"), emit: all_reads
 
     script:
     // rtn -i: indels do not count toward a read's distance, as when rtn picks the closest genome
@@ -38,6 +40,8 @@ process p09_filter_numts {
     // reads that the mapping (p08) could not align end to end go too: rtn judges only the aligned part of a read (it
     // cuts soft-clipped bases off first); a split read is clipped in every record, so all its parts go
     def clipped = params.skip_numt_filter.toString().toBoolean() ? "" : "| awk -F'\\t' '/^@/ || \$6 !~ /[SH]/' "
+    def clip_rule = params.skip_numt_filter.toString().toBoolean() ? 0 : 1
+    // all_reads: every read of this step, the removed ones at MAPQ 0, each with its reason in the tag ZF
     """
     ${numt_filter}
 
@@ -46,6 +50,10 @@ process p09_filter_numts {
     samtools view ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam | cut -f1 | sort -u > ${bam_wo_scb_merged_trimmed.baseName}_kept_names.txt
     samtools depth -a -b $amplicon_middle_positions ${bam_wo_scb_merged_trimmed.baseName}_filtered.rtn.bam > ${bam_wo_scb_merged_trimmed.baseName}_read_depth_wo_NUMTs.txt
 
-    mv ${bam_wo_scb_merged_trimmed.baseName}.rtn.bam ${bam_wo_scb_merged_trimmed.baseName}.rtn.unfiltered.bam
+    set -o pipefail
+    samtools view -h ${bam_wo_scb_merged_trimmed} | python ${python_script_mark_removed_reads} p09 ${base}.rtn.bam $params.mapQ ${clip_rule} ${base}_removed_reads.tsv \\
+        | samtools view -b -o ${base}_all_reads.rtn.bam
+    samtools index ${base}_all_reads.rtn.bam
+    [ \$(samtools view -c -d ZF:kept ${base}_all_reads.rtn.bam) -eq \$(samtools view -c ${base}_filtered.rtn.bam) ] || { echo "p09: the reads marked kept are not the reads kept" >&2; exit 1; }
     """
 }
