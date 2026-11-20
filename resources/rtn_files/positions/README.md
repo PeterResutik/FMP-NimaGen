@@ -1,10 +1,11 @@
 # Positions rtn should not count
 
 rtn sets a read to MAPQ 0 (a possible NUMT) when it differs from every human
-mitogenome in the humans file by about three or more full-quality mismatches. A
-person who is not in that file differs from their nearest relative in it mostly
-at positions that mutate again and again across the human tree. NUMTs differ
-from human mtDNA at positions spread over the whole molecule.
+mitogenome in the humans file by about three or more full-quality mismatches (at
+rtn's own minimum likelihood, `-L 1e-5`). A person who is not in that file
+differs from their nearest relative in it mostly at positions that mutate again
+and again across the human tree. NUMTs differ from human mtDNA at positions
+spread over the whole molecule.
 
 `recurrent_positions.tsv` lists the 50 positions that change most often. In the
 copy of the reads that rtn evaluates, these positions are meant to get base
@@ -13,6 +14,12 @@ counts about a tenth of a full mismatch. The original qualities stay in the
 reads the callers see. This needs an rtn that uses base qualities: rtn as
 released ignores them; the fork at <https://github.com/PeterResutik/RtN>
 (branch `fixes`) uses them.
+
+The pipeline does not use the list by default (`--rtn_positions none`). Its
+minimum likelihood, 1e-9 (`--rtn_likelihood`), lets a read differ from its
+nearest human mitogenome at about one more position at full quality than 1e-7
+did. `--rtn_positions resources/rtn_files/positions/recurrent_positions.tsv`
+turns the list on.
 
 ## Ranking
 

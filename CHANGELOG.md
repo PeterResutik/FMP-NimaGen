@@ -8,6 +8,17 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Changed
+- rtn removes a read when its likelihood under the human mitogenomes is below
+  1e-9 (`--rtn_likelihood`; was 1e-7), and it sees every base at its own
+  quality (`--rtn_positions` is `none`; was the 50 positions that change most
+  often in human mtDNA, at base quality 2). At 1e-9 a read may differ from its
+  nearest human mitogenome at about one more position at full quality, which
+  is what the 50 positions were for, so that fewer reads of real lineages that
+  differ a little from every genome in the human list are removed. The list
+  stays in `resources/rtn_files/positions/`, and `--rtn_positions` still
+  takes it.
+
 ## [0.5.3] – 2026-11-04
 
 ### Changed
