@@ -24,6 +24,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   folder.
 
 ### Changed
+- The parameter log's line for `--skip_numt_filter` is shorter.
 - The report script is `resources/scripts/write_report.py` (was
   `merge_fdstools_mutect2_improved.py`, from when the report merged two
   callers), and the option that names it is `--python_script_write_report`
