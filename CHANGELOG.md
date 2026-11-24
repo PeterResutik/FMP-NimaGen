@@ -8,6 +8,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+## [0.6.0] – 2026-11-24
+
 ### Added
 - Run reports in `pipeline_info/` of the results folder: the time, CPU and
   memory of every task (`trace.txt`), a timeline (`timeline.html`) and
@@ -46,6 +48,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   differ a little from every genome in the human list are removed. The list
   stays in `resources/rtn_files/positions/`, and `--rtn_positions` still
   takes it.
+- The Docker image is tagged `0.6.0`; its tools are those of `0.5.2`.
 
 ## [0.5.3] – 2026-11-04
 
