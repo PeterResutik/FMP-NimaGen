@@ -24,6 +24,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   folder.
 
 ### Changed
+- README, Known Limitations: variants under a primer that weaken an amplicon,
+  and FDSTOOLS judging the quality of identical reads together.
 - README: `--minimum` in Main Options; the first run with Conda needs internet
   access; Docker on Apple Silicon is not tested, and Docker Desktop needs enough
   memory for the rtn tasks; Windows only with WSL2; where the simulation and

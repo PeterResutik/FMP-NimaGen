@@ -323,6 +323,17 @@ samples are in `tests/simulation/` and `tests/evaluation/`, each with a README.
   3413 and 3460 (amplicon 023, whose R2 loses quality after its first cycles),
   at 8541 (amplicon 053) and at 10231 and 10266 (amplicon 063), at up to 4%.
   A higher detection threshold (`--min_vf_FDS`) leaves them out.
+- A variant under a primer can weaken the PCR of its amplicon, which then has
+  few reads or none, and its calls rest on those few reads. Seen so far: G3834A
+  under the right primer of amplicon 025 (very few reads), C16278T with A16293G
+  under the right primer of amplicon 097, and 16294T (often with 16296T), common
+  in haplogroup T, also under 097's right primer: 097 then had 10–23% of the
+  sample's median read depth. Only amplicon 097 covers 16102–16212. The read
+  depth per amplicon is in `p11_read_depth/`.
+- FDSTOOLS judges the base quality of identical reads together (their cubic
+  mean), not read by read (`--baseQ`). A real variant at a position where the
+  quality is naturally low, such as the edge of a long homopolymer, can then be
+  counted for the main sequence.
 
 ## Cleaning Up
 
