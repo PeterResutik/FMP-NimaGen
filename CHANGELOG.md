@@ -44,6 +44,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - `raw_data/2800M_L001_R1_001.fastq.gz` and `_R2_`, the reads of a 2800M
   control; the test reads are in `tests/data/`.
 
+### Fixed
+- A `'` in an option's value, such as a path given with `--reads` or
+  `--outdir`, no longer stops the run: Nextflow writes the parameter log
+  (`p00_parameters.txt`) itself instead of a shell command. Its lines are
+  indented as in the log printed at the start of the run.
+
 ## [0.6.0] – 2026-11-24
 
 ### Added

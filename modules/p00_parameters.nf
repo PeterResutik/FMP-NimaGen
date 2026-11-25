@@ -7,8 +7,7 @@ process p00_parameters{
     output:
     path "p00_parameters.txt"
 
-    script:
-    """
-    echo '$logs' > p00_parameters.txt
-    """
+    // written by Nextflow itself, not by a shell command, so that the text may hold any character (a ' in a path)
+    exec:
+    task.workDir.resolve("p00_parameters.txt").text = logs + "\n"
 }
