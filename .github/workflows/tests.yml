@@ -1,0 +1,39 @@
+# The tests on GitHub, with the tools of the Docker image the pipeline names (profile docker in nextflow.config):
+# the Python tests, and the pipeline test on the 2800M control of tests/data/ (tests/main.nf.test).
+name: Tests
+
+on:
+  push:
+    branches: [main, pipeline-rebuild]
+  pull_request:
+
+jobs:
+  python:
+    name: Python tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: pytest in the image
+        run: |
+          image=$(sed -n "s/^ *process.container = '\(peterresutik[^']*\)'.*/\1/p" nextflow.config)
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:$PWD" -w "$PWD" "$image" \
+              pytest -q -p no:cacheprovider
+
+  pipeline:
+    name: Pipeline test (nf-test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: nf-core/setup-nextflow@v2
+        with:
+          version: "25.04.6"
+      - uses: nf-core/setup-nf-test@v1
+        with:
+          version: "0.9.2"
+      - name: nf-test with Docker
+        # --ci: a missing snapshot fails the test instead of being written
+        run: nf-test test --profile test,docker --ci

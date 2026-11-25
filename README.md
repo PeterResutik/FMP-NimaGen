@@ -365,6 +365,9 @@ nf-test test --profile test,docker     # or --profile test in the Conda environm
 A change meant to change the report also updates the snapshot
 (`nf-test test --profile test,docker --update-snapshot`).
 
+GitHub runs both, with the tools of the Docker image, on every push to `main` and
+`pipeline-rebuild` and on every pull request (`.github/workflows/tests.yml`).
+
 The tools that run the pipeline on simulated reads and evaluate it on real
 samples are in `tests/simulation/` and `tests/evaluation/`, each with a README.
 
