@@ -13,8 +13,6 @@ later/
 *.bam.bai
 *.vcf
 *.fastq.gz
-!raw_data/2800M_L001_R1_001.fastq.gz
-!raw_data/2800M_L001_R2_001.fastq.gz
 
 # Output directories (customize based on your pipeline configuration)
 merging/
@@ -129,3 +127,14 @@ data/
 merging/scripts/bwa
 merging/scripts/prosynar
 .ipynb_checkpoints/
+
+# The test data (tests/data/README.md); the humans index the test run writes next to its humans file
+!tests/data/
+!tests/data/*.fastq.gz
+tests/data/humans/*
+!tests/data/humans/humans_test.fa.bz2
+
+# nf-test: its work folder, log and launcher
+.nf-test/
+.nf-test.log
+/nf-test

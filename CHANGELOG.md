@@ -9,6 +9,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Added
+- `-profile test`: a small run on a 2800M control in `tests/data/` (22,448
+  read pairs of a MiSeq run, about 100 reads per amplicon) with a small humans
+  file (227 genomes), and a pipeline test with nf-test (`tests/main.nf.test`):
+  the control's haplotype, and a snapshot of its report and FDSTOOLS'
+  sequences.
 - The report is also written as tab-separated text next to the Excel file
   (`p13_report/<sample>_separate_frame.tsv`): the same rows and columns, without
   colours, for scripts and for comparing reports.
@@ -31,6 +36,10 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (default 100). `resources/noise_model/build_noise_model.py` builds a model
   from a lab's own controls; several models are pooled. `--depth_flag false`
   leaves the column out.
+
+### Removed
+- `raw_data/2800M_L001_R1_001.fastq.gz` and `_R2_`, the reads of a 2800M
+  control; the test reads are in `tests/data/`.
 
 ## [0.6.0] – 2026-11-24
 

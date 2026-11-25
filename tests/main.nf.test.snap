@@ -1,0 +1,13 @@
+{
+    "2800M: its haplotype, and the report and FDSTOOLS' sequences as before": {
+        "content": [
+            "2800M-DVJ49_S1_L001_separate_frame.tsv:md5,1ba825775ee51cfee9378d618f364b73",
+            "2800M-DVJ49_S1_L001.sast.csv:md5,2f5f9d5a4dc11db67d2e50666511b360"
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2026-11-25T10:16:48.719021333"
+    }
+}

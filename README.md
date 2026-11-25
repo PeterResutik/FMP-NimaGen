@@ -113,6 +113,7 @@ variants.
 Place your raw sequencing files into the expected directory:
 
 ```bash
+mkdir -p raw_data
 cp /path/to/your/FASTQ/*fastq.gz raw_data/
 ```
 
@@ -338,6 +339,9 @@ the start of each run and saved in `p00_parameters.txt`.
 * `-profile local`: runs the tools installed in the active Conda environment (`FMP-NimaGen.yml`) and rtn.
 * `-profile docker`: runs every tool in the Docker image (see Running with Docker or Singularity).
 * `-profile singularity`: the same image with Singularity or Apptainer.
+* `-profile test`: a small run on the 2800M control in `tests/data/`, with a small
+  humans file, in about a minute; together with one of the above, e.g.
+  `nextflow run main.nf -profile test,docker`. A way to try the pipeline.
 
 ## Tests
 
@@ -348,6 +352,18 @@ from the repository root in the Conda environment:
 conda activate FMP-NimaGen
 pytest
 ```
+
+The whole pipeline is tested with [nf-test](https://www.nf-test.com) on the
+2800M control in `tests/data/` (`-profile test`): the test checks the control's
+haplotype and that its report and FDSTOOLS' sequences are as before
+(`tests/main.nf.test.snap`). Run it from the repository root:
+
+```bash
+nf-test test --profile test,docker     # or --profile test in the Conda environment, with rtn installed
+```
+
+A change meant to change the report also updates the snapshot
+(`nf-test test --profile test,docker --update-snapshot`).
 
 The tools that run the pipeline on simulated reads and evaluate it on real
 samples are in `tests/simulation/` and `tests/evaluation/`, each with a README.
@@ -421,7 +437,8 @@ Third-party material in this repository keeps its own terms:
   `humans_NimaGen_2026-10-19.fa.bz2`) are built from
   [mitoLEAF](https://github.com/forensicgenomics/mitoLeaf) (Mozilla Public
   License 2.0), GenBank, and the 1000 Genomes Project and HGDP data (see
-  `resources/rtn_files/humans/build/README.md`).
+  `resources/rtn_files/humans/build/README.md`);
+  `tests/data/humans/humans_test.fa.bz2` is a part of it.
 - `resources/rtn_files/numts/` comes from [RtN](https://github.com/Ahhgust/RtN).
 
 The tools the pipeline runs (FDSTOOLS, bwa, samtools, rtn and others) are

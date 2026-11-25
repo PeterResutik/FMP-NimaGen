@@ -1,0 +1,29 @@
+nextflow_pipeline {
+
+    name "The 2800M control of tests/data/ through the whole pipeline (-profile test)"
+    script "../main.nf"
+    tag "pipeline"
+
+    test("2800M: its haplotype, and the report and FDSTOOLS' sequences as before") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def sample = "2800M-DVJ49_S1_L001"
+            def report = path("$outputDir/p13_report/${sample}_separate_frame.tsv")
+            // the calls with more than 50% of the reads (column 1: FMP, column 2: vf_FDS)
+            def majors = report.readLines().drop(1).collect { it.split("\t", -1) }
+                .findAll { it[1].isNumber() && (it[1] as double) > 50 }.collect { it[0] }
+            assertAll(
+                { assert workflow.success },
+                { assert majors == ["T152C", "A263G", "-315.1C", "T477C", "A750G", "A1438G", "G3010A", "A4769G",
+                                    "A8860G", "A15326G", "T16519C"] },
+                { assert snapshot(report, path("$outputDir/p12_fdstools/${sample}/${sample}.sast.csv")).match() }
+            )
+        }
+    }
+}
