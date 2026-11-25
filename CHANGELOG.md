@@ -9,6 +9,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 ## [Unreleased]
 
 ### Added
+- `resources/rtn_files/numts/README.md`: where the NUMT sequences rtn uses come
+  from and how to cite RtN!.
 - GitHub runs the Python tests and the pipeline test, with the tools of the
   Docker image, on every push to `main` and `pipeline-rebuild` and on every
   pull request (`.github/workflows/tests.yml`).
@@ -36,6 +38,12 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   (default 100). `resources/noise_model/build_noise_model.py` builds a model
   from a lab's own controls; several models are pooled. `--depth_flag false`
   leaves the column out.
+
+### Changed
+- rtn takes RtN!'s NUMT file as RtN! ships it, `Calabrese_Dayama_Smart_Numts.fa`
+  (`--numts_index_base`; was `Calabrese_Dayama_Smart_Numts_modified.fa`). The
+  earlier copy had one more sequence, bases 430-614 of RtN!'s `KM281528.1` under
+  a header of its own, so it held nothing the file does not already have.
 
 ### Removed
 - `raw_data/2800M_L001_R1_001.fastq.gz` and `_R2_`, the reads of a 2800M

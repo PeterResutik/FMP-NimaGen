@@ -35,7 +35,7 @@ substitutions only and the rCRS base for two-state marks and missing bases.
 | GenBank | the accession versions listed in `profiles.csv`, downloaded 2026-10-02 (again 2026-10-20, same file) | genome sequences |
 | 1000 Genomes Project, 30x high-coverage CRAMs (Byrska-Bishop et al. 2022) | 2,504 people | `people_calls.tsv.gz` |
 | HGDP high-coverage CRAMs (Bergström et al. 2020) | 828 people | `people_calls.tsv.gz` |
-| `../../numts/Calabrese_Dayama_Smart_Numts_modified.fa` (from rtn) | as in this repository | the NUMT check |
+| `../../numts/Calabrese_Dayama_Smart_Numts.fa` (from RtN!) | as RtN! ships it | the NUMT check |
 
 The people's chrM reads were re-called with mitopy (GATK Mutect2 in
 mitochondria mode). A person's sequence is rCRS with their majority calls

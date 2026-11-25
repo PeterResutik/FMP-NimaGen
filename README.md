@@ -441,7 +441,10 @@ Third-party material in this repository keeps its own terms:
   License 2.0), GenBank, and the 1000 Genomes Project and HGDP data (see
   `resources/rtn_files/humans/build/README.md`);
   `tests/data/humans/humans_test.fa.bz2` is a part of it.
-- `resources/rtn_files/numts/` comes from [RtN](https://github.com/Ahhgust/RtN).
+- `resources/rtn_files/numts/` holds the NUMT sequences of
+  [RtN!](https://github.com/Ahhgust/RtN) as RtN! ships them, under RtN!'s GNU
+  General Public License, version 3 (`resources/rtn_files/numts/README.md` and
+  `LICENSE.txt` there).
 
 The tools the pipeline runs (FDSTOOLS, bwa, samtools, rtn and others) are
 not part of this repository and are covered by their own licences.

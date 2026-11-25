@@ -10,7 +10,7 @@ RES=$(cd "$HERE/../../.." && pwd)
 W=$1
 mkdir -p "$W"
 NAME=humans_NimaGen_2026-10-30.fa
-NUMTS=$RES/rtn_files/numts/Calabrese_Dayama_Smart_Numts_modified.fa
+NUMTS=$RES/rtn_files/numts/Calabrese_Dayama_Smart_Numts.fa
 MITOLEAF=https://raw.githubusercontent.com/forensicgenomics/mitoLeaf/25b6076/docs/data
 
 echo "1. mitoLEAF tables (version 1.6.1, commit 25b6076)"
