@@ -6,7 +6,7 @@ import re
 import sys
 import traceback
 from openpyxl import load_workbook
-from openpyxl.styles import PatternFill, Border, Side
+from openpyxl.styles import Alignment, PatternFill, Border, Side
 
 import frames
 import iupac
@@ -281,7 +281,7 @@ def apply_excel_styles(excel_path: str):
         fill_lowercase = PatternFill(start_color="3CB0F1", end_color="3CB0F1", fill_type="solid")
         fill_dash = PatternFill(start_color="92D14F", end_color="92D14F", fill_type="solid")
         fill_default = PatternFill(start_color="36B150", end_color="36B150", fill_type="solid")
-        fill_pathogenic = PatternFill(start_color="FF7C80", end_color="FF7C80", fill_type="solid")
+        fill_pathogenic = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
         header = [cell.value for cell in ws[1]]
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -303,8 +303,9 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_default
                 elif col_name.endswith("_FDS") or col_name in ["marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
                     cell.fill = fill_green
-                elif col_name == "pathogenic" and cell.value == "yes":
-                    cell.fill = fill_pathogenic
+                elif col_name == "pathogenic":
+                    cell.fill = fill_pathogenic if cell.value == "yes" else fill_green
+                    cell.alignment = Alignment(horizontal="center")
 
         for col in ws.columns:
             max_length = 0

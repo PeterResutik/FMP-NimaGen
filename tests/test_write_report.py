@@ -194,15 +194,17 @@ def test_pathogenic_variant_of_several_changes_needs_all(tmp_path, reference_fas
     assert set(flagged(tmp_path, reference_fasta, some + rest).values()) == {"yes"}
 
 
-def test_script_marks_pathogenic_rows_red(tmp_path, reference_fasta):
+def test_script_marks_pathogenic_rows_red_and_centres_the_column(tmp_path, reference_fasta):
     header, rows = run_script(tmp_path, [fds("A263G", 100.0, 900, "mtNG_002"), fds("G11778A", 100.0, 900, "mtNG_005"),
                                          fds_low("mtNG_001", 6)],
                               "--pathogenic_list", PATHOGENIC, "--reference", str(reference_fasta))
     by_call = {r[0].value: r for r in rows}
     cell = by_call["G11778A"][header.index("pathogenic")]
-    assert cell.value == "yes" and cell.fill.start_color.rgb[-6:] == "FF7C80"
-    assert by_call["A263G"][header.index("pathogenic")].value is None
-    assert by_call["LOW"][header.index("pathogenic")].value is None
+    assert cell.value == "yes" and cell.fill.start_color.rgb[-6:] == "FFC7CE"
+    for call in ("A263G", "LOW"):                                   # the others: green, like the other columns
+        other = by_call[call][header.index("pathogenic")]
+        assert other.value is None and other.fill.start_color.rgb[-6:] == "C6EFCE"
+    assert {r[header.index("pathogenic")].alignment.horizontal for r in rows} == {"center"}
 
 
 def test_script_without_a_list_has_no_pathogenic_column(tmp_path):
