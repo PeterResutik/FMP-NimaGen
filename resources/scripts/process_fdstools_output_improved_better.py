@@ -57,25 +57,32 @@ def position_rows(final, other_share, min_vf):
     iupac.call: the bases with at least min_vf are present, rCRS when what
     other_share[position] (every substitution and deletion there, also those under
     min_vf) leaves reaches min_vf. Several bases other than rCRS give one row with
-    frequency and reads per base ("A 30, T 10")."""
-    labels, rows, combined = {}, [], []
+    frequency and reads per base ("A 30, T 10"). A point heteroplasmy also gets
+    minor_vf, the share of its least common base present (rCRS included), for the
+    report's depth rule."""
+    labels, rows, combined, minor = {}, [], [], {}
     subs = final[final["sequence"].str.match(SUBSTITUTION)]
     for pos, group in subs.groupby("position"):
         ref = group["sequence"].iloc[0][0]
         shares = dict(zip(group["sequence"].str[-1], group["variant_frequency"]))
-        code, others = iupac.call(ref, {**shares, ref: 100 - other_share.get(pos, 0)}, min_vf)
+        shares[ref] = 100 - other_share.get(pos, 0)
+        code, others = iupac.call(ref, shares, min_vf)
+        present = iupac.BASES.get(code, {code})
+        least = round(min(shares[b] for b in present), 2) if len(present) > 1 else None
         label = f"{ref}{int(pos)}{code}"
         if len(group) == 1:
             labels[group.index[0]] = label
+            minor[group.index[0]] = least
             continue
         reads = dict(zip(group["sequence"].str[-1], group["total"]))
         first = group.loc[group["variant_frequency"].idxmax()].to_dict()
         rows.append({**first, "sequence": label, "variant_frequency": iupac.format_values(others),
                      "total": iupac.format_values({b: reads[b] for b in others}, 0),
                      "rd_total_FDS": group["rd_total_FDS"].max(),
-                     "num_markers": group["num_markers"].max()})
+                     "num_markers": group["num_markers"].max(), "minor_vf": least})
         combined += list(group.index)
     final = final.copy()
+    final["minor_vf"] = pd.Series(minor, index=list(minor), dtype=float)
     for i, label in labels.items():
         final.at[i, "sequence"] = label
     if rows:

@@ -251,6 +251,7 @@ molecule is the same.
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
 | `marker`, `marker_range`, `num_markers` | the amplicons FDSTOOLS' depth and frequency come from (every amplicon with reads covering the position), their ranges, and their number |
 | `pathogenic` | `yes` when the row carries a variant of `--pathogenic_list` (MITOMAP's confirmed disease variants, see `resources/pathogenic/`), also as one base of a point heteroplasmy; such variants can then be left out of the haplotype; not written with `--pathogenic false` |
+| `depth_flag` | for a point heteroplasmy that passes `--min_vf_FDS` but whose least common base is not above the depth rule at the row's reads per amplicon: the share it would need, e.g. `needs > 5% at 100 reads per amplicon` (see [Depth Rule](#depth-rule)); not written with `--depth_flag false` |
 
 FDSTOOLS gives the reads and the share of the variant (`rd_FDS`, `vf_FDS`);
 the reads without it follow from `rd_total_FDS`. Reads that run from one
@@ -265,7 +266,32 @@ The colour of the `FMP` cell shows the kind of row at a glance: yellow for
 `LOW`, orange for a point heteroplasmy, blue for a lowercase length variant,
 and green for the other variants (a lighter green for insertions and
 deletions). Yellow rows are the ones to look at. The other columns have a
-green background; a `pathogenic` cell that says `yes` is red.
+green background; a `pathogenic` cell that says `yes` is red, and a `depth_flag`
+cell with a note is yellow.
+
+### Depth Rule
+
+`--min_vf_FDS` is the same at every read depth, but with fewer reads the
+method's noise reaches higher shares: at 100 reads per amplicon, 3 wrong reads
+already make 3%. The depth rule is the share a point heteroplasmy must be above
+at its reads per amplicon (`rd_total_FDS` / `num_markers`) so that at most 1 in
+`--depth_risk` samples has a false one. A row that passes `--min_vf_FDS` but
+not the depth rule stays in the report with a note in `depth_flag`; nothing is
+removed. The rule applies to the least common base present, rCRS included, and
+not in 16180–16193, 300–315 and 57–60.
+
+The rule comes from a noise model of control samples (`--noise_model`): for
+each control, how many wrong bases reach each share of its reads, from 0.1 to
+2%. In a sample with n reads per amplicon their reads are binomial and their
+number Poisson; the threshold is the lowest share at which the chance of at
+least one above it stays within the risk. The shipped model,
+`resources/noise_model/2800M_8controls.tsv`, holds the 2800M controls of 8
+runs. With it, at 1 in 100 samples, a point heteroplasmy needs more than 5% at
+100 reads per amplicon, 2.6% at 500 and 2.2% at 1,000, and the rule is at or
+below 2% from about 1,600 reads; at 1 in 1,000 (`--depth_risk 1000`) it needs
+6%, 3.2% and 2.6%, and 2% from about 3,550 reads. A lab can build a model from
+its own controls, or add them to the shipped one: see
+`resources/noise_model/README.md`.
 
 ## Main Options
 
@@ -283,6 +309,9 @@ green background; a `pathogenic` cell that says `yes` is red.
 | `--variant_note` | `true` | `false` leaves the `variant_note` column out of the report |
 | `--pathogenic` | `true` | `false` leaves the `pathogenic` column out of the report |
 | `--pathogenic_list` | `resources/pathogenic/mitomap_confirmed_2026-11-18.tsv` | the variants marked in the `pathogenic` column; `resources/pathogenic/README.md` says how to build a newer list |
+| `--depth_flag` | `true` | `false` leaves the `depth_flag` column out of the report |
+| `--noise_model` | `resources/noise_model/2800M_8controls.tsv` | the control samples the [depth rule](#depth-rule) comes from; several files, comma-separated, are pooled |
+| `--depth_risk` | 100 | the depth rule allows a false point heteroplasmy in at most 1 in this many samples, e.g. 1000 |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn and the removal of reads that cannot be aligned end to end (for simulated reads) |
 | `--rtn_positions` | `none` | a file of positions rtn sees at base quality 2, such as `resources/rtn_files/positions/recurrent_positions.tsv` (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |

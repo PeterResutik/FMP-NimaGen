@@ -151,6 +151,22 @@ def test_one_row_per_position(tmp_path, rows, expected, reads):
     assert report.set_index("FDSTOOLS").loc[next(iter(expected)), "rd_FDS"] == reads
 
 
+@pytest.mark.parametrize("rows, label, least", [
+    ([("C756A", 29), ("REF", 71)], "C756M", 29.0),                   # A the least common
+    ([("C756A", 94), ("REF", 6)], "C756M", 6.0),                     # rCRS C the least common
+    ([("C756A", 30), ("C756T", 10), ("REF", 60)], "C756H", 10.0),    # three bases: T
+    ([("C756A", 70), ("C756G", 30)], "C756R", 30.0),                 # no rCRS
+])
+def test_a_point_heteroplasmy_carries_its_least_common_share(tmp_path, rows, label, least):
+    report = run(tmp_path, [("mtNG_006", s, n) for s, n in rows])
+    assert row_of(report, label)["minor_vf"] == least
+
+
+def test_a_single_base_has_no_least_common_share(tmp_path):
+    report = run(tmp_path, [("mtNG_006", "C756A", 97), ("mtNG_006", "REF", 3)])
+    assert pd.isna(row_of(report, "C756A")["minor_vf"])
+
+
 @pytest.mark.parametrize("rows, expected", [
     # A 40%, rCRS C 30%, deleted 30%: the bases present and the minor deletion
     ([("C756A", 40), ("C756DEL", 30), ("REF", 30)], {"C756M": 40.0, "C756c": 30.0}),

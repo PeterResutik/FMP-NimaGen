@@ -7,8 +7,9 @@ process p13_report {
     path reference
     path python_script_process_fdstools_sast
     path python_script_write_report
-    path python_modules // notation.py, frames.py, iupac.py: imported by the p13 scripts, inputs so -resume sees changes
+    path python_modules // notation.py, frames.py, iupac.py, depth_rule.py: imported by the p13 scripts, inputs so -resume sees changes
     path pathogenic_list
+    path noise_model
 
     output:
     path("${sample_id}_${params.frame}_frame.xlsx"), emit: report
@@ -27,7 +28,8 @@ process p13_report {
             ${sample_id}_fdstools_processed.txt \
             ${sample_id}_${params.frame}_frame.xlsx \
             --min_vf $params.min_vf_FDS --marker_map $params.fdstools_library --variant_note $params.variant_note \
-            --pathogenic $params.pathogenic --pathogenic_list ${pathogenic_list} --reference $reference
+            --pathogenic $params.pathogenic --pathogenic_list ${pathogenic_list} --reference $reference \
+            --depth_flag $params.depth_flag --noise_model ${noise_model} --depth_risk $params.depth_risk
 
 
 

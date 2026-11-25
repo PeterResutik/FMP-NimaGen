@@ -217,3 +217,47 @@ def test_script_leaves_out_the_pathogenic_column(tmp_path, reference_fasta, path
     header, _rows = run_script(tmp_path, [fds("G11778A", 100.0, 900, "mtNG_005")], "--pathogenic", pathogenic,
                                "--pathogenic_list", PATHOGENIC, "--reference", str(reference_fasta))
     assert ("pathogenic" in header) == written
+
+
+class FixedRule:
+    """A depth rule whose threshold is 4.87% at 100 reads per amplicon and 2.5% above."""
+    def threshold(self, n):
+        return 4.87 if n <= 100 else 2.5
+
+
+def php(label, least, depth, amplicons=1):
+    return {**fds(label, least, depth, "mtNG_005"), "minor_vf": least, "num_markers": amplicons}
+
+
+def test_depth_flag_for_point_heteroplasmies_not_above_the_threshold(tmp_path):
+    rows = [php("A3243R", 4.87, 100), php("C3245Y", 4.88, 100),   # on the threshold: flagged; above: not
+            php("G3460R", 3.0, 400, amplicons=2),                  # 200 reads per amplicon: 2.5%
+            php("A3480R", 2.4, 400, amplicons=2),
+            fds("A3505G", 100.0, 100, "mtNG_005")]                  # not a heteroplasmy
+    fds_file, library = write_inputs(tmp_path, rows)
+    report = wr.fdstools_report(str(fds_file), min_vf=2.0, marker_map=str(library), rule=FixedRule())
+    assert "minor_vf" not in report.columns
+    assert calls(report)["depth_flag"].fillna("").to_dict() == {
+        "A3243R": "needs > 4.87% at 100 reads per amplicon", "C3245Y": "", "G3460R": "",
+        "A3480R": "needs > 2.5% at 200 reads per amplicon", "A3505G": ""}
+
+
+def test_no_rule_means_no_depth_flag_and_no_minor_vf(tmp_path):
+    report = run(tmp_path, [php("A3243R", 4.87, 100)])
+    assert "depth_flag" not in report.columns and "minor_vf" not in report.columns
+
+
+@pytest.mark.parametrize("depth_flag, written", [("true", True), ("false", False)])
+def test_script_writes_the_depth_flag_yellow(tmp_path, reference_fasta, depth_flag, written):
+    model = wr.__file__.rsplit("/resources/", 1)[0] + "/resources/noise_model/2800M_8controls.tsv"
+    header, rows = run_script(tmp_path, [php("A3243R", 3.0, 50), php("C3245Y", 40.0, 2000), fds_low("mtNG_001", 6)],
+                              "--min_vf", "2", "--depth_flag", depth_flag, "--noise_model", model,
+                              "--reference", str(reference_fasta))
+    assert "minor_vf" not in header and ("depth_flag" in header) == written
+    if written:
+        by_call = {r[0].value: r for r in rows}
+        flagged = by_call["A3243R"][header.index("depth_flag")]
+        assert flagged.value.startswith("needs > ") and flagged.fill.start_color.rgb[-6:] == "FFEB9C"
+        for call in ("C3245Y", "LOW"):
+            cell = by_call[call][header.index("depth_flag")]
+            assert cell.value is None and cell.fill.start_color.rgb[-6:] == "C6EFCE"

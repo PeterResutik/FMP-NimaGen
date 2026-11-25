@@ -73,6 +73,9 @@ workflow {
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
          --pathogenic                     : $params.pathogenic # false: the report has no pathogenic column
          --pathogenic_list                : ${relativePath(params.pathogenic_list)} # Pathogenic variants (MITOMAP confirmed): such rows get pathogenic = yes
+         --depth_flag                     : $params.depth_flag # false: the report has no depth_flag column
+         --noise_model                    : ${relativePath(params.noise_model)} # Noise of control samples for the depth rule (comma-separated files are pooled)
+         --depth_risk                     : $params.depth_risk # Depth rule: a false point heteroplasmy above it in at most 1 in this many samples
 
          OUTPUT DIRECTORY   
          --outdir                         : ${params.outdir}
@@ -139,7 +142,10 @@ workflow {
 
 
     // ──────────────────────── REPORT ─────────────────────────
+    // the noise model: one file or several, comma-separated, whose controls are pooled
+    def noise_model_files = params.noise_model.toString().tokenize(',').collect { path -> file(path.trim(), checkIfExists: true) }
     p13_report(fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_write_report,
-                               files("$baseDir/resources/scripts/{notation,frames,iupac}.py"), params.pathogenic_list)
+                               files("$baseDir/resources/scripts/{notation,frames,iupac,depth_rule}.py"), params.pathogenic_list,
+                               noise_model_files)
 
 }

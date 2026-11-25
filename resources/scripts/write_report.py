@@ -8,6 +8,7 @@ import traceback
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, PatternFill, Border, Side
 
+import depth_rule
 import frames
 import iupac
 import notation
@@ -225,8 +226,29 @@ def pathogenic_rows(labels, entries, reference):
     return {i for i, changes in per_row.items() if changes & found}
 
 
+def depth_notes(df, rule):
+    """The depth rule's note per row: a point heteroplasmy whose least common base (minor_vf) is not above the
+    threshold at the row's reads per amplicon gets "needs > 4.87% at 100 reads per amplicon"."""
+    def numbers(column):
+        if column not in df.columns:
+            return pd.Series(float("nan"), index=df.index)
+        return pd.to_numeric(df[column], errors="coerce")
+    least, total, amplicons = numbers("minor_vf"), numbers("rd_total_FDS"), numbers("num_markers")
+    notes = {}
+    for i in df.index:
+        notes[i] = None
+        if pd.isna(least[i]) or pd.isna(total[i]) or not amplicons[i] >= 1:
+            continue
+        n = int(round(total[i] / amplicons[i]))
+        t = rule.threshold(n)
+        if least[i] <= t + 1e-9:
+            notes[i] = f"needs > {t:g}% at {n} reads per amplicon"
+    return pd.Series(notes, dtype=object)
+
+
 def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = None,
-                    pathogenic_list: str = None, reference_path: str = None) -> pd.DataFrame:
+                    pathogenic_list: str = None, reference_path: str = None, rule=None) -> pd.DataFrame:
+    """The report's rows; rule (a depth_rule.DepthRule) adds the column depth_flag."""
     df = pd.read_csv(file_fdstools, sep="\t")
     if df.empty:
         print("The FDSTOOLS table is empty (negative control / H2O). Writing empty output.", file=sys.stderr)
@@ -261,6 +283,9 @@ def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = N
         reference = read_reference(reference_path)
         flagged = pathogenic_rows(df["FMP"], load_pathogenic(pathogenic_list, reference), reference)
         df["pathogenic"] = ["yes" if i in flagged else None for i in df.index]
+    if rule is not None:
+        df["depth_flag"] = depth_notes(df, rule)
+    df = df.drop(columns=["minor_vf"], errors="ignore")
 
     low_rows = build_low_rows(fds_low, ranges)
     if not low_rows.empty:
@@ -282,6 +307,7 @@ def apply_excel_styles(excel_path: str):
         fill_dash = PatternFill(start_color="92D14F", end_color="92D14F", fill_type="solid")
         fill_default = PatternFill(start_color="36B150", end_color="36B150", fill_type="solid")
         fill_pathogenic = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        fill_depth = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 
         header = [cell.value for cell in ws[1]]
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -306,6 +332,8 @@ def apply_excel_styles(excel_path: str):
                 elif col_name == "pathogenic":
                     cell.fill = fill_pathogenic if cell.value == "yes" else fill_green
                     cell.alignment = Alignment(horizontal="center")
+                elif col_name == "depth_flag":
+                    cell.fill = fill_depth if cell.value else fill_green
 
         for col in ws.columns:
             max_length = 0
@@ -330,16 +358,30 @@ if __name__ == "__main__":
     parser.add_argument("--variant_note", choices=["true", "false"], default="true", help="false: the report has no variant_note column")
     parser.add_argument("--pathogenic", choices=["true", "false"], default="true", help="false: the report has no pathogenic column")
     parser.add_argument("--pathogenic_list", help="pathogenic variants (resources/pathogenic/): a row carrying one gets pathogenic = yes")
-    parser.add_argument("--reference", help="rCRS FASTA, needed with --pathogenic_list")
+    parser.add_argument("--reference", help="rCRS FASTA, needed with --pathogenic_list and --noise_model")
+    parser.add_argument("--depth_flag", choices=["true", "false"], default="true", help="false: the report has no depth_flag column")
+    parser.add_argument("--noise_model", nargs="+", help="noise model files of control samples (resources/noise_model/), pooled: "
+                        "a point heteroplasmy not above the depth rule's threshold gets a note in depth_flag")
+    parser.add_argument("--depth_risk", type=float, default=100, help="the depth rule allows a false point heteroplasmy in at most 1 in this many samples")
 
     args = parser.parse_args()
     if args.pathogenic == "false":
         args.pathogenic_list = None
     if args.pathogenic_list and not args.reference:
         parser.error("--pathogenic_list needs --reference")
+    if args.depth_flag == "false":
+        args.noise_model = None
+    if args.noise_model and not (args.reference and args.marker_map):
+        parser.error("--noise_model needs --reference and --marker_map")
+    if args.depth_risk <= 1:
+        parser.error("--depth_risk is the 1 in how many samples: above 1")
 
     try:
-        report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map, args.pathogenic_list, args.reference)
+        rule = None
+        if args.noise_model:
+            rule = depth_rule.DepthRule(args.noise_model, args.marker_map, read_reference(args.reference), 1 / args.depth_risk)
+        report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map, args.pathogenic_list, args.reference,
+                                 rule)
         if report.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")
