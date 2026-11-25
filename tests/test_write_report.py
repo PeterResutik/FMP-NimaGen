@@ -144,6 +144,26 @@ def test_script_writes_excel_coloured_by_kind(tmp_path):
     assert by_call["T16189H"][header.index("vf_FDS")].value == "C 40, A 10"
 
 
+def test_script_writes_the_same_report_as_text(tmp_path):
+    header, rows = run_script(tmp_path, [fds("A263G", 100.0, 900, "mtNG_003"), fds("-309.1c", 30.0, 900, "mtNG_003"),
+                                         fds_bases("T16189H", "C 40, A 10", "C 200, A 50", 500, "mtNG_097"),
+                                         fds_low("mtNG_002", 6)])
+    text = (tmp_path / "report.tsv").read_text().splitlines()
+    assert text[0].split("\t") == header
+    as_text = lambda v: "" if v is None else (f"{v:g}" if isinstance(v, (int, float)) else str(v))
+    assert [[as_text(float(v)) if v.replace(".", "", 1).isdigit() else v for v in line.split("\t")]
+            for line in text[1:]] == [[as_text(c.value) for c in r] for r in rows]
+    assert "900\t" in text[1] and ".0" not in text[1]                # whole numbers as whole numbers
+
+
+def test_script_writes_an_empty_report_as_text_too(tmp_path):
+    fds_file, library = write_inputs(tmp_path, [])
+    fds_file.write_text("FDSTOOLS\tvf_FDS\trd_FDS\trd_total_FDS\tmarker\tmarker_range\tnum_markers\n")
+    subprocess.run([sys.executable, wr.__file__, str(fds_file), str(tmp_path / "report.xlsx"), "--marker_map", str(library)],
+                   check=True)
+    assert (tmp_path / "report.tsv").read_text() == "No variants detected (negative control / H2O)\n"
+
+
 @pytest.mark.parametrize("variant_note, written", [("true", True), ("false", False)])
 def test_script_leaves_out_the_variant_note(tmp_path, variant_note, written):
     header, _rows = run_script(tmp_path, [{**fds("T16189C", 100.0, 900, "mtNG_097"), "variant_note": "a note"}],

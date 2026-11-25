@@ -13,6 +13,7 @@ process p13_report {
 
     output:
     path("${sample_id}_${params.frame}_frame.xlsx"), emit: report
+    path("${sample_id}_${params.frame}_frame.tsv"), emit: report_tsv
 
     script:
     """
@@ -36,6 +37,7 @@ process p13_report {
     else
         echo "Skipping ${sample_id}: the FDSTOOLS output is empty." >&2
         python -c "import pandas as pd; pd.DataFrame([['This sample had no valid variant data']]).to_excel('${sample_id}_${params.frame}_frame.xlsx', index=False, header=False)"
+        echo "This sample had no valid variant data" > ${sample_id}_${params.frame}_frame.tsv
     fi
     """
 }

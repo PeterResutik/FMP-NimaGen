@@ -188,7 +188,7 @@ and are taken from `raw_data/` by default. Results go to `results/`:
 | `p00_parameters.txt` | the options of the run |
 | `p11_read_depth/<sample>/` | read depth per amplicon (plot and tables) |
 | `p12_fdstools/<sample>/` | FDSTOOLS files (sequences per amplicon, statistics, HTML) |
-| `p13_report/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`) |
+| `p13_report/<sample>_separate_frame.xlsx` | **the report** (`_shared_frame` with `--frame shared`); the same rows and columns, without colours, as tab-separated text in `<sample>_separate_frame.tsv` |
 | `pipeline_info/` | run reports: time, CPU and memory of every task (`trace.txt`), a timeline (`timeline.html`) and a summary (`report.html`); none with `--pipeline_info false` |
 
 BAM and FASTQ intermediates are also copied unless `--publish_bams false` is set.
