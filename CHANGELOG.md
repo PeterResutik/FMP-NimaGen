@@ -12,7 +12,7 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 - GitHub runs the Python tests and the pipeline test, with the tools of the
   Docker image, on every push to `main` and `pipeline-rebuild` and on every
   pull request (`.github/workflows/tests.yml`).
-- `-profile test`: a small run on a 2800M control in `tests/data/` (22,448
+- `-profile test`: a small run on a 2800M control in `tests/data/` (23,892
   read pairs of a MiSeq run, about 100 reads per amplicon) with a small humans
   file (227 genomes), and a pipeline test with nf-test (`tests/main.nf.test`):
   the control's haplotype, and a snapshot of its report and FDSTOOLS'
