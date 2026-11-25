@@ -28,11 +28,11 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   spelled by the report's rules. `resources/pathogenic/build_list.py` builds a
   newer list from MITOMAP's database dump. `--pathogenic false` leaves the
   column out.
-- A column `depth_flag` in the report: a point heteroplasmy whose least common
-  base is not above the depth rule at its read depth gets the share it would
-  need, e.g. `needs > 5% at 100 reads`; nothing is removed. The depth is that of
-  one amplicon, so a position read by two takes half its reads
-  (`needs > 2.76% at 1520 reads (760 per amplicon)`). The rule comes from a
+- A column `depth_flag` in the report, after `vf_FDS`: a point heteroplasmy
+  whose least common base is not above the depth rule at its read depth gets
+  the share it would need to be above (e.g. `4.77`); nothing is removed. The
+  depth is that of one amplicon, so a position read by two takes half its
+  reads. The rule comes from a
   noise model of control samples (`--noise_model`, by default
   `resources/noise_model/2800M_8controls.tsv`, the 2800M controls of 8 runs)
   and allows a false point heteroplasmy in at most 1 in `--depth_risk` samples

@@ -72,9 +72,9 @@ workflow {
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left) for 16180-16193 and 300-315
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
          --pathogenic                     : $params.pathogenic # false: the report has no pathogenic column
-         --pathogenic_list                : ${relativePath(params.pathogenic_list)} # Pathogenic variants (MITOMAP confirmed): such rows get pathogenic = yes
+         --pathogenic_list                : ${relativePath(params.pathogenic_list)} # Confirmed disease variants (MITOMAP)
          --depth_flag                     : $params.depth_flag # false: the report has no depth_flag column
-         --noise_model                    : ${relativePath(params.noise_model)} # Noise of control samples for the depth rule (comma-separated files are pooled)
+         --noise_model                    : ${relativePath(params.noise_model)} # Control samples for the depth rule
          --depth_risk                     : $params.depth_risk # Depth rule: a false point heteroplasmy above it in at most 1 in this many samples
 
          OUTPUT DIRECTORY   

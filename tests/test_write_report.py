@@ -257,9 +257,9 @@ def test_depth_flag_for_point_heteroplasmies_not_above_the_threshold(tmp_path):
     fds_file, library = write_inputs(tmp_path, rows)
     report = wr.fdstools_report(str(fds_file), min_vf=2.0, marker_map=str(library), rule=FixedRule())
     assert "minor_vf" not in report.columns
-    assert calls(report)["depth_flag"].fillna("").to_dict() == {
-        "A3243R": "needs > 4.87% at 100 reads", "C3245Y": "", "G3460R": "",
-        "A3480R": "needs > 2.5% at 400 reads (200 per amplicon)", "A3505G": ""}
+    assert list(report.columns[:3]) == ["FMP", "vf_FDS", "depth_flag"]
+    assert calls(report)["depth_flag"].fillna(0).to_dict() == {
+        "A3243R": 4.87, "C3245Y": 0, "G3460R": 0, "A3480R": 2.5, "A3505G": 0}
 
 
 def test_no_rule_means_no_depth_flag_and_no_minor_vf(tmp_path):
@@ -277,7 +277,7 @@ def test_script_writes_the_depth_flag_yellow(tmp_path, reference_fasta, depth_fl
     if written:
         by_call = {r[0].value: r for r in rows}
         flagged = by_call["A3243R"][header.index("depth_flag")]
-        assert flagged.value.startswith("needs > ") and flagged.fill.start_color.rgb[-6:] == "FFEB9C"
+        assert isinstance(flagged.value, (int, float)) and flagged.value > 3 and flagged.fill.start_color.rgb[-6:] == "FFEB9C"
         for call in ("C3245Y", "LOW"):
             cell = by_call[call][header.index("depth_flag")]
             assert cell.value is None and cell.fill.start_color.rgb[-6:] == "C6EFCE"

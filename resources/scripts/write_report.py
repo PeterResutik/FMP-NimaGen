@@ -229,26 +229,24 @@ def pathogenic_rows(labels, entries, reference):
     return {i for i, changes in per_row.items() if changes & found}
 
 
-def depth_notes(df, rule):
-    """The depth rule's note per row: a point heteroplasmy whose least common base (minor_vf) is not above the
-    threshold at the row's reads per amplicon gets "needs > 4.87% at 100 reads"; at a position read by two amplicons,
-    "needs > 2.76% at 1520 reads (760 per amplicon)", as the rule is calculated per amplicon."""
+def depth_flags(df, rule):
+    """The depth rule per row: a point heteroplasmy whose least common base (minor_vf) is not above the threshold at
+    the row's reads per amplicon gets that threshold, the share (%) it would need to be above, e.g. 4.87. The rule is
+    calculated per amplicon, so a position read by two amplicons takes half its reads."""
     def numbers(column):
         if column not in df.columns:
             return pd.Series(float("nan"), index=df.index)
         return pd.to_numeric(df[column], errors="coerce")
     least, total, amplicons = numbers("minor_vf"), numbers("rd_total_FDS"), numbers("num_markers")
-    notes = {}
+    flags = {}
     for i in df.index:
-        notes[i] = None
+        flags[i] = float("nan")
         if pd.isna(least[i]) or pd.isna(total[i]) or not amplicons[i] >= 1:
             continue
-        n = int(round(total[i] / amplicons[i]))
-        t = rule.threshold(n)
+        t = rule.threshold(int(round(total[i] / amplicons[i])))
         if least[i] <= t + 1e-9:
-            reads = int(round(total[i]))
-            notes[i] = f"needs > {t:g}% at {reads} reads" + (f" ({n} per amplicon)" if amplicons[i] > 1 else "")
-    return pd.Series(notes, dtype=object)
+            flags[i] = t
+    return pd.Series(flags, dtype=float)
 
 
 def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = None,
@@ -289,7 +287,7 @@ def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = N
         flagged = pathogenic_rows(df["FMP"], load_pathogenic(pathogenic_list, reference), reference)
         df["pathogenic"] = ["yes" if i in flagged else None for i in df.index]
     if rule is not None:
-        df["depth_flag"] = depth_notes(df, rule)
+        df.insert(df.columns.get_loc("vf_FDS") + 1, "depth_flag", depth_flags(df, rule))
     df = df.drop(columns=["minor_vf"], errors="ignore")
 
     low_rows = build_low_rows(fds_low, ranges)
@@ -366,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--reference", help="rCRS FASTA, needed with --pathogenic_list and --noise_model")
     parser.add_argument("--depth_flag", choices=["true", "false"], default="true", help="false: the report has no depth_flag column")
     parser.add_argument("--noise_model", nargs="+", help="noise model files of control samples (resources/noise_model/), pooled: "
-                        "a point heteroplasmy not above the depth rule's threshold gets a note in depth_flag")
+                        "a point heteroplasmy not above the depth rule's threshold gets in depth_flag the share it would need")
     parser.add_argument("--depth_risk", type=float, default=100, help="the depth rule allows a false point heteroplasmy in at most 1 in this many samples")
 
     args = parser.parse_args()
