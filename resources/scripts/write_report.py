@@ -228,7 +228,8 @@ def pathogenic_rows(labels, entries, reference):
 
 def depth_notes(df, rule):
     """The depth rule's note per row: a point heteroplasmy whose least common base (minor_vf) is not above the
-    threshold at the row's reads per amplicon gets "needs > 4.87% at 100 reads per amplicon"."""
+    threshold at the row's reads per amplicon gets "needs > 4.87% at 100 reads"; at a position read by two amplicons,
+    "needs > 2.76% at 1520 reads (760 per amplicon)", as the rule is calculated per amplicon."""
     def numbers(column):
         if column not in df.columns:
             return pd.Series(float("nan"), index=df.index)
@@ -242,7 +243,8 @@ def depth_notes(df, rule):
         n = int(round(total[i] / amplicons[i]))
         t = rule.threshold(n)
         if least[i] <= t + 1e-9:
-            notes[i] = f"needs > {t:g}% at {n} reads per amplicon"
+            reads = int(round(total[i]))
+            notes[i] = f"needs > {t:g}% at {reads} reads" + (f" ({n} per amplicon)" if amplicons[i] > 1 else "")
     return pd.Series(notes, dtype=object)
 
 

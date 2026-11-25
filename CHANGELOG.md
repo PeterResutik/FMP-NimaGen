@@ -18,14 +18,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   newer list from MITOMAP's database dump. `--pathogenic false` leaves the
   column out.
 - A column `depth_flag` in the report: a point heteroplasmy whose least common
-  base is not above the depth rule at the row's reads per amplicon gets the
-  share it would need, e.g. `needs > 5% at 100 reads per amplicon`; nothing is
-  removed. The rule comes from a noise model of control samples
-  (`--noise_model`, by default `resources/noise_model/2800M_8controls.tsv`, the
-  2800M controls of 8 runs) and allows a false point heteroplasmy in at most
-  1 in `--depth_risk` samples (default 100). `resources/noise_model/build_noise_model.py`
-  builds a model from a lab's own controls; several models are pooled.
-  `--depth_flag false` leaves the column out.
+  base is not above the depth rule at its read depth gets the share it would
+  need, e.g. `needs > 5% at 100 reads`; nothing is removed. The depth is that of
+  one amplicon, so a position read by two takes half its reads
+  (`needs > 2.76% at 1520 reads (760 per amplicon)`). The rule comes from a
+  noise model of control samples (`--noise_model`, by default
+  `resources/noise_model/2800M_8controls.tsv`, the 2800M controls of 8 runs)
+  and allows a false point heteroplasmy in at most 1 in `--depth_risk` samples
+  (default 100). `resources/noise_model/build_noise_model.py` builds a model
+  from a lab's own controls; several models are pooled. `--depth_flag false`
+  leaves the column out.
 
 ## [0.6.0] – 2026-11-24
 

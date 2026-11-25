@@ -238,8 +238,8 @@ def test_depth_flag_for_point_heteroplasmies_not_above_the_threshold(tmp_path):
     report = wr.fdstools_report(str(fds_file), min_vf=2.0, marker_map=str(library), rule=FixedRule())
     assert "minor_vf" not in report.columns
     assert calls(report)["depth_flag"].fillna("").to_dict() == {
-        "A3243R": "needs > 4.87% at 100 reads per amplicon", "C3245Y": "", "G3460R": "",
-        "A3480R": "needs > 2.5% at 200 reads per amplicon", "A3505G": ""}
+        "A3243R": "needs > 4.87% at 100 reads", "C3245Y": "", "G3460R": "",
+        "A3480R": "needs > 2.5% at 400 reads (200 per amplicon)", "A3505G": ""}
 
 
 def test_no_rule_means_no_depth_flag_and_no_minor_vf(tmp_path):

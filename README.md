@@ -251,7 +251,7 @@ molecule is the same.
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
 | `marker`, `marker_range`, `num_markers` | the amplicons FDSTOOLS' depth and frequency come from (every amplicon with reads covering the position), their ranges, and their number |
 | `pathogenic` | `yes` when the row carries a variant of `--pathogenic_list` (MITOMAP's confirmed disease variants, see `resources/pathogenic/`), also as one base of a point heteroplasmy; such variants can then be left out of the haplotype; not written with `--pathogenic false` |
-| `depth_flag` | for a point heteroplasmy that passes `--min_vf_FDS` but whose least common base is not above the depth rule at the row's reads per amplicon: the share it would need, e.g. `needs > 5% at 100 reads per amplicon` (see [Depth Rule](#depth-rule)); not written with `--depth_flag false` |
+| `depth_flag` | for a point heteroplasmy that passes `--min_vf_FDS` but whose least common base is not above the depth rule at its read depth: the share it would need, e.g. `needs > 5% at 100 reads` (see [Depth Rule](#depth-rule)); not written with `--depth_flag false` |
 
 FDSTOOLS gives the reads and the share of the variant (`rd_FDS`, `vf_FDS`);
 the reads without it follow from `rd_total_FDS`. Reads that run from one
@@ -272,13 +272,18 @@ cell with a note is yellow.
 ### Depth Rule
 
 `--min_vf_FDS` is the same at every read depth, but with fewer reads the
-method's noise reaches higher shares: at 100 reads per amplicon, 3 wrong reads
-already make 3%. The depth rule is the share a point heteroplasmy must be above
-at its reads per amplicon (`rd_total_FDS` / `num_markers`) so that at most 1 in
-`--depth_risk` samples has a false one. A row that passes `--min_vf_FDS` but
-not the depth rule stays in the report with a note in `depth_flag`; nothing is
-removed. The rule applies to the least common base present, rCRS included, and
-not in 16180–16193, 300–315 and 57–60.
+method's noise reaches higher shares: at 100 reads, 3 wrong reads already make
+3%. The depth rule is the share a point heteroplasmy must be above at its read
+depth so that at most 1 in `--depth_risk` samples has a false one. A row that
+passes `--min_vf_FDS` but not the depth rule stays in the report with a note in
+`depth_flag`; nothing is removed. The rule applies to the least common base
+present, rCRS included, and not in 16180–16193, 300–315 and 57–60.
+
+The read depth is that of one amplicon: the rule is calculated for a sample
+whose amplicons each have that many reads, and a position read by two of them,
+with twice the reads, is part of that calculation. At such a position the rule
+takes half of `rd_total_FDS`, and the note says so:
+`needs > 2.76% at 1520 reads (760 per amplicon)`.
 
 The rule comes from a noise model of control samples (`--noise_model`): for
 each control, how many wrong bases reach each share of its reads, from 0.1 to
@@ -287,7 +292,7 @@ number Poisson; the threshold is the lowest share at which the chance of at
 least one above it stays within the risk. The shipped model,
 `resources/noise_model/2800M_8controls.tsv`, holds the 2800M controls of 8
 runs. With it, at 1 in 100 samples, a point heteroplasmy needs more than 5% at
-100 reads per amplicon, 2.6% at 500 and 2.2% at 1,000, and the rule is at or
+100 reads, 2.6% at 500 and 2.2% at 1,000, and the rule is at or
 below 2% from about 1,600 reads; at 1 in 1,000 (`--depth_risk 1000`) it needs
 6%, 3.2% and 2.6%, and 2% from about 3,550 reads. A lab can build a model from
 its own controls, or add them to the shipped one: see
