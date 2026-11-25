@@ -250,6 +250,7 @@ molecule is the same.
 | `variant_note` | remarks; not written with `--variant_note false` |
 | `dominant_molecule` | in 16180–16193, 300–315 and 57–60: what the molecule with the most reads carries at this position, with that molecule's share of the reads, e.g. `-16193.1C (40.9%)`; empty if it carries no change there |
 | `marker`, `marker_range`, `num_markers` | the amplicons FDSTOOLS' depth and frequency come from (every amplicon with reads covering the position), their ranges, and their number |
+| `pathogenic` | `yes` when the row carries a variant of `--pathogenic_list` (MITOMAP's confirmed disease variants, see `resources/pathogenic/`), also as one base of a point heteroplasmy; such variants can then be left out of the haplotype; not written with `--pathogenic false` |
 
 FDSTOOLS gives the reads and the share of the variant (`rd_FDS`, `vf_FDS`);
 the reads without it follow from `rd_total_FDS`. Reads that run from one
@@ -264,7 +265,7 @@ The colour of the `FMP` cell shows the kind of row at a glance: yellow for
 `LOW`, orange for a point heteroplasmy, blue for a lowercase length variant,
 and green for the other variants (a lighter green for insertions and
 deletions). Yellow rows are the ones to look at. The other columns have a
-green background.
+green background; a `pathogenic` cell that says `yes` is red.
 
 ## Main Options
 
@@ -280,6 +281,8 @@ green background.
 | `--depth` | 20 | amplicons with fewer reads are marked LOW |
 | `--frame` | `separate` | how 16180–16193 and 300–315 are written: `separate` or `shared` |
 | `--variant_note` | `true` | `false` leaves the `variant_note` column out of the report |
+| `--pathogenic` | `true` | `false` leaves the `pathogenic` column out of the report |
+| `--pathogenic_list` | `resources/pathogenic/mitomap_confirmed_2026-11-18.tsv` | the variants marked in the `pathogenic` column; `resources/pathogenic/README.md` says how to build a newer list |
 | `--mapQ` | 30 | reads with a lower mapping quality are removed |
 | `--skip_numt_filter` | `false` | skip rtn and the removal of reads that cannot be aligned end to end (for simulated reads) |
 | `--rtn_positions` | `none` | a file of positions rtn sees at base quality 2, such as `resources/rtn_files/positions/recurrent_positions.tsv` (`none`: off); only an rtn that uses base qualities, such as the fork at <https://github.com/PeterResutik/RtN> (branch `fixes`), counts them less |

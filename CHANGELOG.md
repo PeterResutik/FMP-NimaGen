@@ -8,6 +8,16 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
 
 ## [Unreleased]
 
+### Added
+- A column `pathogenic` in the report: `yes` when the row carries one of
+  MITOMAP's confirmed disease variants (`--pathogenic_list`, by default
+  `resources/pathogenic/mitomap_confirmed_2026-11-18.tsv`, 130 variants), also
+  as one base of a point heteroplasmy, so that such variants can be left out of
+  a haplotype. Insertions and deletions are matched after both sides are
+  spelled by the report's rules. `resources/pathogenic/build_list.py` builds a
+  newer list from MITOMAP's database dump. `--pathogenic false` leaves the
+  column out.
+
 ## [0.6.0] – 2026-11-24
 
 ### Added

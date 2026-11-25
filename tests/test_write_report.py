@@ -149,3 +149,69 @@ def test_script_leaves_out_the_variant_note(tmp_path, variant_note, written):
     header, _rows = run_script(tmp_path, [{**fds("T16189C", 100.0, 900, "mtNG_097"), "variant_note": "a note"}],
                                "--variant_note", variant_note)
     assert ("variant_note" in header) == written
+
+
+PATHOGENIC = wr.__file__.rsplit("/resources/", 1)[0] + "/resources/pathogenic/mitomap_confirmed_2026-11-18.tsv"
+
+
+def flagged(tmp_path, reference_fasta, fds_rows):
+    """{call: pathogenic} of a report written with the shipped list."""
+    fds_file, library = write_inputs(tmp_path, fds_rows)
+    report = wr.fdstools_report(str(fds_file), min_vf=5.0, marker_map=str(library),
+                                pathogenic_list=PATHOGENIC, reference_path=str(reference_fasta))
+    return calls(report)["pathogenic"].fillna("").to_dict()
+
+
+def test_pathogenic_list_loads_in_the_reports_spelling(reference_fasta):
+    entries = dict(wr.load_pathogenic(PATHOGENIC, wr.read_reference(reference_fasta)))
+    assert len(entries) == 130 and all(entries.values())
+    assert entries["m.8993TG>CA"] == {(8993, "C"), (8994, "A")}       # two bases: both needed
+    assert entries["m.3571del"] == {"C3571-"}                          # a gap at the 3' end of its run
+    assert entries["m.8618_8619insT"] == {"-8618.1T"}
+
+
+def test_pathogenic_substitutions_also_as_one_base_of_a_heteroplasmy(tmp_path, reference_fasta):
+    rows = [fds("A263G", 100.0, 900, "mtNG_002"), fds("G11778A", 100.0, 900, "mtNG_005"),
+            fds_bases("A3243R", "G 20", "G 180", 900, "mtNG_005"),
+            fds_bases("C3245M", "A 20", "A 180", 900, "mtNG_005")]
+    assert flagged(tmp_path, reference_fasta, rows) == {"A263G": "", "G11778A": "yes", "A3243R": "yes", "C3245M": ""}
+
+
+def test_pathogenic_gaps_match_wherever_the_run_places_them(tmp_path, reference_fasta):
+    rows = [fds("C3567c", 30.0, 900, "mtNG_005"),     # 3567-3571 is CCCCC: the same molecule as m.3571del
+            fds("C3573-", 100.0, 900, "mtNG_005"),    # the next C-run: another deletion
+            fds("-8617.1t", 30.0, 900, "mtNG_005"),   # A T after 8617 = TT at 8618: m.8618_8619insT
+            fds("A12421-", 100.0, 900, "mtNG_005")]   # 12421-12425 is AAAAA: m.12425del
+    assert flagged(tmp_path, reference_fasta, rows) == {"C3567c": "yes", "C3573-": "", "-8617.1t": "yes",
+                                                        "A12421-": "yes"}
+
+
+def test_pathogenic_variant_of_several_changes_needs_all(tmp_path, reference_fasta):
+    some = [fds("A3902G", 100.0, 900, "mtNG_005"), fds("C3904A", 100.0, 900, "mtNG_005")]
+    rest = [fds("T3905A", 100.0, 900, "mtNG_005"), fds("T3906G", 100.0, 900, "mtNG_005"),
+            fds("C3908T", 100.0, 900, "mtNG_005")]                 # m.3902_3908inv
+    assert set(flagged(tmp_path, reference_fasta, some).values()) == {""}
+    assert set(flagged(tmp_path, reference_fasta, some + rest).values()) == {"yes"}
+
+
+def test_script_marks_pathogenic_rows_red(tmp_path, reference_fasta):
+    header, rows = run_script(tmp_path, [fds("A263G", 100.0, 900, "mtNG_002"), fds("G11778A", 100.0, 900, "mtNG_005"),
+                                         fds_low("mtNG_001", 6)],
+                              "--pathogenic_list", PATHOGENIC, "--reference", str(reference_fasta))
+    by_call = {r[0].value: r for r in rows}
+    cell = by_call["G11778A"][header.index("pathogenic")]
+    assert cell.value == "yes" and cell.fill.start_color.rgb[-6:] == "FF7C80"
+    assert by_call["A263G"][header.index("pathogenic")].value is None
+    assert by_call["LOW"][header.index("pathogenic")].value is None
+
+
+def test_script_without_a_list_has_no_pathogenic_column(tmp_path):
+    header, _rows = run_script(tmp_path, [fds("G11778A", 100.0, 900, "mtNG_005")])
+    assert "pathogenic" not in header
+
+
+@pytest.mark.parametrize("pathogenic, written", [("true", True), ("false", False)])
+def test_script_leaves_out_the_pathogenic_column(tmp_path, reference_fasta, pathogenic, written):
+    header, _rows = run_script(tmp_path, [fds("G11778A", 100.0, 900, "mtNG_005")], "--pathogenic", pathogenic,
+                               "--pathogenic_list", PATHOGENIC, "--reference", str(reference_fasta))
+    assert ("pathogenic" in header) == written

@@ -71,6 +71,8 @@ workflow {
          --lh_thresh                      : $params.lh_thresh # Length variants: under it not reported, up to 100 minus it lowercase, above uppercase
          --frame                          : $params.frame # separate (run lengths) or shared (laid from the left) for 16180-16193 and 300-315
          --variant_note                   : $params.variant_note # false: the report has no variant_note column
+         --pathogenic                     : $params.pathogenic # false: the report has no pathogenic column
+         --pathogenic_list                : ${relativePath(params.pathogenic_list)} # Pathogenic variants (MITOMAP confirmed): such rows get pathogenic = yes
 
          OUTPUT DIRECTORY   
          --outdir                         : ${params.outdir}
@@ -138,6 +140,6 @@ workflow {
 
     // ──────────────────────── REPORT ─────────────────────────
     p13_report(fdstools_ch, params.reference, params.python_script_process_fdstools_sast, params.python_script_write_report,
-                               files("$baseDir/resources/scripts/{notation,frames,iupac}.py"))
+                               files("$baseDir/resources/scripts/{notation,frames,iupac}.py"), params.pathogenic_list)
 
 }

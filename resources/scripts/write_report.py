@@ -8,7 +8,9 @@ import traceback
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side
 
+import frames
 import iupac
+import notation
 
 
 white_border = Border(
@@ -139,7 +141,92 @@ def build_low_rows(fds_low, ranges):
                          for amplicon, (start, end) in ranges.items() if amplicon in depths])
 
 
-def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = None) -> pd.DataFrame:
+_GAP = re.compile(r'^(?:([ACGT])(\d+)(-|[acgt])|-(\d+)\.(\d+)([ACGTacgt]))$')
+_MAJOR_SUB = re.compile(r'^[ACGT](\d+)([ACGT])$')
+
+
+def read_reference(path):
+    """rCRS as one string (index = position - 1)."""
+    return "".join(line.strip() for line in open(path) if not line.startswith(">"))
+
+
+def as_changes(labels):
+    """Major labels as changes: (position, base) for a substitution, the label itself for a gap."""
+    out = set()
+    for label in labels:
+        m = _MAJOR_SUB.match(label)
+        out.add((int(m.group(1)), m.group(2)) if m else label)
+    return out
+
+
+def load_pathogenic(path, reference):
+    """[(name, changes)] of the variants in the list (--pathogenic_list): each applied to rCRS and
+    spelled by the report's rules (notation.describe), so that a gap in a run of equal bases is
+    placed where the report places it."""
+    table = pd.read_csv(path, sep="\t", comment="#", dtype=str)
+    out = []
+    for r in table.itertuples():
+        pos, ref, alt = int(r.position), r.ref, "" if r.alt == "-" else r.alt
+        if reference[pos - 1:pos - 1 + len(ref)] != ref:
+            raise ValueError(f"{r.allele}: rCRS has {reference[pos - 1:pos - 1 + len(ref)]} at {pos}, not {ref}")
+        start, end = max(1, pos - 12), min(16569, pos + len(ref) + 11)
+        bases = lambda a, b: "".join(base for _p, base in notation.reference_window(reference, a, b))
+        molecule = bases(start, pos - 1) + alt + bases(pos + len(ref), end)
+        out.append((r.allele, frozenset(as_changes(notation.describe(molecule, reference, start, end)))))
+    return out
+
+
+def row_changes(labels, reference):
+    """{row: changes} for the substitutions and gaps among the report's labels. A substitution
+    stands for each base other than rCRS its code holds (A3243R: G). Gaps are written again by the
+    report's rules, majors and minors (lowercase, taken as majors) apart, in groups of labels within
+    10 bases, so that their placement matches the list's; gaps in the frame regions are left out."""
+    out, gaps = {}, {}
+    for i, label in labels.items():
+        parts = substitution_parts(label)
+        if parts:
+            ref, pos, code = parts
+            out[i] = {(int(pos), base) for base in iupac.alts(code, ref)}
+            continue
+        m = _GAP.match(str(label))
+        if not m:
+            continue
+        if m.group(1):
+            if m.group(3) not in ("-", m.group(1).lower()):
+                continue
+            pos, major, minor = int(m.group(2)), f"{m.group(1)}{m.group(2)}-", m.group(3) != "-"
+        else:
+            pos, major, minor = int(m.group(4)), f"-{m.group(4)}.{m.group(5)}{m.group(6).upper()}", m.group(6).islower()
+        if any(r.first - 1 <= pos <= r.last for r in frames.REGIONS.values()):
+            continue
+        gaps.setdefault(minor, []).append((pos, major, i))
+    for group_rows in gaps.values():
+        groups = []
+        for pos, major, i in sorted(group_rows):
+            if groups and pos - groups[-1][-1][0] <= 10:
+                groups[-1].append((pos, major, i))
+            else:
+                groups.append([(pos, major, i)])
+        for group in groups:
+            start, end = max(1, group[0][0] - 12), min(16569, group[-1][0] + 12)
+            molecule = notation.apply_labels([major for _p, major, _i in group], reference, start, end)
+            changes = as_changes(notation.describe(molecule, reference, start, end))
+            for _p, _major, i in group:
+                out[i] = changes
+    return out
+
+
+def pathogenic_rows(labels, entries, reference):
+    """The rows that carry a variant of the list: rows holding a change of an entry whose changes
+    are all in the report."""
+    per_row = row_changes(labels, reference)
+    present = set().union(*per_row.values())
+    found = set().union(*(changes for _name, changes in entries if changes <= present))
+    return {i for i, changes in per_row.items() if changes & found}
+
+
+def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = None,
+                    pathogenic_list: str = None, reference_path: str = None) -> pd.DataFrame:
     df = pd.read_csv(file_fdstools, sep="\t")
     if df.empty:
         print("The FDSTOOLS table is empty (negative control / H2O). Writing empty output.", file=sys.stderr)
@@ -170,6 +257,11 @@ def fdstools_report(file_fdstools: str, min_vf: float = 5.0, marker_map: str = N
     front = [c for c in ("FMP", "vf_FDS", "rd_FDS") if c in df.columns]
     df = df[front + [c for c in df.columns if c not in front]]
 
+    if pathogenic_list:
+        reference = read_reference(reference_path)
+        flagged = pathogenic_rows(df["FMP"], load_pathogenic(pathogenic_list, reference), reference)
+        df["pathogenic"] = ["yes" if i in flagged else None for i in df.index]
+
     low_rows = build_low_rows(fds_low, ranges)
     if not low_rows.empty:
         df = pd.concat([df, low_rows], ignore_index=True)
@@ -189,6 +281,7 @@ def apply_excel_styles(excel_path: str):
         fill_lowercase = PatternFill(start_color="3CB0F1", end_color="3CB0F1", fill_type="solid")
         fill_dash = PatternFill(start_color="92D14F", end_color="92D14F", fill_type="solid")
         fill_default = PatternFill(start_color="36B150", end_color="36B150", fill_type="solid")
+        fill_pathogenic = PatternFill(start_color="FF7C80", end_color="FF7C80", fill_type="solid")
 
         header = [cell.value for cell in ws[1]]
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -210,6 +303,8 @@ def apply_excel_styles(excel_path: str):
                         cell.fill = fill_default
                 elif col_name.endswith("_FDS") or col_name in ["marker", "marker_range", "num_markers", "variant_note", "dominant_molecule"]:
                     cell.fill = fill_green
+                elif col_name == "pathogenic" and cell.value == "yes":
+                    cell.fill = fill_pathogenic
 
         for col in ws.columns:
             max_length = 0
@@ -232,11 +327,18 @@ if __name__ == "__main__":
     parser.add_argument("--min_vf", type=float, default=5.0, help="Minor allele frequency threshold: where FDSTOOLS writes a position's bases on separate rows, rCRS counts as present when its share reaches min_vf")
     parser.add_argument("--marker_map", help="FDSTOOLS library file, for amplicon names and ranges")
     parser.add_argument("--variant_note", choices=["true", "false"], default="true", help="false: the report has no variant_note column")
+    parser.add_argument("--pathogenic", choices=["true", "false"], default="true", help="false: the report has no pathogenic column")
+    parser.add_argument("--pathogenic_list", help="pathogenic variants (resources/pathogenic/): a row carrying one gets pathogenic = yes")
+    parser.add_argument("--reference", help="rCRS FASTA, needed with --pathogenic_list")
 
     args = parser.parse_args()
+    if args.pathogenic == "false":
+        args.pathogenic_list = None
+    if args.pathogenic_list and not args.reference:
+        parser.error("--pathogenic_list needs --reference")
 
     try:
-        report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map)
+        report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map, args.pathogenic_list, args.reference)
         if report.empty:
             pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")
