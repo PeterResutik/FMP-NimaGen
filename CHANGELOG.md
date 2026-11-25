@@ -17,9 +17,6 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   file (227 genomes), and a pipeline test with nf-test (`tests/main.nf.test`):
   the control's haplotype, and a snapshot of its report and FDSTOOLS'
   sequences.
-- The report is also written as tab-separated text next to the Excel file
-  (`p13_report/<sample>_separate_frame.tsv`): the same rows and columns, without
-  colours, for scripts and for comparing reports.
 - A column `pathogenic` in the report: `yes` when the row carries one of
   MITOMAP's confirmed disease variants (`--pathogenic_list`, by default
   `resources/pathogenic/mitomap_confirmed_2026-11-18.tsv`, 130 variants), also

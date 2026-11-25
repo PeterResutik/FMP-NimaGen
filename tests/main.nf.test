@@ -14,10 +14,11 @@ nextflow_pipeline {
 
         then {
             def sample = "2800M-DVJ49_S1_L001"
-            def report = path("$outputDir/p13_report/${sample}_separate_frame.tsv")
-            // the calls with more than 50% of the reads (column 1: FMP, column 2: vf_FDS)
-            def majors = report.readLines().drop(1).collect { it.split("\t", -1) }
-                .findAll { it[1].isNumber() && (it[1] as double) > 50 }.collect { it[0] }
+            // the report's cells as text, row by row (tests/lib/ExcelReport.groovy)
+            def report = ExcelReport.rows("$outputDir/p13_report/${sample}_separate_frame.xlsx")
+            def fmp = report[0].indexOf("FMP"), vf = report[0].indexOf("vf_FDS")
+            // the calls with more than 50% of the reads
+            def majors = report.drop(1).findAll { it[vf].isNumber() && (it[vf] as double) > 50 }.collect { it[fmp] }
             assertAll(
                 { assert workflow.success },
                 { assert majors == ["T152C", "A263G", "-315.1C", "T477C", "A750G", "A1438G", "G3010A", "A4769G",

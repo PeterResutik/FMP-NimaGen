@@ -1,13 +1,10 @@
 """The report: FDSTOOLS' calls (the table written by process_fdstools_output_improved_better.py)
-with one row per variant and one LOW row per amplicon below --depth, written as a coloured Excel file
-and, with the same rows and columns, as a tab-separated text file next to it (report.xlsx -> report.tsv)."""
+with one row per variant and one LOW row per amplicon below --depth, written as a coloured Excel file."""
 import argparse
 import pandas as pd
 import re
 import sys
 import traceback
-from pathlib import Path
-
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, PatternFill, Border, Side
 
@@ -385,23 +382,15 @@ if __name__ == "__main__":
             rule = depth_rule.DepthRule(args.noise_model, args.marker_map, read_reference(args.reference), 1 / args.depth_risk)
         report = fdstools_report(args.fdstools_table, args.min_vf, args.marker_map, args.pathogenic_list, args.reference,
                                  rule)
-        tsv = Path(args.output_file).with_suffix(".tsv")
         if report.empty:
-            empty = pd.DataFrame([["No variants detected (negative control / H2O)"]])
-            empty.to_excel(args.output_file, index=False, header=False, engine="openpyxl")
-            empty.to_csv(tsv, sep="\t", index=False, header=False)
+            pd.DataFrame([["No variants detected (negative control / H2O)"]]).to_excel(args.output_file, index=False, header=False, engine="openpyxl")
             print(f"Empty output written to: {args.output_file}")
             sys.exit(0)
         report.drop(columns=["ID", "is_noise_or_low_frq"], errors="ignore", inplace=True)
         if args.variant_note == "false":
             report = report.drop(columns=["variant_note"], errors="ignore")
         report.to_excel(args.output_file, index=False, engine="openpyxl")
-        # whole numbers without ".0", as Excel shows them (pandas keeps 900 as 900.0 next to empty cells or text)
-        plain = lambda v: int(v) if isinstance(v, float) and v.is_integer() else v
-        text = pd.DataFrame({c: pd.Series([plain(v) for v in report[c]], index=report.index, dtype=object)
-                             for c in report.columns})
-        text.to_csv(tsv, sep="\t", index=False)
-        print(f"Report saved to: {args.output_file} and {tsv}")
+        print(f"Report saved to: {args.output_file}")
     except Exception:
         traceback.print_exc()
         print("Writing the report failed. Please check the input file and its format.", file=sys.stderr)
