@@ -40,6 +40,8 @@ This project follows [Semantic Versioning](https://semver.org) and uses the [Kee
   leaves the column out.
 
 ### Changed
+- `--pipeline_info` is `false` by default: the run reports in `pipeline_info/`
+  are written only with `--pipeline_info true`.
 - rtn takes RtN!'s NUMT file as RtN! ships it, `Calabrese_Dayama_Smart_Numts.fa`
   (`--numts_index_base`; was `Calabrese_Dayama_Smart_Numts_modified.fa`). The
   earlier copy had one more sequence, bases 430-614 of RtN!'s `KM281528.1` under

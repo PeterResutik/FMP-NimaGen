@@ -80,7 +80,7 @@ workflow {
          OUTPUT DIRECTORY   
          --outdir                         : ${params.outdir}
          --publish_bams                   : $params.publish_bams # false: BAM/FASTQ intermediates are not copied to outdir
-         --pipeline_info                  : $params.pipeline_info # false: no run reports in pipeline_info
+         --pipeline_info                  : $params.pipeline_info # true: run reports in pipeline_info
          """
 
     log.info(log_text)
